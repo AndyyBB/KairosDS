@@ -1,0 +1,197 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../../api/client';
+
+// HU-02: Registro de examenes ("Programar examen")
+// Campos segun mockup: Asignatura, Fecha, Hora de inicio, Duracion, Ambiente, Normas del examen.
+export default function ProgramarExamen() {
+  const navigate = useNavigate();
+  const [materias, setMaterias] = useState([]);
+  const [ambientes, setAmbientes] = useState([]);
+  const [errores, setErrores] = useState({});
+  const [guardando, setGuardando] = useState(false);
+
+  const [form, setForm] = useState({
+    materia_id: '',
+    fecha: '',
+    hora_inicio: '',
+    duracion_min: '',
+    ambiente_id: '',
+    normas: '',
+  });
+
+  useEffect(() => {
+    api.get('/materias').then((res) => setMaterias(res.data));
+    api.get('/ambientes').then((res) => setAmbientes(res.data));
+  }, []);
+
+  function set(field, value) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setGuardando(true);
+    setErrores({});
+
+    const payload = {
+      materia_id: form.materia_id,
+      ambiente_id: form.ambiente_id,
+      fecha: form.fecha,
+      hora_inicio: form.hora_inicio,
+      duracion_min: form.duracion_min,
+      normas: form.normas.trim()
+        ? [{ tipo: 'general', descripcion: form.normas.trim() }]
+        : [],
+    };
+
+    try {
+      await api.post('/examenes', payload);
+      navigate('/examenes');
+    } catch (err) {
+      setErrores(err.response?.data?.errors || {});
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div className="max-w-2xl">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-11 h-11 rounded-xl bg-kairos-gradient flex items-center justify-center text-white shadow-md">
+          <CalendarIcon />
+        </div>
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-800">Programar examen</h1>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
+        <Campo label="Asignatura" icon={<BookIcon />} error={errores.materia_id}>
+          <select className="input" value={form.materia_id} onChange={(e) => set('materia_id', e.target.value)} required>
+            <option value="">Seleccione una asignatura...</option>
+            {materias.map((m) => (
+              <option key={m.id} value={m.id}>{m.sigla} - {m.nombre}</option>
+            ))}
+          </select>
+        </Campo>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Campo label="Fecha" icon={<CalendarIcon small />} error={errores.fecha}>
+            <input type="date" className="input" value={form.fecha} onChange={(e) => set('fecha', e.target.value)} required />
+          </Campo>
+
+          <Campo label="Hora de inicio" icon={<ClockIcon />} error={errores.hora_inicio}>
+            <input type="time" className="input" value={form.hora_inicio} onChange={(e) => set('hora_inicio', e.target.value)} required />
+          </Campo>
+        </div>
+
+        <Campo label="Duracion (minutos)" icon={<ClockIcon />} error={errores.duracion_min}>
+          <input
+            type="number"
+            min="15"
+            max="300"
+            className="input"
+            value={form.duracion_min}
+            onChange={(e) => set('duracion_min', e.target.value)}
+            required
+          />
+        </Campo>
+
+        <Campo label="Ambiente" icon={<PinIcon />} error={errores.ambiente_id}>
+          <select className="input" value={form.ambiente_id} onChange={(e) => set('ambiente_id', e.target.value)} required>
+            <option value="">Seleccione un ambiente...</option>
+            {ambientes.map((a) => (
+              <option key={a.id} value={a.id}>{a.nombre} (cap. {a.capacidad_maxima})</option>
+            ))}
+          </select>
+        </Campo>
+
+        <Campo label="Normas del examen" icon={<DocIcon />}>
+          <textarea
+            className="input min-h-[90px]"
+            placeholder="Normas generales que aplican a todos los estudiantes de este examen..."
+            value={form.normas}
+            onChange={(e) => set('normas', e.target.value)}
+          />
+        </Campo>
+
+        <div className="flex justify-end gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => navigate('/examenes')}
+            className="border border-gray-300 text-gray-700 rounded-lg px-4 py-2 text-sm font-medium"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={guardando}
+            className="bg-kairos-gradient text-white rounded-lg px-5 py-2 text-sm font-medium shadow-sm disabled:opacity-60"
+          >
+            {guardando ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function Campo({ label, icon, error, children }) {
+  return (
+    <div>
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-1">
+        <span className="text-kairos-500">{icon}</span>
+        {label}
+      </label>
+      {children}
+      {error && <p className="text-xs text-red-600 mt-1">{error[0]}</p>}
+    </div>
+  );
+}
+
+function CalendarIcon({ small }) {
+  const s = small ? 16 : 22;
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 3" />
+    </svg>
+  );
+}
+
+function BookIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </svg>
+  );
+}
+
+function PinIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  );
+}
+
+function DocIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6M9 13h6M9 17h6" />
+    </svg>
+  );
+}
