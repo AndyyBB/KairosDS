@@ -16,8 +16,16 @@ class StoreHabilitacionRequest extends FormRequest
         return [
             'estudiante_id' => ['required', 'integer', 'exists:estudiantes,id'],
             'habilitado' => ['required', 'boolean'],
-            'motivo_id' => ['required_if:habilitado,false', 'nullable', 'integer', 'exists:motivos_inhabilitacion,id'],
-            'observacion' => ['nullable', 'string', 'max:200'],
+            'motivo_id' => ['nullable', 'integer', 'exists:motivos_inhabilitacion,id'],
+            'observacion' => ['required_if:habilitado,false', 'nullable', 'string', 'max:200'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'observacion.required_if' => 'El motivo de inhabilitacion es obligatorio.',
+            'observacion.max' => 'El motivo de inhabilitacion tiene un limite de 200 caracteres.',
         ];
     }
 }
