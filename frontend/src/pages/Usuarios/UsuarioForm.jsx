@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
+import { primerError } from '../../api/errores';
 
 // HU-15: Registro de usuarios (crear y editar)
 export default function UsuarioForm() {
@@ -34,8 +35,6 @@ export default function UsuarioForm() {
           rol_id: u.rol_id,
           activo: u.activo,
         });
-      } else if (rolesRes.data.length > 0) {
-        setForm((f) => ({ ...f, rol_id: rolesRes.data[0].id }));
       }
     }
     cargar();
@@ -63,10 +62,11 @@ export default function UsuarioForm() {
           rol_id: form.rol_id,
         });
       }
-      navigate('/usuarios');
+      navigate('/usuarios', {
+        state: { mensaje: editando ? 'Usuario actualizado con éxito.' : 'Usuario registrado con éxito.' },
+      });
     } catch (err) {
-      const data = err.response?.data;
-      setError(data?.message || Object.values(data?.errors || {}).flat().join(' ') || 'No se pudo guardar el usuario.');
+      setError(primerError(err, 'No se pudo guardar el usuario.'));
     } finally {
       setGuardando(false);
     }
@@ -74,42 +74,37 @@ export default function UsuarioForm() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="text-2xl font-semibold text-gray-800 mb-1">{editando ? 'Editar usuario' : 'Nuevo usuario'}</h1>
+      <h1 className="text-2xl font-semibold text-gray-800 mb-1">{editando ? 'Editar usuario' : 'Registrar usuario'}</h1>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-1">Nombre completo</label>
           <input
             className="input"
             value={form.nombre_completo}
             onChange={(e) => setForm({ ...form, nombre_completo: e.target.value })}
-            required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">Correo electronico</label>
+          <label className="block text-sm font-medium text-gray-600 mb-1">Correo electrónico</label>
           <input
-            type="email"
             className="input"
             value={form.correo_electronico}
             onChange={(e) => setForm({ ...form, correo_electronico: e.target.value })}
-            required
             disabled={editando}
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-1">
-            {editando ? 'Nueva contrasena (opcional)' : 'Contrasena'}
+            {editando ? 'Nueva contraseña (opcional)' : 'Contraseña'}
           </label>
           <input
             type="password"
             className="input"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
-            minLength={8}
-            required={!editando}
             placeholder={editando ? 'Dejar en blanco para no cambiarla' : ''}
           />
         </div>
@@ -120,8 +115,8 @@ export default function UsuarioForm() {
             className="input"
             value={form.rol_id}
             onChange={(e) => setForm({ ...form, rol_id: e.target.value })}
-            required
           >
+            <option value="">Seleccione un rol</option>
             {roles.map((r) => (
               <option key={r.id} value={r.id}>{r.nombre}</option>
             ))}
@@ -135,7 +130,7 @@ export default function UsuarioForm() {
               checked={form.activo}
               onChange={(e) => setForm({ ...form, activo: e.target.checked })}
             />
-            Usuario activo (puede iniciar sesion)
+            Usuario activo (puede iniciar sesión)
           </label>
         )}
 

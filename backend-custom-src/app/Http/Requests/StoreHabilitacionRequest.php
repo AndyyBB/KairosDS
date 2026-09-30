@@ -24,8 +24,12 @@ class StoreHabilitacionRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'observacion.required_if' => 'El motivo de inhabilitacion es obligatorio.',
-            'observacion.max' => 'El motivo de inhabilitacion tiene un limite de 200 caracteres.',
+            'observacion.required_if' => 'El motivo de inhabilitación es obligatorio.',
+            'observacion.max' => 'El motivo de inhabilitación tiene un límite de 200 caracteres.',
+            'estudiante_id.required' => 'El estudiante es obligatorio.',
+            'estudiante_id.exists' => 'El estudiante no existe.',
+            'habilitado.required' => 'Debe seleccionar Habilitado o No habilitado.',
+            'habilitado.boolean' => 'Debe seleccionar Habilitado o No habilitado.',
         ];
     }
 }

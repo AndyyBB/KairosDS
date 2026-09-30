@@ -18,11 +18,11 @@ class AuthController extends Controller
         $usuario = Usuario::where('correo_electronico', $data['correo_electronico'])->first();
 
         if (! $usuario || ! $usuario->activo) {
-            return response()->json(['message' => 'Credenciales invalidas.'], 401);
+            return response()->json(['message' => 'Correo o contraseña incorrectos.'], 401);
         }
 
         if ($usuario->bloqueado_hasta && $usuario->bloqueado_hasta->isFuture()) {
-            return response()->json(['message' => 'Cuenta bloqueada temporalmente. Intente mas tarde.'], 423);
+            return response()->json(['message' => 'Cuenta bloqueada temporalmente. Intente más tarde.'], 423);
         }
 
         if (! Hash::check($data['password'], $usuario->contrasena_hash)) {
@@ -32,7 +32,7 @@ class AuthController extends Controller
                 $usuario->update(['bloqueado_hasta' => now()->addMinutes(15)]);
             }
 
-            return response()->json(['message' => 'Credenciales invalidas.'], 401);
+            return response()->json(['message' => 'Correo o contraseña incorrectos.'], 401);
         }
 
         $usuario->update([
@@ -53,7 +53,7 @@ class AuthController extends Controller
     {
         $request->user()->currentAccessToken()->delete();
 
-        return response()->json(['message' => 'Sesion cerrada.']);
+        return response()->json(['message' => 'Sesión cerrada.']);
     }
 
     public function me(Request $request)

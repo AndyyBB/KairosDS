@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/client';
+import Aviso, { useMensajeFlash } from '../../components/Aviso';
 
 // HU-15: Registro de usuarios
 export default function UsuariosList() {
   const [usuarios, setUsuarios] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [mensaje, setMensaje] = useMensajeFlash();
 
   async function cargar() {
     setCargando(true);
@@ -19,19 +21,20 @@ export default function UsuariosList() {
   }, []);
 
   async function handleDesactivar(id) {
-    if (!confirm('Desactivar este usuario? No podra iniciar sesion.')) return;
+    if (!confirm('¿Desactivar este usuario? No podrá iniciar sesión.')) return;
     await api.delete(`/usuarios/${id}`);
     cargar();
   }
 
   return (
     <div>
+      <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-800">Usuarios</h1>
         </div>
         <Link to="/usuarios/nuevo" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm">
-          + Nuevo usuario
+          Registrar usuario
         </Link>
       </div>
 

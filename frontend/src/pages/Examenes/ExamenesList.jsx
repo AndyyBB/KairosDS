@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/client';
+import Aviso, { useMensajeFlash } from '../../components/Aviso';
 
 const ESTADO_STYLES = {
   programado: 'bg-kairos-50 text-kairos-700',
@@ -11,6 +12,7 @@ const ESTADO_STYLES = {
 
 export default function ExamenesList() {
   const [examenes, setExamenes] = useState([]);
+  const [mensaje, setMensaje] = useMensajeFlash();
 
   async function cargar() {
     const res = await api.get('/examenes');
@@ -29,12 +31,13 @@ export default function ExamenesList() {
 
   return (
     <div>
+      <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-800">Examenes</h1>
         </div>
         <Link to="/examenes/programar" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm">
-          + Programar examen
+          Programar examen
         </Link>
       </div>
 

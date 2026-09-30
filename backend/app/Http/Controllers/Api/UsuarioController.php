@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreUsuarioRequest;
+use App\Http\Requests\UpdateUsuarioRequest;
 use App\Models\Role;
 use App\Models\Usuario;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class UsuarioController extends Controller
@@ -42,14 +42,9 @@ class UsuarioController extends Controller
         return $usuario->load('rol');
     }
 
-    public function update(Request $request, Usuario $usuario)
+    public function update(UpdateUsuarioRequest $request, Usuario $usuario)
     {
-        $data = $request->validate([
-            'nombre_completo' => ['sometimes', 'required', 'string', 'max:100'],
-            'rol_id' => ['sometimes', 'required', 'integer', 'exists:roles,id'],
-            'activo' => ['sometimes', 'boolean'],
-            'password' => ['sometimes', 'nullable', 'string', 'min:8'],
-        ]);
+        $data = $request->validated();
 
         if (! empty($data['password'])) {
             $data['contrasena_hash'] = Hash::make($data['password']);

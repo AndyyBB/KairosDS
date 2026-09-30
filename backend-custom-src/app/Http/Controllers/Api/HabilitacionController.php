@@ -58,7 +58,7 @@ class HabilitacionController extends Controller
 
         if (! $inscrito) {
             throw ValidationException::withMessages([
-                'estudiante_id' => 'El estudiante no esta inscrito en la materia de este examen.',
+                'estudiante_id' => 'El estudiante no está inscrito en la materia de este examen.',
             ]);
         }
 

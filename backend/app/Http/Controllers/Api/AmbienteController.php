@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Ambiente;
+use App\Http\Requests\StoreAmbienteRequest;
+use App\Http\Requests\UpdateAmbienteRequest;
 use Illuminate\Http\Request;
 
 class AmbienteController extends Controller
@@ -16,13 +18,9 @@ class AmbienteController extends Controller
             ->get();
     }
 
-    public function store(Request $request)
+    public function store(StoreAmbienteRequest $request)
     {
-        $data = $request->validate([
-            'nombre' => ['required', 'string', 'max:50', 'unique:ambientes,nombre'],
-            'capacidad_maxima' => ['required', 'integer', 'min:1'],
-            'ubicacion' => ['required', 'string', 'max:100'],
-        ]);
+        $data = $request->validated();
 
         return response()->json(Ambiente::create($data), 201);
     }
@@ -32,14 +30,9 @@ class AmbienteController extends Controller
         return $ambiente;
     }
 
-    public function update(Request $request, Ambiente $ambiente)
+    public function update(UpdateAmbienteRequest $request, Ambiente $ambiente)
     {
-        $data = $request->validate([
-            'nombre' => ['sometimes', 'required', 'string', 'max:50'],
-            'capacidad_maxima' => ['sometimes', 'required', 'integer', 'min:1'],
-            'ubicacion' => ['sometimes', 'required', 'string', 'max:100'],
-            'activo' => ['sometimes', 'boolean'],
-        ]);
+        $data = $request->validated();
 
         $ambiente->update($data);
 

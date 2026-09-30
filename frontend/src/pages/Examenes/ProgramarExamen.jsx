@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
+import { erroresCampos } from '../../api/errores';
 
 // HU-02: Registro de examenes ("Programar examen")
-// Campos segun mockup: Asignatura, Fecha, Hora de inicio, Duracion, Ambiente, Normas del examen.
+// Campos segun mockup: Asignatura, Fecha, Hora de inicio, Duración, Ambiente, Normas del examen.
 export default function ProgramarExamen() {
   const navigate = useNavigate();
   const [materias, setMaterias] = useState([]);
@@ -47,9 +48,9 @@ export default function ProgramarExamen() {
 
     try {
       await api.post('/examenes', payload);
-      navigate('/examenes');
+      navigate('/examenes', { state: { mensaje: 'Exámen registrado con éxito.' } });
     } catch (err) {
-      setErrores(err.response?.data?.errors || {});
+      setErrores(erroresCampos(err));
     } finally {
       setGuardando(false);
     }
@@ -66,10 +67,10 @@ export default function ProgramarExamen() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
+      <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
         <Campo label="Asignatura" icon={<BookIcon />} error={errores.materia_id}>
-          <select className="input" value={form.materia_id} onChange={(e) => set('materia_id', e.target.value)} required>
-            <option value="">Seleccione una asignatura...</option>
+          <select className="input" value={form.materia_id} onChange={(e) => set('materia_id', e.target.value)}>
+            <option value="">Seleccione una asignatura</option>
             {materias.map((m) => (
               <option key={m.id} value={m.id}>{m.sigla} - {m.nombre}</option>
             ))}
@@ -78,36 +79,36 @@ export default function ProgramarExamen() {
 
         <div className="grid grid-cols-2 gap-4">
           <Campo label="Fecha" icon={<CalendarIcon small />} error={errores.fecha}>
-            <input type="date" className="input" value={form.fecha} onChange={(e) => set('fecha', e.target.value)} required />
+            <input type="date" className="input" value={form.fecha} onChange={(e) => set('fecha', e.target.value)} />
           </Campo>
 
           <Campo label="Hora de inicio" icon={<ClockIcon />} error={errores.hora_inicio}>
-            <input type="time" className="input" value={form.hora_inicio} onChange={(e) => set('hora_inicio', e.target.value)} required />
+            <input type="time" className="input" value={form.hora_inicio} onChange={(e) => set('hora_inicio', e.target.value)} />
           </Campo>
         </div>
 
-        <Campo label="Duracion (minutos)" icon={<ClockIcon />} error={errores.duracion_min}>
+        <Campo label="Duración (minutos)" icon={<ClockIcon />} error={errores.duracion_min}>
           <input
             type="number"
-            min="15"
+            min="5"
             max="300"
             className="input"
             value={form.duracion_min}
             onChange={(e) => set('duracion_min', e.target.value)}
-            required
+           
           />
         </Campo>
 
         <Campo label="Ambiente" icon={<PinIcon />} error={errores.ambiente_id}>
-          <select className="input" value={form.ambiente_id} onChange={(e) => set('ambiente_id', e.target.value)} required>
-            <option value="">Seleccione un ambiente...</option>
+          <select className="input" value={form.ambiente_id} onChange={(e) => set('ambiente_id', e.target.value)}>
+            <option value="">Seleccione un ambiente</option>
             {ambientes.map((a) => (
               <option key={a.id} value={a.id}>{a.nombre} (cap. {a.capacidad_maxima})</option>
             ))}
           </select>
         </Campo>
 
-        <Campo label="Normas del examen" icon={<DocIcon />}>
+        <Campo label="Normas del examen" icon={<DocIcon />} error={errores.normas || errores['normas.0.descripcion']}>
           <textarea
             className="input min-h-[90px]"
             placeholder="Normas generales que aplican a todos los estudiantes de este examen..."

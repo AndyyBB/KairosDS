@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/client';
+import Aviso, { useMensajeFlash } from '../../components/Aviso';
 
 export default function EstudiantesList() {
   const [estudiantes, setEstudiantes] = useState([]);
   const [buscar, setBuscar] = useState('');
   const [cargando, setCargando] = useState(true);
+  const [mensaje, setMensaje] = useMensajeFlash();
 
   async function cargar() {
     setCargando(true);
@@ -20,13 +22,14 @@ export default function EstudiantesList() {
   }, []);
 
   async function handleDesactivar(id) {
-    if (!confirm('Desactivar este estudiante? El historial de ingresos se conserva.')) return;
+    if (!confirm('¿Desactivar este estudiante? El historial de ingresos se conserva.')) return;
     await api.delete(`/estudiantes/${id}`);
     cargar();
   }
 
   return (
     <div>
+      <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-800">Estudiantes</h1>
@@ -35,7 +38,7 @@ export default function EstudiantesList() {
           to="/estudiantes/nuevo"
           className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm"
         >
-          + Nuevo estudiante
+          Registrar estudiante
         </Link>
       </div>
 
@@ -44,7 +47,7 @@ export default function EstudiantesList() {
           value={buscar}
           onChange={(e) => setBuscar(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && cargar()}
-          placeholder="Buscar por codigo, documento o nombre..."
+          placeholder="Buscar por código, documento o nombre..."
           className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
         />
         <button onClick={cargar} className="border border-gray-300 rounded-lg px-4 text-sm text-gray-700">
@@ -56,7 +59,7 @@ export default function EstudiantesList() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 text-left">
             <tr>
-              <th className="px-4 py-2">Codigo</th>
+              <th className="px-4 py-2">Código</th>
               <th className="px-4 py-2">Nombre</th>
               <th className="px-4 py-2">Carrera</th>
               <th className="px-4 py-2">Correo</th>

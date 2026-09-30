@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../api/AuthContext';
+import { primerError } from '../../api/errores';
 import KairosLogo from '../../components/KairosLogo';
 
 export default function Login() {
@@ -19,7 +20,7 @@ export default function Login() {
       await login(correo, password);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.message || 'No se pudo iniciar sesion.');
+      setError(primerError(err, 'Correo o contraseña incorrectos.'));
     } finally {
       setCargando(false);
     }
@@ -32,26 +33,25 @@ export default function Login() {
           <KairosLogo size={56} />
           <div className="text-center">
             <h1 className="text-lg font-semibold text-gray-800">Kairos Digital Systems</h1>
-            <p className="text-sm text-gray-400">Control de Ingreso a Examenes</p>
+            <p className="text-sm text-gray-400">Control de Ingreso a Exámenes</p>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Correo electronico</label>
+            <label className="block text-sm font-medium text-gray-600 mb-1">Correo electrónico</label>
             <input
-              type="email"
-              required
+              type="text"
+              autoComplete="username"
               value={correo}
               onChange={(e) => setCorreo(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-kairos-400"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Contrasena</label>
+            <label className="block text-sm font-medium text-gray-600 mb-1">Contraseña</label>
             <input
               type="password"
-              required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-kairos-400"

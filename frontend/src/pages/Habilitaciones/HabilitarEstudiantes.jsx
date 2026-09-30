@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import api from '../../api/client';
+import { primerError } from '../../api/errores';
 
-// HU-04: Asociacion de estudiantes habilitados a un examen
+// HU-04: Asociación de estudiantes habilitados a un examen
 export default function HabilitarEstudiantes() {
   const { examenId } = useParams();
   const [examen, setExamen] = useState(null);
@@ -100,7 +101,7 @@ export default function HabilitarEstudiantes() {
 
     if (Object.keys(faltantes).length > 0) {
       setErroresMotivo(faltantes);
-      setError('No se pudo guardar: hay estudiantes marcados como "No habilitado" sin motivo registrado.');
+      setError('Motivo de inhabilitación es obligatorio');
       return;
     }
 
@@ -119,7 +120,7 @@ export default function HabilitarEstudiantes() {
       );
       setExito({ habilitados: totalHabilitados, noHabilitados: totalNoHabilitados });
     } catch (err) {
-      setError(err.response?.data?.message || 'No se pudo guardar las habilitaciones.');
+      setError(primerError(err, 'No se pudo guardar las habilitaciones.'));
     } finally {
       setGuardando(false);
     }
@@ -129,7 +130,7 @@ export default function HabilitarEstudiantes() {
     return (
       <div className="max-w-2xl">
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
-          <p className="text-lg font-semibold text-gray-800">Habilitaciones registradas con exito.</p>
+          <p className="text-lg font-semibold text-gray-800">Habilitaciones registradas con éxito.</p>
           <p className="text-sm text-gray-500 mt-2">
             {exito.habilitados} habilitados / {exito.noHabilitados} no habilitados
           </p>
@@ -137,7 +138,7 @@ export default function HabilitarEstudiantes() {
             to="/examenes"
             className="inline-block mt-6 bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm"
           >
-            Volver a examenes
+            Volver a exámenes
           </Link>
         </div>
       </div>
@@ -177,7 +178,7 @@ export default function HabilitarEstudiantes() {
               <th className="px-4 py-2">Estudiante</th>
               <th className="px-4 py-2">Codigo</th>
               <th className="px-4 py-2">Estado</th>
-              <th className="px-4 py-2">Motivo de inhabilitacion</th>
+              <th className="px-4 py-2">Motivo de inhabilitación</th>
             </tr>
           </thead>
           <tbody>
@@ -214,7 +215,7 @@ export default function HabilitarEstudiantes() {
                           onChange={(ev) => cambiarMotivo(estudiante.id, ev.target.value)}
                         />
                         {erroresMotivo[estudiante.id] && (
-                          <p className="text-red-500 text-xs mt-1">El motivo de inhabilitacion es obligatorio.</p>
+                          <p className="text-red-500 text-xs mt-1">El motivo de inhabilitación es obligatorio.</p>
                         )}
                       </div>
                     ) : (

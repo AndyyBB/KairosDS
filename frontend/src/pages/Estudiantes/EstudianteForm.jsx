@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
+import { erroresCampos } from '../../api/errores';
 
 const initial = {
   codigo_universitario: '',
@@ -40,9 +41,11 @@ export default function EstudianteForm() {
       } else {
         await api.post('/estudiantes', form);
       }
-      navigate('/estudiantes');
+      navigate('/estudiantes', {
+        state: { mensaje: editando ? 'Estudiante actualizado con éxito.' : 'Estudiante registrado con éxito.' },
+      });
     } catch (err) {
-      setErrores(err.response?.data?.errors || {});
+      setErrores(erroresCampos(err));
     } finally {
       setGuardando(false);
     }
@@ -54,13 +57,12 @@ export default function EstudianteForm() {
         {editando ? 'Editar estudiante' : 'Registrar estudiante'}
       </h1>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
-        <Campo label="Codigo universitario" error={errores.codigo_universitario}>
+      <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+        <Campo label="Código universitario" error={errores.codigo_universitario}>
           <input
             className="input"
             value={form.codigo_universitario}
             onChange={(e) => set('codigo_universitario', e.target.value)}
-            required
           />
         </Campo>
 
@@ -69,7 +71,6 @@ export default function EstudianteForm() {
             className="input"
             value={form.documento_identidad}
             onChange={(e) => set('documento_identidad', e.target.value)}
-            required
           />
         </Campo>
 
@@ -78,17 +79,14 @@ export default function EstudianteForm() {
             className="input"
             value={form.nombre_completo}
             onChange={(e) => set('nombre_completo', e.target.value)}
-            required
           />
         </Campo>
 
         <Campo label="Correo institucional" error={errores.correo_institucional}>
           <input
-            type="email"
             className="input"
             value={form.correo_institucional}
             onChange={(e) => set('correo_institucional', e.target.value)}
-            required
           />
         </Campo>
 
@@ -97,9 +95,8 @@ export default function EstudianteForm() {
             className="input"
             value={form.carrera_id}
             onChange={(e) => set('carrera_id', e.target.value)}
-            required
           >
-            <option value="">Seleccione...</option>
+            <option value="">Seleccione una carrera</option>
             {carreras.map((c) => (
               <option key={c.id} value={c.id}>{c.nombre}</option>
             ))}
