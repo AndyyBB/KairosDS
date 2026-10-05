@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
-import { primerError } from '../../api/errores';
+import { erroresCampos, primerError } from '../../api/errores';
 
 // HU-15: Registro de usuarios (crear y editar)
 export default function UsuarioForm() {
@@ -18,6 +18,7 @@ export default function UsuarioForm() {
     activo: true,
   });
   const [error, setError] = useState(null);
+  const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export default function UsuarioForm() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
+    setErrores({});
     setGuardando(true);
     try {
       if (editando) {
@@ -66,7 +68,12 @@ export default function UsuarioForm() {
         state: { mensaje: editando ? 'Usuario actualizado con éxito.' : 'Usuario registrado con éxito.' },
       });
     } catch (err) {
-      setError(primerError(err, 'No se pudo guardar el usuario.'));
+      const campos = erroresCampos(err);
+      setErrores(campos);
+      // Solo se muestra el aviso general cuando el error no pertenece a un campo.
+      if (Object.keys(campos).length === 0) {
+        setError(primerError(err, 'No se pudo guardar el usuario.'));
+      }
     } finally {
       setGuardando(false);
     }
@@ -84,6 +91,7 @@ export default function UsuarioForm() {
             value={form.nombre_completo}
             onChange={(e) => setForm({ ...form, nombre_completo: e.target.value })}
           />
+          {errores.nombre_completo && <p className="text-xs text-red-600 mt-1">{errores.nombre_completo[0]}</p>}
         </div>
 
         <div>
@@ -94,6 +102,7 @@ export default function UsuarioForm() {
             onChange={(e) => setForm({ ...form, correo_electronico: e.target.value })}
             disabled={editando}
           />
+          {errores.correo_electronico && <p className="text-xs text-red-600 mt-1">{errores.correo_electronico[0]}</p>}
         </div>
 
         <div>
@@ -107,6 +116,7 @@ export default function UsuarioForm() {
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             placeholder={editando ? 'Dejar en blanco para no cambiarla' : ''}
           />
+          {errores.password && <p className="text-xs text-red-600 mt-1">{errores.password[0]}</p>}
         </div>
 
         <div>
@@ -121,6 +131,7 @@ export default function UsuarioForm() {
               <option key={r.id} value={r.id}>{r.nombre}</option>
             ))}
           </select>
+          {errores.rol_id && <p className="text-xs text-red-600 mt-1">{errores.rol_id[0]}</p>}
         </div>
 
         {editando && (

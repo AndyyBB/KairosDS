@@ -24,4 +24,23 @@ class StoreEstudianteRequest extends FormRequest
             'carrera_id' => ['bail', 'required', 'integer', 'exists:carreras,id'],
         ];
     }
+
+    // Criterio 10: el correo institucional tiene el formato
+    // "CódigoUniversitario@est.umss.edu" (la parte antes de @ es el código).
+    public function after(): array
+    {
+        return [function (\Illuminate\Validation\Validator $validator) {
+            if ($validator->errors()->hasAny(['codigo_universitario', 'correo_institucional'])) {
+                return;
+            }
+            $codigo = $this->input('codigo_universitario');
+            $correo = $this->input('correo_institucional');
+            if (! $codigo || ! $correo) {
+                return;
+            }
+            if (strcasecmp($correo, $codigo.'@est.umss.edu') !== 0) {
+                $validator->errors()->add('correo_institucional', 'El correo electrónico no es válido.');
+            }
+        }];
+    }
 }

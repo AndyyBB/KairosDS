@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -21,6 +23,36 @@ class Examen extends Model
     ];
 
     protected $casts = ['fecha' => 'date'];
+
+    // Se envia siempre junto al examen para que el estado mostrado coincida
+    // con la fecha y hora reales (el campo `estado` guardado solo se usa para
+    // distinguir los cancelados).
+    protected $appends = ['estado_actual'];
+
+    // programado / en curso / finalizado segun la hora actual (La Paz);
+    // cancelado se respeta tal cual.
+    protected function estadoActual(): Attribute
+    {
+        return Attribute::get(function () {
+            if ($this->estado === 'cancelado') {
+                return 'cancelado';
+            }
+            if (! $this->fecha || ! $this->hora_inicio) {
+                return $this->estado;
+            }
+
+            $tz = 'America/La_Paz';
+            $inicio = Carbon::parse($this->fecha->format('Y-m-d').' '.substr($this->hora_inicio, 0, 5), $tz);
+            $fin = $inicio->copy()->addMinutes((int) $this->duracion_min);
+            $ahora = Carbon::now($tz);
+
+            if ($ahora->lt($inicio)) {
+                return 'programado';
+            }
+
+            return $ahora->lt($fin) ? 'en curso' : 'finalizado';
+        });
+    }
 
     public function materia(): BelongsTo
     {

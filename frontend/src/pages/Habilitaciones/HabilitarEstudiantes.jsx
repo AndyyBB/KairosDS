@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import api from '../../api/client';
+import { fechaDMA, horaHM } from '../../api/formato';
 import { primerError } from '../../api/errores';
 
 // HU-04: Asociación de estudiantes habilitados a un examen
@@ -82,6 +83,7 @@ export default function HabilitarEstudiantes() {
 
   const totalHabilitados = inscritos.filter(({ estudiante }) => estado[estudiante.id]?.habilitado === true).length;
   const totalNoHabilitados = inscritos.filter(({ estudiante }) => estado[estudiante.id]?.habilitado === false).length;
+  const cerrado = ['finalizado', 'cancelado'].includes(examen?.estado_actual);
   const totalSinDecidir = inscritos.length - totalHabilitados - totalNoHabilitados;
 
   async function guardar() {
@@ -150,8 +152,12 @@ export default function HabilitarEstudiantes() {
       <h1 className="text-2xl font-semibold text-gray-800">Habilitar estudiantes</h1>
       {examen && (
         <p className="text-gray-500 text-sm mb-4">
-          {examen.materia?.nombre} - {examen.fecha} {examen.hora_inicio?.slice(0, 5)} - {examen.ambiente?.nombre}
+          {examen.materia?.nombre} · {fechaDMA(examen.fecha)} {horaHM(examen.hora_inicio)} · {examen.ambiente?.nombre}
         </p>
+      )}
+
+      {cerrado && (
+        <p className="text-sm text-amber-700 mb-4">Este examen está {examen.estado_actual}: ya no admite habilitaciones.</p>
       )}
 
       {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
@@ -176,7 +182,7 @@ export default function HabilitarEstudiantes() {
           <thead className="bg-gray-50 text-gray-500 text-left">
             <tr>
               <th className="px-4 py-2">Estudiante</th>
-              <th className="px-4 py-2">Codigo</th>
+              <th className="px-4 py-2">Código</th>
               <th className="px-4 py-2">Estado</th>
               <th className="px-4 py-2">Motivo de inhabilitación</th>
             </tr>
@@ -242,7 +248,7 @@ export default function HabilitarEstudiantes() {
         </Link>
         <button
           onClick={guardar}
-          disabled={guardando || inscritos.length === 0}
+          disabled={guardando || inscritos.length === 0 || cerrado}
           className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm disabled:opacity-60"
         >
           Guardar habilitaciones

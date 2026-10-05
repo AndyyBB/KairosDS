@@ -49,6 +49,13 @@ class HabilitacionController extends Controller
     {
         $data = $request->validated();
 
+        // Un examen ya finalizado o cancelado no admite nuevas habilitaciones.
+        if (in_array($examen->estado_actual, ['finalizado', 'cancelado'], true)) {
+            throw ValidationException::withMessages([
+                'examen' => 'No se puede habilitar estudiantes en un examen '.$examen->estado_actual.'.',
+            ]);
+        }
+
         // Regla de negocio (HU-04 / HU-26): el estudiante debe estar inscrito en la
         // materia del examen para poder ser habilitado.
         $inscrito = Inscripcion::where('estudiante_id', $data['estudiante_id'])

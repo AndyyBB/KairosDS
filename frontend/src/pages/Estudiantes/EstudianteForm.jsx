@@ -85,6 +85,7 @@ export default function EstudianteForm() {
         <Campo label="Correo institucional" error={errores.correo_institucional}>
           <input
             className="input"
+            placeholder="CódigoUniversitario@est.umss.edu"
             value={form.correo_institucional}
             onChange={(e) => set('correo_institucional', e.target.value)}
           />

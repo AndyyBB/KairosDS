@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/client';
+import { fechaDMA, horaHM } from '../../api/formato';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
 
 const ESTADO_STYLES = {
@@ -24,7 +25,7 @@ export default function ExamenesList() {
   }, []);
 
   async function handleCancelar(id) {
-    if (!confirm('Cancelar este examen?')) return;
+    if (!confirm('¿Cancelar este examen?')) return;
     await api.delete(`/examenes/${id}`);
     cargar();
   }
@@ -34,7 +35,7 @@ export default function ExamenesList() {
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-800">Examenes</h1>
+          <h1 className="text-2xl font-semibold text-gray-800">Exámenes</h1>
         </div>
         <Link to="/examenes/programar" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm">
           Programar examen
@@ -48,27 +49,44 @@ export default function ExamenesList() {
               <th className="px-4 py-2">Materia</th>
               <th className="px-4 py-2">Fecha</th>
               <th className="px-4 py-2">Hora</th>
+              <th className="px-4 py-2">Duración</th>
               <th className="px-4 py-2">Ambiente</th>
               <th className="px-4 py-2">Estado</th>
               <th className="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody>
-            {examenes.map((ex) => (
-              <tr key={ex.id} className="border-t border-gray-100">
-                <td className="px-4 py-2">{ex.materia?.nombre}</td>
-                <td className="px-4 py-2">{ex.fecha}</td>
-                <td className="px-4 py-2">{ex.hora_inicio}</td>
-                <td className="px-4 py-2">{ex.ambiente?.nombre}</td>
-                <td className="px-4 py-2">
-                  <span className={`text-xs px-2 py-1 rounded-full ${ESTADO_STYLES[ex.estado] || ''}`}>{ex.estado}</span>
-                </td>
-                <td className="px-4 py-2 text-right space-x-3">
-                  <Link to={`/examenes/${ex.id}/habilitar`} className="text-kairos-600 font-medium">Habilitar</Link>
-                  <button onClick={() => handleCancelar(ex.id)} className="text-gray-400">Cancelar</button>
-                </td>
-              </tr>
-            ))}
+            {examenes.map((ex) => {
+              // El estado se calcula con la fecha y hora reales del examen.
+              const estado = ex.estado_actual || ex.estado;
+              const cerrado = estado === 'finalizado' || estado === 'cancelado';
+              return (
+                <tr key={ex.id} className="border-t border-gray-100">
+                  <td className="px-4 py-2">{ex.materia?.nombre}</td>
+                  <td className="px-4 py-2">{fechaDMA(ex.fecha)}</td>
+                  <td className="px-4 py-2">{horaHM(ex.hora_inicio)}</td>
+                  <td className="px-4 py-2">{ex.duracion_min} min</td>
+                  <td className="px-4 py-2">{ex.ambiente?.nombre}</td>
+                  <td className="px-4 py-2">
+                    <span className={`text-xs px-2 py-1 rounded-full ${ESTADO_STYLES[estado] || ''}`}>{estado}</span>
+                  </td>
+                  <td className="px-4 py-2 text-right space-x-3">
+                    {cerrado ? (
+                      <span className="text-gray-300 cursor-not-allowed" title="El examen ya no admite habilitaciones">Habilitar</span>
+                    ) : (
+                      <Link to={`/examenes/${ex.id}/habilitar`} className="text-kairos-600 font-medium">Habilitar</Link>
+                    )}
+                    <button
+                      onClick={() => handleCancelar(ex.id)}
+                      disabled={cerrado}
+                      className={cerrado ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400'}
+                    >
+                      Cancelar
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
