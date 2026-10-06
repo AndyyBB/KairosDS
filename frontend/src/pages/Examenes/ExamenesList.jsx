@@ -92,7 +92,9 @@ export default function ExamenesList() {
                   <td className="px-4 py-2">{fechaDMA(ex.fecha)}</td>
                   <td className="px-4 py-2">{horaHM(ex.hora_inicio)}</td>
                   <td className="px-4 py-2">{ex.duracion_min} min</td>
-                  <td className="px-4 py-2">{ex.ambiente?.nombre}</td>
+                  <td className="px-4 py-2">
+                    {ex.ambientes?.length ? ex.ambientes.map((a) => a.nombre).join(', ') : ex.ambiente?.nombre}
+                  </td>
                   <td className="px-4 py-2">
                     <span className={`text-xs px-2 py-1 rounded-full ${ESTADO_STYLES[estado] || ''}`}>{estado}</span>
                   </td>

@@ -20,6 +20,8 @@ class UpdateExamenRequest extends FormRequest
         return [
             'materia_id' => ['bail', 'sometimes', 'required', 'integer', 'exists:materias,id'],
             'ambiente_id' => ['bail', 'sometimes', 'required', 'integer', 'exists:ambientes,id'],
+            'ambientes' => ['bail', 'sometimes', 'required', 'array', 'min:1'],
+            'ambientes.*' => ['bail', 'required', 'integer', 'distinct', 'exists:ambientes,id'],
             'fecha' => ['bail', 'sometimes', 'required', 'date_format:Y-m-d'],
             'hora_inicio' => ['bail', 'sometimes', 'required', 'date_format:H:i'],
             'duracion_min' => ['bail', 'sometimes', 'required', 'integer', 'between:5,300'],
@@ -34,7 +36,11 @@ class UpdateExamenRequest extends FormRequest
                 $examen = $this->route('examen');
                 $this->validarAmbienteLibre(
                     $validator,
-                    $this->input('ambiente_id', $examen?->ambiente_id),
+                    $this->has('ambientes')
+                        ? (array) $this->input('ambientes')
+                        : ($this->has('ambiente_id')
+                            ? (int) $this->input('ambiente_id')
+                            : ($examen?->ambientes()->pluck('ambientes.id')->all() ?: $examen?->ambiente_id)),
                     $this->input('fecha', $examen?->fecha?->toDateString()),
                     $this->input('hora_inicio', $examen?->hora_inicio),
                     $this->input('duracion_min', $examen?->duracion_min),

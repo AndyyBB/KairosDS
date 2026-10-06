@@ -3,6 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import { erroresCampos } from '../../api/errores';
 
+// Fecha (AAAA-MM-DD) y hora (HH:MM) actuales en la hora local del equipo.
+function fechaHoy() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function horaAhora() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 // HU-02: Registro de examenes ("Programar examen")
 // Campos segun mockup: Asignatura, Fecha, Hora de inicio, Duración, Ambiente, Normas del examen.
 export default function ProgramarExamen() {
@@ -17,7 +30,7 @@ export default function ProgramarExamen() {
     fecha: '',
     hora_inicio: '',
     duracion_min: '',
-    ambiente_id: '',
+    ambientes: [''],
     normas: '',
   });
 
@@ -30,14 +43,45 @@ export default function ProgramarExamen() {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
+  // Un examen puede tomarse en varios ambientes (mismo patrón que las carreras del estudiante).
+  function cambiarAmbiente(indice, valor) {
+    setForm((f) => ({ ...f, ambientes: f.ambientes.map((a, i) => (i === indice ? valor : a)) }));
+  }
+
+  function agregarAmbiente() {
+    setForm((f) => ({ ...f, ambientes: [...f.ambientes, ''] }));
+  }
+
+  function quitarAmbiente(indice) {
+    setForm((f) => ({ ...f, ambientes: f.ambientes.filter((_, i) => i !== indice) }));
+  }
+
+  const errorAmbiente = Object.entries(errores).find(([clave]) => clave.startsWith('ambiente'))?.[1];
+  const hayAmbientesSinUsar = ambientes.some((a) => !form.ambientes.includes(String(a.id)));
+  const capacidadTotal = ambientes
+    .filter((a) => form.ambientes.includes(String(a.id)))
+    .reduce((total, a) => total + Number(a.capacidad_maxima || 0), 0);
+
   async function handleSubmit(e) {
     e.preventDefault();
-    setGuardando(true);
     setErrores({});
+
+    // No se permite una fecha pasada, ni una hora pasada o igual a la actual.
+    const hoy = fechaHoy();
+    if (form.fecha && form.fecha < hoy) {
+      setErrores({ fecha: ['La fecha del examen no puede ser anterior a la fecha actual.'] });
+      return;
+    }
+    if (form.fecha === hoy && form.hora_inicio && form.hora_inicio <= horaAhora()) {
+      setErrores({ hora_inicio: ['La hora de inicio debe ser posterior a la hora actual.'] });
+      return;
+    }
+
+    setGuardando(true);
 
     const payload = {
       materia_id: form.materia_id,
-      ambiente_id: form.ambiente_id,
+      ambientes: form.ambientes.filter(Boolean).map(Number),
       fecha: form.fecha,
       hora_inicio: form.hora_inicio,
       duracion_min: form.duracion_min,
@@ -79,7 +123,13 @@ export default function ProgramarExamen() {
 
         <div className="grid grid-cols-2 gap-4">
           <Campo label="Fecha" icon={<CalendarIcon small />} error={errores.fecha}>
-            <input type="date" className="input" value={form.fecha} onChange={(e) => set('fecha', e.target.value)} />
+            <input
+              type="date"
+              className="input"
+              min={fechaHoy()}
+              value={form.fecha}
+              onChange={(e) => set('fecha', e.target.value)}
+            />
           </Campo>
 
           <Campo label="Hora de inicio" icon={<ClockIcon />} error={errores.hora_inicio}>
@@ -99,13 +149,47 @@ export default function ProgramarExamen() {
           />
         </Campo>
 
-        <Campo label="Ambiente" icon={<PinIcon />} error={errores.ambiente_id}>
-          <select className="input" value={form.ambiente_id} onChange={(e) => set('ambiente_id', e.target.value)}>
-            <option value="">Seleccione un ambiente</option>
-            {ambientes.map((a) => (
-              <option key={a.id} value={a.id}>{a.nombre} (cap. {a.capacidad_maxima})</option>
+        <Campo label="Ambiente" icon={<PinIcon />} error={errorAmbiente}>
+          <div className="space-y-2">
+            {form.ambientes.map((seleccionado, indice) => (
+              <div key={indice} className="flex items-center gap-2">
+                <select
+                  className="input"
+                  value={seleccionado}
+                  onChange={(e) => cambiarAmbiente(indice, e.target.value)}
+                >
+                  <option value="">Seleccione un ambiente</option>
+                  {ambientes
+                    .filter((a) => String(a.id) === seleccionado || !form.ambientes.includes(String(a.id)))
+                    .map((a) => (
+                      <option key={a.id} value={a.id}>{a.nombre} (cap. {a.capacidad_maxima})</option>
+                    ))}
+                </select>
+                {form.ambientes.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => quitarAmbiente(indice)}
+                    aria-label="Quitar ambiente"
+                    className="shrink-0 text-gray-400 hover:text-red-600 text-lg leading-none px-2"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             ))}
-          </select>
+          </div>
+          <div className="flex items-center justify-between mt-2">
+            {hayAmbientesSinUsar ? (
+              <button type="button" onClick={agregarAmbiente} className="text-sm text-kairos-600 font-medium">
+                + Agregar otro ambiente
+              </button>
+            ) : (
+              <span />
+            )}
+            {capacidadTotal > 0 && (
+              <span className="text-xs text-gray-500">Capacidad total: {capacidadTotal} estudiantes</span>
+            )}
+          </div>
         </Campo>
 
         <Campo label="Normas del examen" icon={<DocIcon />} error={errores.normas || errores['normas.0.descripcion']}>

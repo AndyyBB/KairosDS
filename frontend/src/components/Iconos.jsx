@@ -118,6 +118,69 @@ export function EyeOffIcon({ size = 18 }) {
   );
 }
 
+export function MailIcon({ size = 16 }) {
+  return (
+    <svg {...base(size)}>
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="m22 7-10 6L2 7" />
+    </svg>
+  );
+}
+
+export function LockIcon({ size = 16 }) {
+  return (
+    <svg {...base(size)}>
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  );
+}
+
+export function UserIcon({ size = 16 }) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
+    </svg>
+  );
+}
+
+export function IdCardIcon({ size = 16 }) {
+  return (
+    <svg {...base(size)}>
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <circle cx="8" cy="12" r="2" />
+      <path d="M5 16c.5-1.2 1.6-2 3-2s2.5.8 3 2M14 10h5M14 14h3" />
+    </svg>
+  );
+}
+
+export function HashIcon({ size = 16 }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18" />
+    </svg>
+  );
+}
+
+export function ShieldIcon({ size = 16 }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5l-8-3z" />
+    </svg>
+  );
+}
+
+// Etiqueta de campo con icono teal (mismo estilo que "Programar examen").
+export function Etiqueta({ icon, children, className = '' }) {
+  return (
+    <label className={`flex items-center gap-2 text-sm font-medium text-gray-600 mb-1 ${className}`}>
+      <span className="text-kairos-500">{icon}</span>
+      {children}
+    </label>
+  );
+}
+
 // Cuadro con degradado Kairos que acompaña al título de cada pantalla.
 export function IconoTitulo({ children }) {
   return (

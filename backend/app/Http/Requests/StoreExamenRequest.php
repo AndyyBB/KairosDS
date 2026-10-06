@@ -21,7 +21,8 @@ class StoreExamenRequest extends FormRequest
 
         return [
             'materia_id' => ['bail', 'required', 'integer', 'exists:materias,id'],
-            'ambiente_id' => ['bail', 'required', 'integer', 'exists:ambientes,id'],
+            'ambientes' => ['bail', 'required', 'array', 'min:1'],
+            'ambientes.*' => ['bail', 'required', 'integer', 'distinct', 'exists:ambientes,id'],
             'fecha' => ['bail', 'required', 'date_format:Y-m-d', 'after_or_equal:'.$hoy],
             'hora_inicio' => ['bail', 'required', 'date_format:H:i'],
             'duracion_min' => ['bail', 'required', 'integer', 'between:5,300'],
@@ -35,9 +36,14 @@ class StoreExamenRequest extends FormRequest
     public function after(): array
     {
         return [
+            fn (Validator $validator) => $this->validarHoraFutura(
+                $validator,
+                $this->input('fecha'),
+                $this->input('hora_inicio'),
+            ),
             fn (Validator $validator) => $this->validarAmbienteLibre(
                 $validator,
-                $this->input('ambiente_id'),
+                (array) $this->input('ambientes', []),
                 $this->input('fecha'),
                 $this->input('hora_inicio'),
                 $this->input('duracion_min'),

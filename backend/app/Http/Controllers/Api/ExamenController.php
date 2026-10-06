@@ -16,6 +16,7 @@ class ExamenController extends Controller
         return Examen::with([
             'materia',
             'ambiente',
+            'ambientes',
             // Normas generales del examen (las que no son de un estudiante en particular).
             'normas' => fn ($q) => $q->whereNull('estudiante_id')->orderBy('id'),
         ])
@@ -36,13 +37,17 @@ class ExamenController extends Controller
     {
         $data = $request->validated();
         $normas = $data['normas'] ?? [];
-        unset($data['normas']);
+        $ambientes = array_values($data['ambientes']);
+        unset($data['normas'], $data['ambientes']);
 
-        $examen = DB::transaction(function () use ($data, $normas, $request) {
+        $examen = DB::transaction(function () use ($data, $normas, $ambientes, $request) {
+            // El primer ambiente queda como principal (columna ambiente_id).
             $examen = Examen::create([
                 ...$data,
+                'ambiente_id' => $ambientes[0],
                 'creado_por' => $request->user()->id,
             ]);
+            $examen->ambientes()->sync($ambientes);
 
             foreach ($normas as $norma) {
                 $examen->normas()->create($norma);
@@ -51,20 +56,35 @@ class ExamenController extends Controller
             return $examen;
         });
 
-        return response()->json($examen->load(['materia', 'ambiente', 'normas']), 201);
+        return response()->json($examen->load(['materia', 'ambiente', 'ambientes', 'normas']), 201);
     }
 
     public function show(Examen $examen)
     {
-        return $examen->load(['materia', 'ambiente', 'normas', 'habilitaciones.estudiante']);
+        return $examen->load(['materia', 'ambiente', 'ambientes', 'normas', 'habilitaciones.estudiante']);
     }
 
     // HU-08: Edicion de examenes
     public function update(UpdateExamenRequest $request, Examen $examen)
     {
-        $examen->update($request->validated());
+        $data = $request->validated();
+        $ambientes = isset($data['ambientes']) ? array_values($data['ambientes']) : null;
+        unset($data['ambientes']);
 
-        return $examen->load(['materia', 'ambiente']);
+        DB::transaction(function () use ($examen, $data, $ambientes) {
+            if ($ambientes) {
+                $data['ambiente_id'] = $ambientes[0];
+            }
+            $examen->update($data);
+
+            if ($ambientes) {
+                $examen->ambientes()->sync($ambientes);
+            } elseif (isset($data['ambiente_id'])) {
+                $examen->ambientes()->sync([$data['ambiente_id']]);
+            }
+        });
+
+        return $examen->load(['materia', 'ambiente', 'ambientes']);
     }
 
     // HU-09: Eliminacion de examenes (se cancela, no se borra: preserva historial de ingresos/habilitaciones)

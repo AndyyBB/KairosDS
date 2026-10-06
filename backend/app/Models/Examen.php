@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Examen extends Model
@@ -62,6 +63,13 @@ class Examen extends Model
     public function ambiente(): BelongsTo
     {
         return $this->belongsTo(Ambiente::class, 'ambiente_id');
+    }
+
+    // HU-02: todos los ambientes donde se toma el examen.
+    public function ambientes(): BelongsToMany
+    {
+        return $this->belongsToMany(Ambiente::class, 'examen_ambiente', 'examen_id', 'ambiente_id')
+            ->orderBy('ambientes.nombre');
     }
 
     public function creador(): BelongsTo

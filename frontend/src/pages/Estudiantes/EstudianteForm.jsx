@@ -2,7 +2,15 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
 import { erroresCampos } from '../../api/errores';
-import { IconoTitulo, StudentIcon } from '../../components/Iconos';
+import {
+  IconoTitulo,
+  StudentIcon,
+  Etiqueta,
+  HashIcon,
+  IdCardIcon,
+  UserIcon,
+  MailIcon,
+} from '../../components/Iconos';
 
 const initial = {
   codigo_universitario: '',
@@ -102,7 +110,7 @@ export default function EstudianteForm() {
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
-        <Campo label="Código universitario" error={errores.codigo_universitario}>
+        <Campo label="Código universitario" icon={<HashIcon />} error={errores.codigo_universitario}>
           <input
             className="input"
             value={form.codigo_universitario}
@@ -111,7 +119,7 @@ export default function EstudianteForm() {
           />
         </Campo>
 
-        <Campo label="Documento de identidad" error={errores.documento_identidad}>
+        <Campo label="Documento de identidad" icon={<IdCardIcon />} error={errores.documento_identidad}>
           <input
             className="input"
             value={form.documento_identidad}
@@ -119,7 +127,7 @@ export default function EstudianteForm() {
           />
         </Campo>
 
-        <Campo label="Nombre completo" error={errores.nombre_completo}>
+        <Campo label="Nombre completo" icon={<UserIcon />} error={errores.nombre_completo}>
           <input
             className="input"
             value={form.nombre_completo}
@@ -127,7 +135,7 @@ export default function EstudianteForm() {
           />
         </Campo>
 
-        <Campo label="Correo institucional" error={errores.correo_institucional}>
+        <Campo label="Correo institucional" icon={<MailIcon />} error={errores.correo_institucional}>
           <input
             className="input"
             placeholder="CódigoUniversitario@est.umss.edu"
@@ -136,7 +144,7 @@ export default function EstudianteForm() {
           />
         </Campo>
 
-        <Campo label="Carrera" error={errorCarrera}>
+        <Campo label="Carrera" icon={<StudentIcon size={16} />} error={errorCarrera}>
           <div className="space-y-2">
             {form.carreras.map((seleccionada, indice) => (
               <div key={indice} className="flex items-center gap-2">
@@ -198,10 +206,10 @@ export default function EstudianteForm() {
   );
 }
 
-function Campo({ label, error, children }) {
+function Campo({ label, icon, error, children }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-600 mb-1">{label}</label>
+      <Etiqueta icon={icon}>{label}</Etiqueta>
       {children}
       {error && <p className="text-xs text-red-600 mt-1">{error[0]}</p>}
     </div>

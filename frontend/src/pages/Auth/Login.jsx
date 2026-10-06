@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../api/AuthContext';
 import { primerError } from '../../api/errores';
 import KairosLogo from '../../components/KairosLogo';
-import { EyeIcon, EyeOffIcon } from '../../components/Iconos';
+import { EyeIcon, EyeOffIcon, Etiqueta, MailIcon, LockIcon } from '../../components/Iconos';
 
 export default function Login() {
   const { login } = useAuth();
@@ -41,7 +41,7 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Correo electrónico</label>
+            <Etiqueta icon={<MailIcon />}>Correo electrónico</Etiqueta>
             <input
               type="text"
               autoComplete="username"
@@ -51,7 +51,7 @@ export default function Login() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Contraseña</label>
+            <Etiqueta icon={<LockIcon />}>Contraseña</Etiqueta>
             {/* HU-16 criterio 3: ojo siempre visible (también con autocompletado) para ver/ocultar la contraseña */}
             <div className="relative">
               <input

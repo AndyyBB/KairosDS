@@ -2,7 +2,17 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
 import { erroresCampos, primerError } from '../../api/errores';
-import { IconoTitulo, UserPlusIcon, EyeIcon, EyeOffIcon } from '../../components/Iconos';
+import {
+  IconoTitulo,
+  UserPlusIcon,
+  EyeIcon,
+  EyeOffIcon,
+  Etiqueta,
+  UserIcon,
+  MailIcon,
+  LockIcon,
+  ShieldIcon,
+} from '../../components/Iconos';
 
 // HU-15: Registro de usuarios (crear y editar)
 export default function UsuarioForm() {
@@ -90,7 +100,7 @@ export default function UsuarioForm() {
 
       <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">Nombre completo</label>
+          <Etiqueta icon={<UserIcon />}>Nombre completo</Etiqueta>
           <input
             className="input"
             value={form.nombre_completo}
@@ -100,7 +110,7 @@ export default function UsuarioForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">Correo electrónico</label>
+          <Etiqueta icon={<MailIcon />}>Correo electrónico</Etiqueta>
           <input
             className="input"
             value={form.correo_electronico}
@@ -112,9 +122,9 @@ export default function UsuarioForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">
+          <Etiqueta icon={<LockIcon />}>
             {editando ? 'Nueva contraseña (opcional)' : 'Contraseña'}
-          </label>
+          </Etiqueta>
           <div className="relative">
             <input
               type={verPassword ? 'text' : 'password'}
@@ -138,7 +148,7 @@ export default function UsuarioForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">Rol</label>
+          <Etiqueta icon={<ShieldIcon />}>Rol</Etiqueta>
           <select
             className="input"
             value={form.rol_id}

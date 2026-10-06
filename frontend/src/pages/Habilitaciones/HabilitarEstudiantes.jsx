@@ -151,7 +151,7 @@ export default function HabilitarEstudiantes() {
       </div>
       {examen && (
         <p className="text-gray-500 text-sm mb-4">
-          {examen.materia?.nombre} · {fechaDMA(examen.fecha)} {horaHM(examen.hora_inicio)} · {examen.ambiente?.nombre}
+          {examen.materia?.nombre} · {fechaDMA(examen.fecha)} {horaHM(examen.hora_inicio)} · {examen.ambientes?.length ? examen.ambientes.map((a) => a.nombre).join(', ') : examen.ambiente?.nombre}
         </p>
       )}
 
