@@ -6,7 +6,6 @@ import {
   StudentIcon,
   BuildingIcon,
   ExamIcon,
-  CalendarIcon,
   UsersIcon,
   LogoutIcon,
 } from './Iconos';
@@ -16,7 +15,6 @@ const NAV_ITEMS = [
   { to: '/estudiantes', label: 'Estudiantes', icon: StudentIcon },
   { to: '/ambientes', label: 'Ambientes', icon: BuildingIcon },
   { to: '/examenes', label: 'Exámenes', icon: ExamIcon },
-  { to: '/examenes/programar', label: 'Programar examen', icon: CalendarIcon },
 ];
 
 export default function Layout() {

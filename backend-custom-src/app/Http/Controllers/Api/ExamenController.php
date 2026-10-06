@@ -13,7 +13,12 @@ class ExamenController extends Controller
 {
     public function index(Request $request)
     {
-        return Examen::with(['materia', 'ambiente'])
+        return Examen::with([
+            'materia',
+            'ambiente',
+            // Normas generales del examen (las que no son de un estudiante en particular).
+            'normas' => fn ($q) => $q->whereNull('estudiante_id')->orderBy('id'),
+        ])
             ->when($request->query('fecha'), fn ($q, $v) => $q->whereDate('fecha', $v))
             ->when($request->query('materia_id'), fn ($q, $v) => $q->where('materia_id', $v))
             // Un examen cancelado deja de aparecer en la lista (el registro se

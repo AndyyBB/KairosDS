@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/client';
 import { primerError } from '../../api/errores';
@@ -20,6 +20,7 @@ export default function ExamenesList() {
   const [meta, setMeta] = useState({ last_page: 1, total: 0 });
   const [mensaje, setMensaje] = useMensajeFlash();
   const [fallo, setFallo] = useState('');
+  const [abierto, setAbierto] = useState(null); // examen con las normas desplegadas
 
   async function cargar(p = pagina) {
     const res = await api.get('/examenes', { params: { page: p } });
@@ -73,6 +74,7 @@ export default function ExamenesList() {
               <th className="px-4 py-2">Duración</th>
               <th className="px-4 py-2">Ambiente</th>
               <th className="px-4 py-2">Estado</th>
+              <th className="px-4 py-2">Normas</th>
               <th className="px-4 py-2"></th>
             </tr>
           </thead>
@@ -81,8 +83,11 @@ export default function ExamenesList() {
               // El estado se calcula con la fecha y hora reales del examen.
               const estado = ex.estado_actual || ex.estado;
               const cerrado = estado === 'finalizado' || estado === 'cancelado';
+              const normas = ex.normas ?? [];
+              const verNormas = abierto === ex.id;
               return (
-                <tr key={ex.id} className="border-t border-gray-100">
+                <Fragment key={ex.id}>
+                <tr className="border-t border-gray-100">
                   <td className="px-4 py-2">{ex.materia?.nombre}</td>
                   <td className="px-4 py-2">{fechaDMA(ex.fecha)}</td>
                   <td className="px-4 py-2">{horaHM(ex.hora_inicio)}</td>
@@ -90,6 +95,23 @@ export default function ExamenesList() {
                   <td className="px-4 py-2">{ex.ambiente?.nombre}</td>
                   <td className="px-4 py-2">
                     <span className={`text-xs px-2 py-1 rounded-full ${ESTADO_STYLES[estado] || ''}`}>{estado}</span>
+                  </td>
+                  <td className="px-4 py-2">
+                    {normas.length === 0 ? (
+                      <span className="text-xs text-gray-400">Sin normas</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setAbierto(verNormas ? null : ex.id)}
+                        aria-expanded={verNormas}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-kairos-700 hover:underline"
+                      >
+                        {verNormas ? 'Ocultar' : 'Ver normas'}
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={`transition-transform ${verNormas ? 'rotate-180' : ''}`}>
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      </button>
+                    )}
                   </td>
                   <td className="px-4 py-2 text-right">
                     <div className="inline-flex items-center gap-2">
@@ -117,6 +139,19 @@ export default function ExamenesList() {
                     </div>
                   </td>
                 </tr>
+                {verNormas && (
+                  <tr className="bg-kairos-50/40">
+                    <td colSpan={8} className="px-4 pb-3 pt-1">
+                      <p className="text-xs font-semibold text-gray-500 mb-1">Normas del examen</p>
+                      <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
+                        {normas.map((n) => (
+                          <li key={n.id} className="whitespace-pre-line">{n.descripcion}</li>
+                        ))}
+                      </ul>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               );
             })}
           </tbody>
