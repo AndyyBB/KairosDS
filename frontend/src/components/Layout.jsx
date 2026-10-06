@@ -1,13 +1,22 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../api/AuthContext';
 import KairosLogo from './KairosLogo';
+import {
+  HomeIcon,
+  StudentIcon,
+  BuildingIcon,
+  ExamIcon,
+  CalendarIcon,
+  UsersIcon,
+  LogoutIcon,
+} from './Iconos';
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Inicio', end: true },
-  { to: '/estudiantes', label: 'Estudiantes' },
-  { to: '/ambientes', label: 'Ambientes' },
-  { to: '/examenes', label: 'Examenes' },
-  { to: '/examenes/programar', label: 'Programar examen' },
+  { to: '/', label: 'Inicio', end: true, icon: HomeIcon },
+  { to: '/estudiantes', label: 'Estudiantes', icon: StudentIcon },
+  { to: '/ambientes', label: 'Ambientes', icon: BuildingIcon },
+  { to: '/examenes', label: 'Exámenes', icon: ExamIcon },
+  { to: '/examenes/programar', label: 'Programar examen', icon: CalendarIcon },
 ];
 
 export default function Layout() {
@@ -16,7 +25,7 @@ export default function Layout() {
 
   const esAdministrador = usuario?.rol?.nombre === 'administrador';
   const navItems = esAdministrador
-    ? [...NAV_ITEMS, { to: '/usuarios', label: 'Usuarios' }]
+    ? [...NAV_ITEMS, { to: '/usuarios', label: 'Usuarios', icon: UsersIcon }]
     : NAV_ITEMS;
 
   async function handleLogout() {
@@ -42,13 +51,14 @@ export default function Layout() {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `block px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-kairos-50 text-kairos-700'
                     : 'text-gray-600 hover:bg-gray-50'
                 }`
               }
             >
+              <item.icon size={18} />
               {item.label}
             </NavLink>
           ))}
@@ -59,9 +69,10 @@ export default function Layout() {
           <p className="text-xs text-gray-400 truncate">{usuario?.rol?.nombre}</p>
           <button
             onClick={handleLogout}
-            className="mt-3 w-full text-sm border border-gray-300 text-gray-700 rounded-lg py-1.5 hover:bg-gray-50"
+            className="mt-3 w-full flex items-center justify-center gap-2 text-sm border border-gray-300 text-gray-700 rounded-lg py-1.5 hover:bg-gray-50"
           >
-            Cerrar sesion
+            <LogoutIcon />
+            Cerrar sesión
           </button>
         </div>
       </aside>

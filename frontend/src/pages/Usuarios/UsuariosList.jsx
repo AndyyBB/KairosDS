@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../../api/client';
 import Paginacion from '../../components/Paginacion';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
+import { IconoTitulo, UsersIcon } from '../../components/Iconos';
 
 const POR_PAGINA = 20;
 
@@ -37,7 +38,8 @@ export default function UsuariosList() {
     <div>
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <div className="flex items-center justify-between mb-6">
-        <div>
+        <div className="flex items-center gap-3">
+          <IconoTitulo><UsersIcon size={22} /></IconoTitulo>
           <h1 className="text-2xl font-semibold text-gray-800">Usuarios</h1>
         </div>
         <Link to="/usuarios/nuevo" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm">

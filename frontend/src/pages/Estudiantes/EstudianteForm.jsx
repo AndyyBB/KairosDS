@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
 import { erroresCampos } from '../../api/errores';
+import { IconoTitulo, StudentIcon } from '../../components/Iconos';
 
 const initial = {
   codigo_universitario: '',
@@ -93,9 +94,12 @@ export default function EstudianteForm() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="text-2xl font-semibold text-gray-800 mb-6">
-        {editando ? 'Editar estudiante' : 'Registrar estudiante'}
-      </h1>
+      <div className="flex items-center gap-3 mb-6">
+        <IconoTitulo><StudentIcon size={22} /></IconoTitulo>
+        <h1 className="text-2xl font-semibold text-gray-800">
+          {editando ? 'Editar estudiante' : 'Registrar estudiante'}
+        </h1>
+      </div>
 
       <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
         <Campo label="Código universitario" error={errores.codigo_universitario}>

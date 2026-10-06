@@ -5,6 +5,7 @@ import { primerError } from '../../api/errores';
 import { fechaDMA, horaHM } from '../../api/formato';
 import Paginacion from '../../components/Paginacion';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
+import { IconoTitulo, ExamIcon } from '../../components/Iconos';
 
 const ESTADO_STYLES = {
   programado: 'bg-kairos-50 text-kairos-700',
@@ -53,7 +54,8 @@ export default function ExamenesList() {
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <Aviso mensaje={fallo} tipo="error" onCerrar={() => setFallo('')} />
       <div className="flex items-center justify-between mb-6">
-        <div>
+        <div className="flex items-center gap-3">
+          <IconoTitulo><ExamIcon size={22} /></IconoTitulo>
           <h1 className="text-2xl font-semibold text-gray-800">Exámenes</h1>
         </div>
         <Link to="/examenes/programar" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm">

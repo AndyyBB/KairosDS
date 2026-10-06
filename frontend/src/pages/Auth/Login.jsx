@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../api/AuthContext';
 import { primerError } from '../../api/errores';
 import KairosLogo from '../../components/KairosLogo';
+import { EyeIcon, EyeOffIcon } from '../../components/Iconos';
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [correo, setCorreo] = useState('');
   const [password, setPassword] = useState('');
+  const [verPassword, setVerPassword] = useState(false);
   const [error, setError] = useState(null);
   const [cargando, setCargando] = useState(false);
 
@@ -50,12 +52,25 @@ export default function Login() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Contraseña</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-kairos-400"
-            />
+            {/* HU-16 criterio 3: ojo siempre visible (también con autocompletado) para ver/ocultar la contraseña */}
+            <div className="relative">
+              <input
+                type={verPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-kairos-400"
+              />
+              <button
+                type="button"
+                onClick={() => setVerPassword((v) => !v)}
+                aria-label={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                title={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-kairos-600"
+              >
+                {verPassword ? <EyeOffIcon /> : <EyeIcon />}
+              </button>
+            </div>
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}

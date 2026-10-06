@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
 import { erroresCampos, primerError } from '../../api/errores';
+import { IconoTitulo, UserPlusIcon, EyeIcon, EyeOffIcon } from '../../components/Iconos';
 
 // HU-15: Registro de usuarios (crear y editar)
 export default function UsuarioForm() {
@@ -20,6 +21,7 @@ export default function UsuarioForm() {
   const [error, setError] = useState(null);
   const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
+  const [verPassword, setVerPassword] = useState(false);
 
   useEffect(() => {
     async function cargar() {
@@ -81,7 +83,10 @@ export default function UsuarioForm() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="text-2xl font-semibold text-gray-800 mb-1">{editando ? 'Editar usuario' : 'Registrar usuario'}</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <IconoTitulo><UserPlusIcon size={22} /></IconoTitulo>
+        <h1 className="text-2xl font-semibold text-gray-800">{editando ? 'Editar usuario' : 'Registrar usuario'}</h1>
+      </div>
 
       <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
         <div>
@@ -110,13 +115,25 @@ export default function UsuarioForm() {
           <label className="block text-sm font-medium text-gray-600 mb-1">
             {editando ? 'Nueva contraseña (opcional)' : 'Contraseña'}
           </label>
-          <input
-            type="password"
-            className="input"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            placeholder={editando ? 'Dejar en blanco para no cambiarla' : ''}
-          />
+          <div className="relative">
+            <input
+              type={verPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              className="input pr-10"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder={editando ? 'Dejar en blanco para no cambiarla' : ''}
+            />
+            <button
+              type="button"
+              onClick={() => setVerPassword((v) => !v)}
+              aria-label={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              title={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-kairos-600"
+            >
+              {verPassword ? <EyeOffIcon /> : <EyeIcon />}
+            </button>
+          </div>
           {errores.password && <p className="text-xs text-red-600 mt-1">{errores.password[0]}</p>}
         </div>
 

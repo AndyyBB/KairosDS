@@ -4,6 +4,7 @@ import api from '../../api/client';
 import { fechaDMA, horaHM } from '../../api/formato';
 import Paginacion from '../../components/Paginacion';
 import { primerError } from '../../api/errores';
+import { IconoTitulo, CheckBadgeIcon } from '../../components/Iconos';
 
 const POR_PAGINA = 20;
 
@@ -144,7 +145,10 @@ export default function HabilitarEstudiantes() {
 
   return (
     <div className="max-w-4xl">
-      <h1 className="text-2xl font-semibold text-gray-800">Habilitar estudiantes</h1>
+      <div className="flex items-center gap-3 mb-2">
+        <IconoTitulo><CheckBadgeIcon size={22} /></IconoTitulo>
+        <h1 className="text-2xl font-semibold text-gray-800">Habilitar estudiantes</h1>
+      </div>
       {examen && (
         <p className="text-gray-500 text-sm mb-4">
           {examen.materia?.nombre} · {fechaDMA(examen.fecha)} {horaHM(examen.hora_inicio)} · {examen.ambiente?.nombre}
