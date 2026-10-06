@@ -10,9 +10,9 @@ trait MensajesEstudiante
     {
         return [
             'codigo_universitario.required' => 'El campo Código universitario es obligatorio.',
-            'codigo_universitario.string' => 'El campo Código universitario tiene un límite de 15 caracteres alfanuméricos.',
-            'codigo_universitario.max' => 'El campo Código universitario tiene un límite de 15 caracteres alfanuméricos.',
-            'codigo_universitario.regex' => 'El campo Código universitario tiene un límite de 15 caracteres alfanuméricos.',
+            'codigo_universitario.string' => 'El código universitario solo contiene números.',
+            'codigo_universitario.max' => 'El campo Código universitario tiene un límite de 15 caracteres numéricos.',
+            'codigo_universitario.regex' => 'El código universitario solo contiene números.',
             'codigo_universitario.unique' => 'El código universitario ya está registrado.',
 
             'documento_identidad.required' => 'El campo Documento de identidad es obligatorio.',
@@ -31,9 +31,14 @@ trait MensajesEstudiante
             'correo_institucional.max' => 'El correo electrónico no es válido.',
             'correo_institucional.unique' => 'El correo electrónico ya está registrado.',
 
-            'carrera_id.required' => 'El campo Carrera es obligatorio.',
-            'carrera_id.integer' => 'El campo Carrera es obligatorio.',
-            'carrera_id.exists' => 'El campo Carrera es obligatorio.',
+            // Un estudiante puede pertenecer a mas de una carrera.
+            'carreras.required' => 'El campo Carrera es obligatorio.',
+            'carreras.array' => 'El campo Carrera es obligatorio.',
+            'carreras.min' => 'El campo Carrera es obligatorio.',
+            'carreras.*.required' => 'El campo Carrera es obligatorio.',
+            'carreras.*.integer' => 'El campo Carrera es obligatorio.',
+            'carreras.*.exists' => 'El campo Carrera es obligatorio.',
+            'carreras.*.distinct' => 'No se puede seleccionar dos veces la misma carrera.',
         ];
     }
 }

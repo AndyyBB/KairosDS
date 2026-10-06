@@ -7,13 +7,14 @@ use App\Http\Requests\StoreEstudianteRequest;
 use App\Http\Requests\UpdateEstudianteRequest;
 use App\Models\Estudiante;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class EstudianteController extends Controller
 {
     // HU-01: Registro de estudiantes
     public function index(Request $request)
     {
-        return Estudiante::with('carrera')
+        return Estudiante::with('carrera', 'carreras')
             ->when($request->query('buscar'), function ($q, $buscar) {
                 $q->where(function ($qq) use ($buscar) {
                     $qq->where('codigo_universitario', 'ilike', "%{$buscar}%")
@@ -28,22 +29,41 @@ class EstudianteController extends Controller
 
     public function store(StoreEstudianteRequest $request)
     {
-        $estudiante = Estudiante::create($request->validated());
+        $data = $request->validated();
+        $carreras = array_values($data['carreras']);
+        unset($data['carreras']);
 
-        return response()->json($estudiante->load('carrera'), 201);
+        $estudiante = DB::transaction(function () use ($data, $carreras) {
+            $estudiante = Estudiante::create([...$data, 'carrera_id' => $carreras[0]]);
+            $estudiante->carreras()->sync($carreras);
+
+            return $estudiante;
+        });
+
+        return response()->json($estudiante->load('carrera', 'carreras'), 201);
     }
 
     public function show(Estudiante $estudiante)
     {
-        return $estudiante->load('carrera', 'inscripciones.materia');
+        return $estudiante->load('carrera', 'carreras', 'inscripciones.materia');
     }
 
     // HU-06: Edicion de estudiantes
     public function update(UpdateEstudianteRequest $request, Estudiante $estudiante)
     {
-        $estudiante->update($request->validated());
+        $data = $request->validated();
+        $carreras = isset($data['carreras']) ? array_values($data['carreras']) : null;
+        unset($data['carreras']);
 
-        return $estudiante->load('carrera');
+        DB::transaction(function () use ($estudiante, $data, $carreras) {
+            if ($carreras) {
+                $data['carrera_id'] = $carreras[0];
+                $estudiante->carreras()->sync($carreras);
+            }
+            $estudiante->update($data);
+        });
+
+        return $estudiante->load('carrera', 'carreras');
     }
 
     // HU-07: Eliminacion de estudiantes (borrado logico, preserva historial de ingresos)

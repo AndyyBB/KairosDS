@@ -61,7 +61,7 @@ export default function EstudiantesList() {
             <tr>
               <th className="px-4 py-2">Código</th>
               <th className="px-4 py-2">Nombre</th>
-              <th className="px-4 py-2">Carrera</th>
+              <th className="px-4 py-2">Carreras</th>
               <th className="px-4 py-2">Correo</th>
               <th className="px-4 py-2"></th>
             </tr>
@@ -77,7 +77,7 @@ export default function EstudiantesList() {
               <tr key={e.id} className="border-t border-gray-100">
                 <td className="px-4 py-2">{e.codigo_universitario}</td>
                 <td className="px-4 py-2">{e.nombre_completo}</td>
-                <td className="px-4 py-2">{e.carrera?.nombre}</td>
+                <td className="px-4 py-2">{(e.carreras?.length ? e.carreras.map((c) => c.nombre) : [e.carrera?.nombre]).join(', ')}</td>
                 <td className="px-4 py-2 text-gray-500">{e.correo_institucional}</td>
                 <td className="px-4 py-2 text-right space-x-3">
                   <Link to={`/estudiantes/${e.id}/editar`} className="text-kairos-600 font-medium">

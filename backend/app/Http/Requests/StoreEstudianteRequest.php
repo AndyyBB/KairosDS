@@ -17,11 +17,12 @@ class StoreEstudianteRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'codigo_universitario' => ['bail', 'required', 'string', 'max:15', 'regex:/^[A-Za-z0-9]+$/', 'unique:estudiantes,codigo_universitario'],
+            'codigo_universitario' => ['bail', 'required', 'string', 'max:15', 'regex:/^[0-9]+$/', 'unique:estudiantes,codigo_universitario'],
             'documento_identidad' => ['bail', 'required', 'string', 'max:20', 'unique:estudiantes,documento_identidad'],
             'nombre_completo' => ['bail', 'required', 'string', 'max:100', 'regex:/^[\pL\s]+$/u'],
-            'correo_institucional' => ['bail', 'required', 'string', 'max:100', 'regex:/^[A-Za-z0-9]+@est\.umss\.edu$/i', 'unique:estudiantes,correo_institucional'],
-            'carrera_id' => ['bail', 'required', 'integer', 'exists:carreras,id'],
+            'correo_institucional' => ['bail', 'required', 'string', 'max:100', 'regex:/^[0-9]+@est\.umss\.edu$/i', 'unique:estudiantes,correo_institucional'],
+            'carreras' => ['bail', 'required', 'array', 'min:1'],
+            'carreras.*' => ['bail', 'required', 'integer', 'distinct', 'exists:carreras,id'],
         ];
     }
 

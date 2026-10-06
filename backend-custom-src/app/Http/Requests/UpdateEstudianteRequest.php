@@ -20,11 +20,12 @@ class UpdateEstudianteRequest extends FormRequest
         $id = $this->route('estudiante')?->id;
 
         return [
-            'codigo_universitario' => ['bail', 'sometimes', 'required', 'string', 'max:15', 'regex:/^[A-Za-z0-9]+$/', Rule::unique('estudiantes', 'codigo_universitario')->ignore($id)],
+            'codigo_universitario' => ['bail', 'sometimes', 'required', 'string', 'max:15', 'regex:/^[0-9]+$/', Rule::unique('estudiantes', 'codigo_universitario')->ignore($id)],
             'documento_identidad' => ['bail', 'sometimes', 'required', 'string', 'max:20', Rule::unique('estudiantes', 'documento_identidad')->ignore($id)],
             'nombre_completo' => ['bail', 'sometimes', 'required', 'string', 'max:100', 'regex:/^[\pL\s]+$/u'],
-            'correo_institucional' => ['bail', 'sometimes', 'required', 'string', 'max:100', 'regex:/^[A-Za-z0-9]+@est\.umss\.edu$/i', Rule::unique('estudiantes', 'correo_institucional')->ignore($id)],
-            'carrera_id' => ['bail', 'sometimes', 'required', 'integer', 'exists:carreras,id'],
+            'correo_institucional' => ['bail', 'sometimes', 'required', 'string', 'max:100', 'regex:/^[0-9]+@est\.umss\.edu$/i', Rule::unique('estudiantes', 'correo_institucional')->ignore($id)],
+            'carreras' => ['bail', 'sometimes', 'required', 'array', 'min:1'],
+            'carreras.*' => ['bail', 'required', 'integer', 'distinct', 'exists:carreras,id'],
             'activo' => ['sometimes', 'boolean'],
         ];
     }

@@ -8,7 +8,7 @@ const initial = {
   documento_identidad: '',
   nombre_completo: '',
   correo_institucional: '',
-  carrera_id: '',
+  carreras: [''],
 };
 
 export default function EstudianteForm() {
@@ -23,7 +23,10 @@ export default function EstudianteForm() {
   useEffect(() => {
     api.get('/carreras').then((res) => setCarreras(res.data));
     if (editando) {
-      api.get(`/estudiantes/${id}`).then((res) => setForm(res.data));
+      api.get(`/estudiantes/${id}`).then((res) => {
+        const ids = (res.data.carreras?.length ? res.data.carreras.map((c) => c.id) : [res.data.carrera_id]).map(String);
+        setForm({ ...res.data, carreras: ids });
+      });
     }
   }, [id, editando]);
 
@@ -31,15 +34,52 @@ export default function EstudianteForm() {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
+  // El correo institucional es CódigoUniversitario@est.umss.edu: mientras el
+  // usuario no lo haya cambiado a mano, se completa solo al escribir el código.
+  function cambiarCodigo(valor) {
+    setForm((f) => {
+      const anterior = f.codigo_universitario ? `${f.codigo_universitario}@est.umss.edu` : '';
+      const sigueAutomatico = f.correo_institucional === '' || f.correo_institucional === anterior;
+      return {
+        ...f,
+        codigo_universitario: valor,
+        correo_institucional: sigueAutomatico && valor ? `${valor}@est.umss.edu` : sigueAutomatico ? '' : f.correo_institucional,
+      };
+    });
+  }
+
+  // Un estudiante puede pertenecer a mas de una carrera.
+  function cambiarCarrera(indice, valor) {
+    setForm((f) => ({ ...f, carreras: f.carreras.map((c, i) => (i === indice ? valor : c)) }));
+  }
+
+  function agregarCarrera() {
+    setForm((f) => ({ ...f, carreras: [...f.carreras, ''] }));
+  }
+
+  function quitarCarrera(indice) {
+    setForm((f) => ({ ...f, carreras: f.carreras.filter((_, i) => i !== indice) }));
+  }
+
+  const errorCarrera = Object.entries(errores).find(([clave]) => clave.startsWith('carreras'))?.[1];
+  const hayCarrerasSinUsar = carreras.some((c) => !form.carreras.includes(String(c.id)));
+
   async function handleSubmit(e) {
     e.preventDefault();
     setGuardando(true);
     setErrores({});
+    const payload = {
+      codigo_universitario: form.codigo_universitario,
+      documento_identidad: form.documento_identidad,
+      nombre_completo: form.nombre_completo,
+      correo_institucional: form.correo_institucional,
+      carreras: form.carreras.filter(Boolean).map(Number),
+    };
     try {
       if (editando) {
-        await api.put(`/estudiantes/${id}`, form);
+        await api.put(`/estudiantes/${id}`, payload);
       } else {
-        await api.post('/estudiantes', form);
+        await api.post('/estudiantes', payload);
       }
       navigate('/estudiantes', {
         state: { mensaje: editando ? 'Estudiante actualizado con éxito.' : 'Estudiante registrado con éxito.' },
@@ -62,7 +102,8 @@ export default function EstudianteForm() {
           <input
             className="input"
             value={form.codigo_universitario}
-            onChange={(e) => set('codigo_universitario', e.target.value)}
+            inputMode="numeric"
+            onChange={(e) => cambiarCodigo(e.target.value)}
           />
         </Campo>
 
@@ -91,17 +132,45 @@ export default function EstudianteForm() {
           />
         </Campo>
 
-        <Campo label="Carrera" error={errores.carrera_id}>
-          <select
-            className="input"
-            value={form.carrera_id}
-            onChange={(e) => set('carrera_id', e.target.value)}
-          >
-            <option value="">Seleccione una carrera</option>
-            {carreras.map((c) => (
-              <option key={c.id} value={c.id}>{c.nombre}</option>
+        <Campo label="Carrera" error={errorCarrera}>
+          <div className="space-y-2">
+            {form.carreras.map((seleccionada, indice) => (
+              <div key={indice} className="flex items-center gap-2">
+                <select
+                  className="input"
+                  value={seleccionada}
+                  onChange={(e) => cambiarCarrera(indice, e.target.value)}
+                >
+                  <option value="">Seleccione una carrera</option>
+                  {carreras
+                    .filter((c) => String(c.id) === seleccionada || !form.carreras.includes(String(c.id)))
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>{c.nombre}</option>
+                    ))}
+                </select>
+                {form.carreras.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => quitarCarrera(indice)}
+                    aria-label="Quitar carrera"
+                    className="shrink-0 text-gray-400 hover:text-red-600 text-lg leading-none px-2"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             ))}
-          </select>
+          </div>
+          {hayCarrerasSinUsar && (
+            <button
+              type="button"
+              onClick={agregarCarrera}
+              className="mt-2 text-sm text-kairos-600 font-medium"
+            >
+              + Agregar otra carrera
+            </button>
+          )}
+          <p className="text-xs text-gray-400 mt-1">Un estudiante puede pertenecer a más de una carrera.</p>
         </Campo>
 
         <div className="flex justify-end gap-3 pt-2">
