@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/client';
+import { primerError } from '../../api/errores';
 import { fechaDMA, horaHM } from '../../api/formato';
 import Paginacion from '../../components/Paginacion';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
@@ -17,6 +18,7 @@ export default function ExamenesList() {
   const [pagina, setPagina] = useState(1);
   const [meta, setMeta] = useState({ last_page: 1, total: 0 });
   const [mensaje, setMensaje] = useMensajeFlash();
+  const [fallo, setFallo] = useState('');
 
   async function cargar(p = pagina) {
     const res = await api.get('/examenes', { params: { page: p } });
@@ -36,14 +38,20 @@ export default function ExamenesList() {
 
   async function handleCancelar(id) {
     if (!confirm('¿Cancelar este examen? Dejará de aparecer en la lista.')) return;
-    await api.delete(`/examenes/${id}`);
-    setMensaje('Examen cancelado.');
-    cargar(pagina);
+    setFallo('');
+    try {
+      await api.delete(`/examenes/${id}`);
+      setMensaje('Examen cancelado.');
+      await cargar(pagina);
+    } catch (err) {
+      setFallo(primerError(err, 'No se pudo cancelar el examen.'));
+    }
   }
 
   return (
     <div>
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
+      <Aviso mensaje={fallo} tipo="error" onCerrar={() => setFallo('')} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-800">Exámenes</h1>

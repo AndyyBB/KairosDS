@@ -28,7 +28,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('ambientes', AmbienteController::class);
 
     // HU-02, HU-08, HU-09
-    Route::apiResource('examenes', ExamenController::class);
+    // Laravel singulariza "examenes" como "examene"; se fuerza {examen} para que
+    // el controlador reciba el examen real (show, update y cancelar dependian de esto).
+    Route::apiResource('examenes', ExamenController::class)->parameters(['examenes' => 'examen']);
 
     // HU-04, HU-05
     Route::get('/examenes/{examen}/inscritos', [HabilitacionController::class, 'inscritos']);
