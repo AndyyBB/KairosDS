@@ -16,11 +16,14 @@ class ExamenController extends Controller
         return Examen::with(['materia', 'ambiente'])
             ->when($request->query('fecha'), fn ($q, $v) => $q->whereDate('fecha', $v))
             ->when($request->query('materia_id'), fn ($q, $v) => $q->where('materia_id', $v))
+            // Un examen cancelado deja de aparecer en la lista (el registro se
+            // conserva en la base de datos para no perder el historial).
+            ->when(! $request->boolean('incluir_cancelados'), fn ($q) => $q->where('estado', '!=', 'cancelado'))
             // Los mas recientes primero: asi el examen recien programado aparece
             // arriba y no queda escondido en una pagina posterior.
             ->orderByDesc('fecha')
             ->orderByDesc('hora_inicio')
-            ->paginate(min((int) $request->query('per_page', 15), 100));
+            ->paginate(min((int) $request->query('per_page', 20), 100));
     }
 
     // HU-02: Registro de examenes (Programar examen)

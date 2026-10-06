@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/client';
+import Paginacion from '../../components/Paginacion';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
+
+const POR_PAGINA = 20;
 
 // HU-15: Registro de usuarios
 export default function UsuariosList() {
   const [usuarios, setUsuarios] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [pagina, setPagina] = useState(1);
   const [mensaje, setMensaje] = useMensajeFlash();
 
   async function cargar() {
@@ -19,6 +23,9 @@ export default function UsuariosList() {
   useEffect(() => {
     cargar();
   }, []);
+
+  const ultima = Math.max(1, Math.ceil(usuarios.length / POR_PAGINA));
+  const visibles = usuarios.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
 
   async function handleDesactivar(id) {
     if (!confirm('¿Desactivar este usuario? No podrá iniciar sesión.')) return;
@@ -50,7 +57,7 @@ export default function UsuariosList() {
             </tr>
           </thead>
           <tbody>
-            {usuarios.map((u) => (
+            {visibles.map((u) => (
               <tr key={u.id} className="border-t border-gray-100">
                 <td className="px-4 py-2">{u.nombre_completo}</td>
                 <td className="px-4 py-2 text-gray-500">{u.correo_electronico}</td>
@@ -74,6 +81,8 @@ export default function UsuariosList() {
           </tbody>
         </table>
       </div>
+
+      <Paginacion pagina={pagina} ultima={ultima} total={usuarios.length} onCambiar={setPagina} />
     </div>
   );
 }

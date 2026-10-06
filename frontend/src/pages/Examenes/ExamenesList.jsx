@@ -20,6 +20,10 @@ export default function ExamenesList() {
 
   async function cargar(p = pagina) {
     const res = await api.get('/examenes', { params: { page: p } });
+    // Si se cancelo el ultimo examen de una pagina, se vuelve a la anterior.
+    if (p > 1 && (res.data.data ?? []).length === 0) {
+      return cargar(p - 1);
+    }
     setExamenes(res.data.data ?? res.data);
     setMeta({ last_page: res.data.last_page ?? 1, total: res.data.total ?? 0 });
     setPagina(res.data.current_page ?? p);
@@ -31,8 +35,9 @@ export default function ExamenesList() {
   }, []);
 
   async function handleCancelar(id) {
-    if (!confirm('¿Cancelar este examen?')) return;
+    if (!confirm('¿Cancelar este examen? Dejará de aparecer en la lista.')) return;
     await api.delete(`/examenes/${id}`);
+    setMensaje('Examen cancelado.');
     cargar(pagina);
   }
 
@@ -76,19 +81,30 @@ export default function ExamenesList() {
                   <td className="px-4 py-2">
                     <span className={`text-xs px-2 py-1 rounded-full ${ESTADO_STYLES[estado] || ''}`}>{estado}</span>
                   </td>
-                  <td className="px-4 py-2 text-right space-x-3">
-                    {cerrado ? (
-                      <span className="text-gray-300 cursor-not-allowed" title="El examen ya no admite habilitaciones">Habilitar</span>
-                    ) : (
-                      <Link to={`/examenes/${ex.id}/habilitar`} className="text-kairos-600 font-medium">Habilitar</Link>
-                    )}
-                    <button
-                      onClick={() => handleCancelar(ex.id)}
-                      disabled={estado === 'cancelado'}
-                      className={estado === 'cancelado' ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400'}
-                    >
-                      Cancelar
-                    </button>
+                  <td className="px-4 py-2 text-right">
+                    <div className="inline-flex items-center gap-2">
+                      {cerrado ? (
+                        <span
+                          title="El examen ya no admite habilitaciones"
+                          className="border border-gray-200 text-gray-300 rounded-lg px-3 py-1 text-xs font-medium cursor-not-allowed"
+                        >
+                          Habilitar
+                        </span>
+                      ) : (
+                        <Link
+                          to={`/examenes/${ex.id}/habilitar`}
+                          className="border border-kairos-600 text-kairos-700 hover:bg-kairos-50 rounded-lg px-3 py-1 text-xs font-medium"
+                        >
+                          Habilitar
+                        </Link>
+                      )}
+                      <button
+                        onClick={() => handleCancelar(ex.id)}
+                        className="border border-red-500 text-red-600 hover:bg-red-50 rounded-lg px-3 py-1 text-xs font-medium"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );

@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import api from '../../api/client';
 import { fechaDMA, horaHM } from '../../api/formato';
+import Paginacion from '../../components/Paginacion';
 import { primerError } from '../../api/errores';
+
+const POR_PAGINA = 20;
 
 // HU-04: Asociación de estudiantes habilitados a un examen
 export default function HabilitarEstudiantes() {
@@ -15,6 +18,7 @@ export default function HabilitarEstudiantes() {
   const [error, setError] = useState(null);
   const [erroresMotivo, setErroresMotivo] = useState({});
   const [exito, setExito] = useState(null);
+  const [pagina, setPagina] = useState(1);
 
   async function cargar() {
     setCargando(true);
@@ -56,7 +60,7 @@ export default function HabilitarEstudiantes() {
     setErroresMotivo((prev) => ({ ...prev, [estudianteId]: false }));
   }
 
-  function seleccionarTodos() {
+  function habilitarATodos() {
     setEstado((prev) => {
       const next = { ...prev };
       inscritos.forEach(({ estudiante }) => {
@@ -67,23 +71,11 @@ export default function HabilitarEstudiantes() {
     setErroresMotivo({});
   }
 
-  // "Deseleccionar todos" desmarca a todos los estudiantes a la vez, tal
-  // como pide el criterio de aceptacion: los deja sin decidir de nuevo,
-  // no los marca como No habilitado.
-  function deseleccionarTodos() {
-    setEstado((prev) => {
-      const next = { ...prev };
-      inscritos.forEach(({ estudiante }) => {
-        next[estudiante.id] = { habilitado: null, motivo: '' };
-      });
-      return next;
-    });
-    setErroresMotivo({});
-  }
-
   const totalHabilitados = inscritos.filter(({ estudiante }) => estado[estudiante.id]?.habilitado === true).length;
   const totalNoHabilitados = inscritos.filter(({ estudiante }) => estado[estudiante.id]?.habilitado === false).length;
   const cerrado = ['finalizado', 'cancelado'].includes(examen?.estado_actual);
+  const ultimaPagina = Math.max(1, Math.ceil(inscritos.length / POR_PAGINA));
+  const visibles = inscritos.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
   const totalSinDecidir = inscritos.length - totalHabilitados - totalNoHabilitados;
 
   async function guardar() {
@@ -102,8 +94,11 @@ export default function HabilitarEstudiantes() {
     });
 
     if (Object.keys(faltantes).length > 0) {
+      // Solo se muestra el mensaje junto a cada estudiante sin motivo.
       setErroresMotivo(faltantes);
-      setError('Motivo de inhabilitación es obligatorio');
+      setError(null);
+      const primerIndice = inscritos.findIndex(({ estudiante }) => faltantes[estudiante.id]);
+      setPagina(Math.floor(primerIndice / POR_PAGINA) + 1);
       return;
     }
 
@@ -163,14 +158,13 @@ export default function HabilitarEstudiantes() {
       {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
 
       <div className="flex items-center justify-between mb-3">
-        <div className="space-x-3">
-          <button onClick={seleccionarTodos} className="text-sm text-kairos-600 font-medium">
-            Seleccionar todos
-          </button>
-          <button onClick={deseleccionarTodos} className="text-sm text-gray-500">
-            Deseleccionar todos
-          </button>
-        </div>
+        <button
+          onClick={habilitarATodos}
+          disabled={cerrado}
+          className="border border-kairos-600 text-kairos-700 hover:bg-kairos-50 rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+        >
+          Habilitar a todos
+        </button>
         <p className="text-sm text-gray-500">
           {totalHabilitados} habilitados / {totalNoHabilitados} no habilitados
           {totalSinDecidir > 0 && ` / ${totalSinDecidir} sin decidir`}
@@ -188,7 +182,7 @@ export default function HabilitarEstudiantes() {
             </tr>
           </thead>
           <tbody>
-            {inscritos.map(({ estudiante }) => {
+            {visibles.map(({ estudiante }) => {
               const e = estado[estudiante.id] || { habilitado: null, motivo: '' };
               return (
                 <tr key={estudiante.id} className="border-t border-gray-100 align-top">
@@ -241,6 +235,8 @@ export default function HabilitarEstudiantes() {
           </tbody>
         </table>
       </div>
+
+      <Paginacion pagina={pagina} ultima={ultimaPagina} total={inscritos.length} onCambiar={setPagina} />
 
       <div className="flex justify-end gap-3 mt-4">
         <Link to="/examenes" className="text-sm text-gray-400 self-center">

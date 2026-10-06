@@ -14,6 +14,7 @@ trait MensajesUsuario
             'correo_electronico.required' => 'El campo Correo electrónico es obligatorio.',
             'correo_electronico.string' => 'El correo electrónico no es válido.',
             'correo_electronico.email' => 'El correo electrónico no es válido.',
+            'correo_electronico.regex' => 'El correo electrónico no es válido.',
             'correo_electronico.max' => 'El campo Correo electrónico tiene un límite de 100 caracteres.',
             'correo_electronico.unique' => 'Este correo electrónico ya está registrado.',
             'password.required' => 'El campo Contraseña es obligatorio.',

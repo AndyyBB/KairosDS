@@ -100,6 +100,7 @@ export default function UsuarioForm() {
             className="input"
             value={form.correo_electronico}
             onChange={(e) => setForm({ ...form, correo_electronico: e.target.value })}
+            placeholder="CódigoUniversitario@est.umss.edu"
             disabled={editando}
           />
           {errores.correo_electronico && <p className="text-xs text-red-600 mt-1">{errores.correo_electronico[0]}</p>}
