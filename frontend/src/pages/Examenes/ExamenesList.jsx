@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/client';
 import { fechaDMA, horaHM } from '../../api/formato';
+import Paginacion from '../../components/Paginacion';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
 
 const ESTADO_STYLES = {
@@ -13,21 +14,26 @@ const ESTADO_STYLES = {
 
 export default function ExamenesList() {
   const [examenes, setExamenes] = useState([]);
+  const [pagina, setPagina] = useState(1);
+  const [meta, setMeta] = useState({ last_page: 1, total: 0 });
   const [mensaje, setMensaje] = useMensajeFlash();
 
-  async function cargar() {
-    const res = await api.get('/examenes');
+  async function cargar(p = pagina) {
+    const res = await api.get('/examenes', { params: { page: p } });
     setExamenes(res.data.data ?? res.data);
+    setMeta({ last_page: res.data.last_page ?? 1, total: res.data.total ?? 0 });
+    setPagina(res.data.current_page ?? p);
   }
 
   useEffect(() => {
-    cargar();
+    cargar(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleCancelar(id) {
     if (!confirm('¿Cancelar este examen?')) return;
     await api.delete(`/examenes/${id}`);
-    cargar();
+    cargar(pagina);
   }
 
   return (
@@ -78,8 +84,8 @@ export default function ExamenesList() {
                     )}
                     <button
                       onClick={() => handleCancelar(ex.id)}
-                      disabled={cerrado}
-                      className={cerrado ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400'}
+                      disabled={estado === 'cancelado'}
+                      className={estado === 'cancelado' ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400'}
                     >
                       Cancelar
                     </button>
@@ -90,6 +96,8 @@ export default function ExamenesList() {
           </tbody>
         </table>
       </div>
+
+      <Paginacion pagina={pagina} ultima={meta.last_page} total={meta.total} onCambiar={cargar} />
     </div>
   );
 }

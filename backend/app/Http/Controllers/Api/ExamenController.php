@@ -16,9 +16,11 @@ class ExamenController extends Controller
         return Examen::with(['materia', 'ambiente'])
             ->when($request->query('fecha'), fn ($q, $v) => $q->whereDate('fecha', $v))
             ->when($request->query('materia_id'), fn ($q, $v) => $q->where('materia_id', $v))
-            ->orderBy('fecha')
-            ->orderBy('hora_inicio')
-            ->paginate(20);
+            // Los mas recientes primero: asi el examen recien programado aparece
+            // arriba y no queda escondido en una pagina posterior.
+            ->orderByDesc('fecha')
+            ->orderByDesc('hora_inicio')
+            ->paginate(min((int) $request->query('per_page', 15), 100));
     }
 
     // HU-02: Registro de examenes (Programar examen)

@@ -24,7 +24,7 @@ class EstudianteController extends Controller
             })
             ->when($request->boolean('solo_activos', true), fn ($q) => $q->where('activo', true))
             ->orderBy('nombre_completo')
-            ->paginate(20);
+            ->paginate(min((int) $request->query('per_page', 15), 100));
     }
 
     public function store(StoreEstudianteRequest $request)

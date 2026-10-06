@@ -1,30 +1,35 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/client';
+import Paginacion from '../../components/Paginacion';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
 
 export default function EstudiantesList() {
   const [estudiantes, setEstudiantes] = useState([]);
   const [buscar, setBuscar] = useState('');
   const [cargando, setCargando] = useState(true);
+  const [pagina, setPagina] = useState(1);
+  const [meta, setMeta] = useState({ last_page: 1, total: 0 });
   const [mensaje, setMensaje] = useMensajeFlash();
 
-  async function cargar() {
+  async function cargar(p = 1) {
     setCargando(true);
-    const res = await api.get('/estudiantes', { params: { buscar } });
+    const res = await api.get('/estudiantes', { params: { buscar, page: p } });
     setEstudiantes(res.data.data ?? res.data);
+    setMeta({ last_page: res.data.last_page ?? 1, total: res.data.total ?? 0 });
+    setPagina(res.data.current_page ?? p);
     setCargando(false);
   }
 
   useEffect(() => {
-    cargar();
+    cargar(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleDesactivar(id) {
     if (!confirm('¿Desactivar este estudiante? El historial de ingresos se conserva.')) return;
     await api.delete(`/estudiantes/${id}`);
-    cargar();
+    cargar(pagina);
   }
 
   return (
@@ -46,11 +51,11 @@ export default function EstudiantesList() {
         <input
           value={buscar}
           onChange={(e) => setBuscar(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && cargar()}
+          onKeyDown={(e) => e.key === 'Enter' && cargar(1)}
           placeholder="Buscar por código, documento o nombre..."
           className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
         />
-        <button onClick={cargar} className="border border-gray-300 rounded-lg px-4 text-sm text-gray-700">
+        <button onClick={() => cargar(1)} className="border border-gray-300 rounded-lg px-4 text-sm text-gray-700">
           Buscar
         </button>
       </div>
@@ -92,6 +97,8 @@ export default function EstudiantesList() {
           </tbody>
         </table>
       </div>
+
+      <Paginacion pagina={pagina} ultima={meta.last_page} total={meta.total} onCambiar={cargar} />
     </div>
   );
 }
