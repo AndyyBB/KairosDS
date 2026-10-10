@@ -3,6 +3,7 @@ import api from '../../api/client';
 import { erroresCampos } from '../../api/errores';
 import Aviso from '../../components/Aviso';
 import Paginacion from '../../components/Paginacion';
+import { useAuth } from '../../api/AuthContext';
 
 const initial = { nombre: '', capacidad_maxima: '', ubicacion: '' };
 const POR_PAGINA = 20;
@@ -10,6 +11,7 @@ const POR_PAGINA = 20;
 // HU-03: Registro de ambientes. El formulario se muestra sobre la lista y usa
 // el mismo estilo (iconos, tarjeta y botones) que "Programar examen".
 export default function AmbientesList() {
+  const { tiene } = useAuth();
   const [ambientes, setAmbientes] = useState([]);
   const [form, setForm] = useState(initial);
   const [errores, setErrores] = useState({});
@@ -77,12 +79,14 @@ export default function AmbientesList() {
           </div>
           <h1 className="text-2xl font-semibold text-gray-800">Ambientes</h1>
         </div>
-        <button
-          onClick={alternarForm}
-          className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm"
-        >
-          {mostrarForm ? 'Cerrar' : '+ Nuevo ambiente'}
-        </button>
+        {tiene('ambientes.registrar') && (
+          <button
+            onClick={alternarForm}
+            className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm"
+          >
+            {mostrarForm ? 'Cerrar' : '+ Nuevo ambiente'}
+          </button>
+        )}
       </div>
 
       {mostrarForm && (
@@ -156,7 +160,9 @@ export default function AmbientesList() {
                 <td className="px-4 py-2">{a.capacidad_maxima}</td>
                 <td className="px-4 py-2 text-gray-500">{a.ubicacion}</td>
                 <td className="px-4 py-2 text-right">
-                  <button onClick={() => handleDesactivar(a.id)} className="text-gray-400">Desactivar</button>
+                  {tiene('ambientes.eliminar') && (
+                    <button onClick={() => handleDesactivar(a.id)} className="text-gray-400">Desactivar</button>
+                  )}
                 </td>
               </tr>
             ))}

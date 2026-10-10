@@ -69,6 +69,16 @@ class HabilitacionController extends Controller
             ]);
         }
 
+        // HU-17: modificar una habilitacion ya registrada requiere el permiso "Editar";
+        // registrar una nueva requiere "Registrar".
+        $permisos = $request->user()->permisosDeSesion();
+        $yaRegistrada = Habilitacion::where('estudiante_id', $data['estudiante_id'])
+            ->where('examen_id', $examen->id)
+            ->exists();
+        if (! in_array($yaRegistrada ? 'habilitaciones.editar' : 'habilitaciones.registrar', $permisos, true)) {
+            return response()->json(['message' => 'No tiene permisos para realizar esta acción.'], 403);
+        }
+
         $habilitacion = Habilitacion::updateOrCreate(
             ['estudiante_id' => $data['estudiante_id'], 'examen_id' => $examen->id],
             [

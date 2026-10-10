@@ -4,8 +4,10 @@ import api from '../../api/client';
 import Paginacion from '../../components/Paginacion';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
 import { IconoTitulo, StudentIcon } from '../../components/Iconos';
+import { useAuth } from '../../api/AuthContext';
 
 export default function EstudiantesList() {
+  const { tiene } = useAuth();
   const [estudiantes, setEstudiantes] = useState([]);
   const [buscar, setBuscar] = useState('');
   const [cargando, setCargando] = useState(true);
@@ -41,12 +43,14 @@ export default function EstudiantesList() {
           <IconoTitulo><StudentIcon size={22} /></IconoTitulo>
           <h1 className="text-2xl font-semibold text-gray-800">Estudiantes</h1>
         </div>
-        <Link
-          to="/estudiantes/nuevo"
-          className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm"
-        >
-          Registrar estudiante
-        </Link>
+        {tiene('estudiantes.registrar') && (
+          <Link
+            to="/estudiantes/nuevo"
+            className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm"
+          >
+            Registrar estudiante
+          </Link>
+        )}
       </div>
 
       <div className="flex gap-2 mb-4">
@@ -87,12 +91,16 @@ export default function EstudiantesList() {
                 <td className="px-4 py-2">{(e.carreras?.length ? e.carreras.map((c) => c.nombre) : [e.carrera?.nombre]).join(', ')}</td>
                 <td className="px-4 py-2 text-gray-500">{e.correo_institucional}</td>
                 <td className="px-4 py-2 text-right space-x-3">
-                  <Link to={`/estudiantes/${e.id}/editar`} className="text-kairos-600 font-medium">
-                    Editar
-                  </Link>
-                  <button onClick={() => handleDesactivar(e.id)} className="text-gray-400">
-                    Desactivar
-                  </button>
+                  {tiene('estudiantes.editar') && (
+                    <Link to={`/estudiantes/${e.id}/editar`} className="text-kairos-600 font-medium">
+                      Editar
+                    </Link>
+                  )}
+                  {tiene('estudiantes.eliminar') && (
+                    <button onClick={() => handleDesactivar(e.id)} className="text-gray-400">
+                      Desactivar
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

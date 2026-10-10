@@ -6,6 +6,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class Usuario extends Authenticatable
 {
@@ -46,5 +47,39 @@ class Usuario extends Authenticatable
     public function rol(): BelongsTo
     {
         return $this->belongsTo(Role::class, 'rol_id');
+    }
+
+    public function esAdministrador(): bool
+    {
+        return $this->rol?->nombre === 'administrador';
+    }
+
+    // Permisos "modulo.accion" que el rol tiene en este momento en la base de datos.
+    // El administrador siempre tiene todos.
+    public function permisosCodigos(): array
+    {
+        if ($this->esAdministrador()) {
+            return Permiso::orderBy('id')->pluck('codigo')->all();
+        }
+
+        return $this->rol
+            ? $this->rol->permisos()->orderBy('permisos.id')->pluck('codigo')->all()
+            : [];
+    }
+
+    // HU-17: los permisos se guardan en el token al iniciar sesion, de modo que un
+    // cambio en el rol se aplica en el siguiente inicio de sesion del usuario.
+    // (Los tokens anteriores a esta funcionalidad no tienen marca de sesion y
+    // usan los permisos vigentes del rol.)
+    public function permisosDeSesion(): array
+    {
+        $token = $this->currentAccessToken();
+        $habilidades = $token instanceof PersonalAccessToken ? ($token->abilities ?? []) : [];
+
+        if (in_array('sesion', $habilidades, true)) {
+            return array_values(array_diff($habilidades, ['sesion']));
+        }
+
+        return $this->permisosCodigos();
     }
 }

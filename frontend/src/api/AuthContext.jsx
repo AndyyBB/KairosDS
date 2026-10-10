@@ -37,8 +37,15 @@ export function AuthProvider({ children }) {
     setUsuario(null);
   }
 
+  // HU-17: permisos "modulo.accion" que el rol tenia al iniciar sesion.
+  function tiene(permiso) {
+    return !!usuario?.permisos?.includes(permiso);
+  }
+
+  const esAdministrador = usuario?.rol?.nombre === 'administrador';
+
   return (
-    <AuthContext.Provider value={{ usuario, cargando, login, logout }}>
+    <AuthContext.Provider value={{ usuario, cargando, login, logout, tiene, esAdministrador }}>
       {children}
     </AuthContext.Provider>
   );

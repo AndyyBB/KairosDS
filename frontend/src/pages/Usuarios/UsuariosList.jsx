@@ -4,11 +4,13 @@ import api from '../../api/client';
 import Paginacion from '../../components/Paginacion';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
 import { IconoTitulo, UsersIcon } from '../../components/Iconos';
+import { useAuth } from '../../api/AuthContext';
 
 const POR_PAGINA = 20;
 
 // HU-15: Registro de usuarios
 export default function UsuariosList() {
+  const { tiene } = useAuth();
   const [usuarios, setUsuarios] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [pagina, setPagina] = useState(1);
@@ -42,9 +44,11 @@ export default function UsuariosList() {
           <IconoTitulo><UsersIcon size={22} /></IconoTitulo>
           <h1 className="text-2xl font-semibold text-gray-800">Usuarios</h1>
         </div>
-        <Link to="/usuarios/nuevo" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm">
-          Registrar usuario
-        </Link>
+        {tiene('usuarios.registrar') && (
+          <Link to="/usuarios/nuevo" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm">
+            Registrar usuario
+          </Link>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -70,8 +74,10 @@ export default function UsuariosList() {
                   </span>
                 </td>
                 <td className="px-4 py-2 text-right space-x-3">
-                  <Link to={`/usuarios/${u.id}/editar`} className="text-kairos-600 font-medium">Editar</Link>
-                  {u.activo && (
+                  {tiene('usuarios.editar') && (
+                    <Link to={`/usuarios/${u.id}/editar`} className="text-kairos-600 font-medium">Editar</Link>
+                  )}
+                  {u.activo && tiene('usuarios.eliminar') && (
                     <button onClick={() => handleDesactivar(u.id)} className="text-gray-400">Desactivar</button>
                   )}
                 </td>

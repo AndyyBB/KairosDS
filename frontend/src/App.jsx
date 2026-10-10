@@ -11,6 +11,9 @@ import ProgramarExamen from './pages/Examenes/ProgramarExamen';
 import HabilitarEstudiantes from './pages/Habilitaciones/HabilitarEstudiantes';
 import UsuariosList from './pages/Usuarios/UsuariosList';
 import UsuarioForm from './pages/Usuarios/UsuarioForm';
+import ControlIngreso from './pages/ControlIngreso/ControlIngreso';
+import RolesPermisos from './pages/Roles/RolesPermisos';
+import RutaPermiso from './components/RutaPermiso';
 
 export default function App() {
   return (
@@ -26,16 +29,18 @@ export default function App() {
         }
       >
         <Route index element={<Home />} />
-        <Route path="estudiantes" element={<EstudiantesList />} />
-        <Route path="estudiantes/nuevo" element={<EstudianteForm />} />
-        <Route path="estudiantes/:id/editar" element={<EstudianteForm />} />
-        <Route path="ambientes" element={<AmbientesList />} />
-        <Route path="examenes" element={<ExamenesList />} />
-        <Route path="examenes/programar" element={<ProgramarExamen />} />
-        <Route path="examenes/:examenId/habilitar" element={<HabilitarEstudiantes />} />
-        <Route path="usuarios" element={<UsuariosList />} />
-        <Route path="usuarios/nuevo" element={<UsuarioForm />} />
-        <Route path="usuarios/:id/editar" element={<UsuarioForm />} />
+        <Route path="estudiantes" element={<RutaPermiso permiso="estudiantes.ver"><EstudiantesList /></RutaPermiso>} />
+        <Route path="estudiantes/nuevo" element={<RutaPermiso permiso="estudiantes.registrar"><EstudianteForm /></RutaPermiso>} />
+        <Route path="estudiantes/:id/editar" element={<RutaPermiso permiso="estudiantes.editar"><EstudianteForm /></RutaPermiso>} />
+        <Route path="ambientes" element={<RutaPermiso permiso="ambientes.ver"><AmbientesList /></RutaPermiso>} />
+        <Route path="examenes" element={<RutaPermiso permiso="examenes.ver"><ExamenesList /></RutaPermiso>} />
+        <Route path="examenes/programar" element={<RutaPermiso permiso="examenes.registrar"><ProgramarExamen /></RutaPermiso>} />
+        <Route path="examenes/:examenId/habilitar" element={<RutaPermiso permiso="habilitaciones.ver"><HabilitarEstudiantes /></RutaPermiso>} />
+        <Route path="control-ingreso" element={<RutaPermiso permiso="control_ingreso.ver"><ControlIngreso /></RutaPermiso>} />
+        <Route path="usuarios" element={<RutaPermiso permiso="usuarios.ver"><UsuariosList /></RutaPermiso>} />
+        <Route path="usuarios/nuevo" element={<RutaPermiso permiso="usuarios.registrar"><UsuarioForm /></RutaPermiso>} />
+        <Route path="usuarios/:id/editar" element={<RutaPermiso permiso="usuarios.editar"><UsuarioForm /></RutaPermiso>} />
+        <Route path="roles-permisos" element={<RutaPermiso soloAdmin><RolesPermisos /></RutaPermiso>} />
       </Route>
     </Routes>
   );

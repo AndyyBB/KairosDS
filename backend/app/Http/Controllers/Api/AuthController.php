@@ -41,11 +41,15 @@ class AuthController extends Controller
             'ultimo_acceso' => now(),
         ]);
 
-        $token = $usuario->createToken('kairos-web')->plainTextToken;
+        // HU-17: los permisos del rol quedan fijados en el token de esta sesion.
+        $usuario->load('rol');
+        $permisos = $usuario->permisosCodigos();
+        $token = $usuario->createToken('kairos-web', array_merge(['sesion'], $permisos))->plainTextToken;
+        $usuario->setAttribute('permisos', $permisos);
 
         return response()->json([
             'token' => $token,
-            'usuario' => $usuario->load('rol'),
+            'usuario' => $usuario,
         ]);
     }
 
@@ -58,6 +62,9 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return response()->json($request->user()->load('rol'));
+        $usuario = $request->user()->load('rol');
+        $usuario->setAttribute('permisos', $usuario->permisosDeSesion());
+
+        return response()->json($usuario);
     }
 }

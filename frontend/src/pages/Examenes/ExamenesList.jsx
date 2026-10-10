@@ -6,6 +6,7 @@ import { fechaDMA, horaHM } from '../../api/formato';
 import Paginacion from '../../components/Paginacion';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
 import { IconoTitulo, ExamIcon } from '../../components/Iconos';
+import { useAuth } from '../../api/AuthContext';
 
 const ESTADO_STYLES = {
   programado: 'bg-kairos-50 text-kairos-700',
@@ -15,6 +16,7 @@ const ESTADO_STYLES = {
 };
 
 export default function ExamenesList() {
+  const { tiene } = useAuth();
   const [examenes, setExamenes] = useState([]);
   const [pagina, setPagina] = useState(1);
   const [meta, setMeta] = useState({ last_page: 1, total: 0 });
@@ -59,9 +61,11 @@ export default function ExamenesList() {
           <IconoTitulo><ExamIcon size={22} /></IconoTitulo>
           <h1 className="text-2xl font-semibold text-gray-800">Exámenes</h1>
         </div>
-        <Link to="/examenes/programar" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm">
-          Programar examen
-        </Link>
+        {tiene('examenes.registrar') && (
+          <Link to="/examenes/programar" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm">
+            Programar examen
+          </Link>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -117,7 +121,7 @@ export default function ExamenesList() {
                   </td>
                   <td className="px-4 py-2 text-right">
                     <div className="inline-flex items-center gap-2">
-                      {cerrado ? (
+                      {!tiene('habilitaciones.ver') ? null : cerrado ? (
                         <span
                           title="El examen ya no admite habilitaciones"
                           className="border border-gray-200 text-gray-300 rounded-lg px-3 py-1 text-xs font-medium cursor-not-allowed"
@@ -132,12 +136,14 @@ export default function ExamenesList() {
                           Habilitar
                         </Link>
                       )}
-                      <button
-                        onClick={() => handleCancelar(ex.id)}
-                        className="border border-red-500 text-red-600 hover:bg-red-50 rounded-lg px-3 py-1 text-xs font-medium"
-                      >
-                        Cancelar
-                      </button>
+                      {tiene('examenes.eliminar') && (
+                        <button
+                          onClick={() => handleCancelar(ex.id)}
+                          className="border border-red-500 text-red-600 hover:bg-red-50 rounded-lg px-3 py-1 text-xs font-medium"
+                        >
+                          Cancelar
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

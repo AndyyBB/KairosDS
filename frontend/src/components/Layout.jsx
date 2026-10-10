@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../api/AuthContext';
 import KairosLogo from './KairosLogo';
 import {
@@ -6,25 +6,34 @@ import {
   StudentIcon,
   BuildingIcon,
   ExamIcon,
+  CalendarIcon,
+  ClipboardCheckIcon,
+  ShieldIcon,
   UsersIcon,
   LogoutIcon,
 } from './Iconos';
 
+// HU-17 (10): el menu lateral muestra solo los modulos que el rol tiene permitido ver.
 const NAV_ITEMS = [
-  { to: '/', label: 'Inicio', end: true, icon: HomeIcon },
-  { to: '/estudiantes', label: 'Estudiantes', icon: StudentIcon },
-  { to: '/ambientes', label: 'Ambientes', icon: BuildingIcon },
-  { to: '/examenes', label: 'Exámenes', icon: ExamIcon },
+  { to: '/', label: 'Inicio', icon: HomeIcon, activo: (p) => p === '/' },
+  { to: '/estudiantes', label: 'Estudiantes', icon: StudentIcon, permiso: 'estudiantes.ver', activo: (p) => p.startsWith('/estudiantes') },
+  { to: '/ambientes', label: 'Ambientes', icon: BuildingIcon, permiso: 'ambientes.ver', activo: (p) => p.startsWith('/ambientes') },
+  { to: '/examenes', label: 'Exámenes', icon: ExamIcon, permiso: 'examenes.ver', activo: (p) => p.startsWith('/examenes') && p !== '/examenes/programar' },
+  { to: '/examenes/programar', label: 'Programar examen', icon: CalendarIcon, permiso: 'examenes.registrar', activo: (p) => p === '/examenes/programar' },
+  { to: '/control-ingreso', label: 'Control de ingreso', icon: ClipboardCheckIcon, permiso: 'control_ingreso.ver', activo: (p) => p.startsWith('/control-ingreso') },
+  { to: '/usuarios', label: 'Usuarios', icon: UsersIcon, permiso: 'usuarios.ver', activo: (p) => p.startsWith('/usuarios') },
+  { to: '/roles-permisos', label: 'Roles y permisos', icon: ShieldIcon, soloAdmin: true, activo: (p) => p.startsWith('/roles-permisos') },
 ];
 
 export default function Layout() {
-  const { usuario, logout } = useAuth();
+  const { usuario, logout, tiene, esAdministrador } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
-  const esAdministrador = usuario?.rol?.nombre === 'administrador';
-  const navItems = esAdministrador
-    ? [...NAV_ITEMS, { to: '/usuarios', label: 'Usuarios', icon: UsersIcon }]
-    : NAV_ITEMS;
+  const navItems = NAV_ITEMS.filter((item) => {
+    if (item.soloAdmin) return esAdministrador;
+    return !item.permiso || tiene(item.permiso);
+  });
 
   async function handleLogout() {
     await logout();
@@ -47,14 +56,11 @@ export default function Layout() {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-kairos-50 text-kairos-700'
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`
-              }
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                item.activo(pathname)
+                  ? 'bg-kairos-50 text-kairos-700'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
             >
               <item.icon size={18} />
               {item.label}

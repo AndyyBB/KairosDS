@@ -12,7 +12,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        // HU-17: control de acceso por permisos y por rol.
+        $middleware->alias([
+            'permiso' => \App\Http\Middleware\VerificarPermiso::class,
+            'rol' => \App\Http\Middleware\VerificarRol::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
