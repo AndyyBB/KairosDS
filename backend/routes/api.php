@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\ControlIngresoController;
 use App\Http\Controllers\Api\EstudianteController;
 use App\Http\Controllers\Api\ExamenController;
 use App\Http\Controllers\Api\HabilitacionController;
+use App\Http\Controllers\Api\InscripcionController;
 use App\Http\Controllers\Api\MateriaController;
 use App\Http\Controllers\Api\MotivoInhabilitacionController;
 use App\Http\Controllers\Api\PermisoController;
@@ -47,6 +48,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/examenes/{examen}/habilitaciones', [HabilitacionController::class, 'index'])->middleware('permiso:habilitaciones.ver');
     Route::post('/examenes/{examen}/habilitaciones', [HabilitacionController::class, 'store'])->middleware('permiso:habilitaciones.registrar,habilitaciones.editar');
     Route::get('/examenes/{examen}/habilitaciones/{estudianteId}', [HabilitacionController::class, 'show'])->middleware('permiso:habilitaciones.ver');
+
+    // Inscripcion de estudiantes en la materia del examen (requisito previo de HU-04).
+    Route::get('/examenes/{examen}/inscripciones', [InscripcionController::class, 'index'])->middleware('permiso:habilitaciones.ver');
+    Route::post('/examenes/{examen}/inscripciones', [InscripcionController::class, 'store'])->middleware('permiso:habilitaciones.registrar');
+    Route::delete('/examenes/{examen}/inscripciones/{estudiante}', [InscripcionController::class, 'destroy'])->middleware('permiso:habilitaciones.editar');
 
     Route::get('/motivos-inhabilitacion', [MotivoInhabilitacionController::class, 'index'])->middleware('permiso:habilitaciones.ver');
     Route::post('/motivos-inhabilitacion', [MotivoInhabilitacionController::class, 'store'])->middleware('permiso:habilitaciones.registrar');

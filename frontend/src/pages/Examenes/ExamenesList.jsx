@@ -124,16 +124,16 @@ export default function ExamenesList() {
                       {!tiene('habilitaciones.ver') ? null : cerrado ? (
                         <span
                           title="El examen ya no admite habilitaciones"
-                          className="border border-gray-200 text-gray-300 rounded-lg px-3 py-1 text-xs font-medium cursor-not-allowed"
+                          className="border border-gray-200 text-gray-300 rounded-lg px-3 py-1 text-xs font-medium cursor-not-allowed whitespace-nowrap"
                         >
-                          Habilitar
+                          Habilitar estudiantes
                         </span>
                       ) : (
                         <Link
                           to={`/examenes/${ex.id}/habilitar`}
-                          className="border border-kairos-600 text-kairos-700 hover:bg-kairos-50 rounded-lg px-3 py-1 text-xs font-medium"
+                          className="border border-kairos-600 text-kairos-700 hover:bg-kairos-50 rounded-lg px-3 py-1 text-xs font-medium whitespace-nowrap"
                         >
-                          Habilitar
+                          Habilitar estudiantes
                         </Link>
                       )}
                       {tiene('examenes.eliminar') && (

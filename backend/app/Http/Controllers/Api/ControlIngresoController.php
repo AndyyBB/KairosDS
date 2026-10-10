@@ -9,7 +9,7 @@ use App\Models\Estudiante;
 use App\Models\Examen;
 use App\Models\Habilitacion;
 use App\Models\Ingreso;
-use App\Models\Inscripcion;
+use App\Models\InscripcionExamen;
 use App\Models\IntentoIngreso;
 use App\Models\MetodoVerificacion;
 use Carbon\Carbon;
@@ -256,9 +256,8 @@ class ControlIngresoController extends Controller
     // Devuelve [estado, habilitacion]: habilitado | no_habilitado | no_inscrito.
     private function estadoDeHabilitacion(Examen $examen, Estudiante $estudiante): array
     {
-        $inscrito = Inscripcion::where('estudiante_id', $estudiante->id)
-            ->where('materia_id', $examen->materia_id)
-            ->where('activo', true)
+        $inscrito = InscripcionExamen::where('estudiante_id', $estudiante->id)
+            ->where('examen_id', $examen->id)
             ->exists();
 
         if (! $inscrito) {

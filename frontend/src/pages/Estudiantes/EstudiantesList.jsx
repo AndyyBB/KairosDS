@@ -71,6 +71,7 @@ export default function EstudiantesList() {
           <thead className="bg-gray-50 text-gray-500 text-left">
             <tr>
               <th className="px-4 py-2">Código</th>
+              <th className="px-4 py-2">Documento</th>
               <th className="px-4 py-2">Nombre</th>
               <th className="px-4 py-2">Carreras</th>
               <th className="px-4 py-2">Correo</th>
@@ -79,14 +80,15 @@ export default function EstudiantesList() {
           </thead>
           <tbody>
             {cargando && (
-              <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400">Cargando...</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">Cargando...</td></tr>
             )}
             {!cargando && estudiantes.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400">Sin resultados.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">Sin resultados.</td></tr>
             )}
             {estudiantes.map((e) => (
               <tr key={e.id} className="border-t border-gray-100">
                 <td className="px-4 py-2">{e.codigo_universitario}</td>
+                <td className="px-4 py-2">{e.documento_identidad}</td>
                 <td className="px-4 py-2">{e.nombre_completo}</td>
                 <td className="px-4 py-2">{(e.carreras?.length ? e.carreras.map((c) => c.nombre) : [e.carrera?.nombre]).join(', ')}</td>
                 <td className="px-4 py-2 text-gray-500">{e.correo_institucional}</td>

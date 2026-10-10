@@ -82,6 +82,11 @@ class Examen extends Model
         return $this->hasMany(NormaExamen::class, 'examen_id');
     }
 
+    public function inscripciones(): HasMany
+    {
+        return $this->hasMany(InscripcionExamen::class, 'examen_id');
+    }
+
     public function habilitaciones(): HasMany
     {
         return $this->hasMany(Habilitacion::class, 'examen_id');

@@ -7,7 +7,7 @@ use App\Http\Requests\StoreHabilitacionRequest;
 use App\Models\Estudiante;
 use App\Models\Examen;
 use App\Models\Habilitacion;
-use App\Models\Inscripcion;
+use App\Models\InscripcionExamen;
 use Illuminate\Validation\ValidationException;
 
 class HabilitacionController extends Controller
@@ -18,17 +18,13 @@ class HabilitacionController extends Controller
         return $examen->habilitaciones()->with(['estudiante', 'motivo'])->get();
     }
 
-    // Estudiantes inscritos en la materia del examen, con su estado de
-    // habilitacion actual (o null si aun no se registro). Alimenta la
-    // pantalla de HU-04 / HU-05 para que el personal elija de una lista
-    // en vez de teclear codigos a ciegas.
+    // Estudiantes inscritos en el examen (ver "Inscribir estudiantes"), con su estado de
+    // habilitacion actual. Alimenta la pantalla de HU-04 / HU-05.
     public function inscritos(Examen $examen)
     {
         $estudiantes = Estudiante::query()
             ->where('activo', true)
-            ->whereHas('inscripciones', function ($q) use ($examen) {
-                $q->where('materia_id', $examen->materia_id)->where('activo', true);
-            })
+            ->whereIn('id', InscripcionExamen::where('examen_id', $examen->id)->select('estudiante_id'))
             ->with('carrera')
             ->orderBy('nombre_completo')
             ->get();
@@ -56,16 +52,14 @@ class HabilitacionController extends Controller
             ]);
         }
 
-        // Regla de negocio (HU-04 / HU-26): el estudiante debe estar inscrito en la
-        // materia del examen para poder ser habilitado.
-        $inscrito = Inscripcion::where('estudiante_id', $data['estudiante_id'])
-            ->where('materia_id', $examen->materia_id)
-            ->where('activo', true)
+        // Regla de negocio (HU-04 / HU-26): el estudiante debe estar inscrito en el examen.
+        $inscrito = InscripcionExamen::where('estudiante_id', $data['estudiante_id'])
+            ->where('examen_id', $examen->id)
             ->exists();
 
         if (! $inscrito) {
             throw ValidationException::withMessages([
-                'estudiante_id' => 'El estudiante no está inscrito en la materia de este examen.',
+                'estudiante_id' => 'El estudiante no está inscrito en este examen.',
             ]);
         }
 

@@ -4,13 +4,16 @@ import api from '../../api/client';
 import { fechaDMA, horaHM } from '../../api/formato';
 import Paginacion from '../../components/Paginacion';
 import { primerError } from '../../api/errores';
+import { useAuth } from '../../api/AuthContext';
 import { IconoTitulo, CheckBadgeIcon } from '../../components/Iconos';
+import ModalInscribir from './ModalInscribir';
 
 const POR_PAGINA = 20;
 
 // HU-04: Asociación de estudiantes habilitados a un examen
 export default function HabilitarEstudiantes() {
   const { examenId } = useParams();
+  const { tiene } = useAuth();
   const [examen, setExamen] = useState(null);
   const [inscritos, setInscritos] = useState([]);
   const [estado, setEstado] = useState({});
@@ -20,6 +23,7 @@ export default function HabilitarEstudiantes() {
   const [erroresMotivo, setErroresMotivo] = useState({});
   const [exito, setExito] = useState(null);
   const [pagina, setPagina] = useState(1);
+  const [inscribiendo, setInscribiendo] = useState(false);
 
   async function cargar() {
     setCargando(true);
@@ -162,6 +166,16 @@ export default function HabilitarEstudiantes() {
       {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
 
       <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+        {tiene('habilitaciones.registrar') && !cerrado && (
+          <button
+            type="button"
+            onClick={() => setInscribiendo(true)}
+            className="border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg px-3 py-1.5 text-sm font-medium"
+          >
+            Inscribir estudiantes
+          </button>
+        )}
         <button
           onClick={habilitarATodos}
           disabled={cerrado}
@@ -169,6 +183,7 @@ export default function HabilitarEstudiantes() {
         >
           Habilitar a todos
         </button>
+        </div>
         <p className="text-sm text-gray-500">
           {totalHabilitados} habilitados / {totalNoHabilitados} no habilitados
           {totalSinDecidir > 0 && ` / ${totalSinDecidir} sin decidir`}
@@ -232,7 +247,15 @@ export default function HabilitarEstudiantes() {
             {!cargando && inscritos.length === 0 && (
               <tr>
                 <td colSpan={4} className="px-4 py-6 text-center text-gray-400">
-                  Ningun estudiante esta inscrito en esta materia.
+                  Ningún estudiante está inscrito en este examen.
+                  {tiene('habilitaciones.registrar') && !cerrado && (
+                    <>
+                      {' '}
+                      <button type="button" onClick={() => setInscribiendo(true)} className="text-kairos-600 font-medium">
+                        Inscribir estudiantes
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             )}
@@ -254,6 +277,17 @@ export default function HabilitarEstudiantes() {
           Guardar habilitaciones
         </button>
       </div>
+
+      {inscribiendo && (
+        <ModalInscribir
+          examenId={examenId}
+          cerrado={cerrado}
+          onCerrar={(huboCambios) => {
+            setInscribiendo(false);
+            if (huboCambios) cargar();
+          }}
+        />
+      )}
     </div>
   );
 }
