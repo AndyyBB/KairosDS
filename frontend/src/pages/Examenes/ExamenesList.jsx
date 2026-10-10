@@ -56,20 +56,20 @@ export default function ExamenesList() {
     <div>
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <Aviso mensaje={fallo} tipo="error" onCerrar={() => setFallo('')} />
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
           <IconoTitulo><ExamIcon size={22} /></IconoTitulo>
           <h1 className="text-2xl font-semibold text-gray-800">Exámenes</h1>
         </div>
         {tiene('examenes.registrar') && (
-          <Link to="/examenes/programar" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm">
+          <Link to="/examenes/programar" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm whitespace-nowrap">
             Programar examen
           </Link>
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+        <table className="w-full min-w-[940px] text-sm">
           <thead className="bg-gray-50 text-gray-500 text-left">
             <tr>
               <th className="px-4 py-2">Materia</th>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RegistrarIngresoRequest;
 use App\Http\Requests\VerificarIdentidadRequest;
+use App\Models\Ambiente;
 use App\Models\Estudiante;
 use App\Models\Examen;
 use App\Models\Habilitacion;
@@ -207,7 +208,15 @@ class ControlIngresoController extends Controller
         return response()->json($intentos);
     }
 
-    // HU-12 (9): solo el administrador puede modificar un registro de ingreso.
+    // Ambientes disponibles para corregir el ambiente de un ingreso.
+    public function ambientes()
+    {
+        return Ambiente::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']);
+    }
+
+    // HU-12 (9): solo quien tiene el permiso "Editar - Control de ingreso" (el
+    // administrador y los roles a los que el administrador se lo otorga) puede modificar
+    // un registro de ingreso. Se corrige el ambiente donde se registro.
     public function actualizarIngreso(Request $request, Ingreso $ingreso)
     {
         $data = $request->validate([
@@ -217,16 +226,35 @@ class ControlIngresoController extends Controller
             'ambiente_id.exists' => 'El ambiente no existe.',
         ]);
 
-        $ingreso->update($data);
+        $examen = $ingreso->habilitacion?->examen()->with(['ambientes'])->first();
+        $permitidos = $examen
+            ? $examen->ambientes->pluck('id')->push($examen->ambiente_id)->filter()->unique()
+            : collect();
 
-        return response()->json($ingreso->load(['ambiente', 'usuario']));
+        $ingreso->update([
+            'ambiente_id' => $data['ambiente_id'],
+            'ambiente_correcto' => $permitidos->contains((int) $data['ambiente_id']),
+        ]);
+
+        return response()->json([
+            'message' => 'Ingreso actualizado con éxito.',
+            'ingreso' => $ingreso->load(['ambiente', 'usuario']),
+        ]);
     }
 
     public function eliminarIngreso(Ingreso $ingreso)
     {
-        $ingreso->delete();
+        try {
+            $ingreso->delete();
+        } catch (QueryException $e) {
+            // El ingreso tiene una expulsion asociada: no se puede borrar.
+            if (($e->errorInfo[0] ?? $e->getCode()) == '23503') {
+                return response()->json(['message' => 'No se puede eliminar un ingreso con una expulsión registrada.'], 409);
+            }
+            throw $e;
+        }
 
-        return response()->json(['message' => 'Ingreso eliminado.']);
+        return response()->json(['message' => 'Ingreso eliminado con éxito.']);
     }
 
     // HU-26 (9): los intentos registrados no se pueden modificar ni eliminar.
@@ -243,9 +271,19 @@ class ControlIngresoController extends Controller
 
         if ($metodo === 'documento') {
             $normalizado = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $valor));
+            $columna = "regexp_replace(upper(documento_identidad), '[^A-Z0-9]', '', 'g')";
+
+            // Coincidencia exacta ("5901346CB" o "5901346 CB"); si solo se escribe el
+            // numero ("5901346") tambien se encuentra el documento con su complemento
+            // de expedicion de 1 a 3 letras ("5901346 CB").
+            $exacto = (clone $query)->whereRaw("$columna = ?", [$normalizado])->first();
+            if ($exacto || ! ctype_digit($normalizado)) {
+                return $exacto;
+            }
 
             return $query
-                ->whereRaw("regexp_replace(upper(documento_identidad), '[^A-Z0-9]', '', 'g') = ?", [$normalizado])
+                ->whereRaw("$columna ~ ?", ['^'.$normalizado.'[A-Z]{1,3}$'])
+                ->orderBy('id')
                 ->first();
         }
 
@@ -365,7 +403,7 @@ class ControlIngresoController extends Controller
             ->whereHas('habilitacion', fn ($q) => $q->where('examen_id', $examen->id));
 
         $ultimos = (clone $consulta)
-            ->with(['habilitacion.estudiante', 'usuario'])
+            ->with(['habilitacion.estudiante.carreras', 'habilitacion.estudiante.carrera', 'usuario', 'ambiente'])
             ->orderByDesc('fecha_hora_ingreso')
             ->orderByDesc('id')
             ->limit(10)
@@ -375,6 +413,13 @@ class ControlIngresoController extends Controller
                 'hora' => $this->hora($i->fecha_hora_ingreso),
                 'codigo' => $i->habilitacion?->estudiante?->codigo_universitario,
                 'nombre' => $i->habilitacion?->estudiante?->nombre_completo,
+                'documento' => $i->habilitacion?->estudiante?->documento_identidad,
+                'carrera' => $i->habilitacion?->estudiante
+                    ? $this->datosEstudiante($i->habilitacion->estudiante)['carrera']
+                    : null,
+                'correo' => $i->habilitacion?->estudiante?->correo_institucional,
+                'ambiente_id' => $i->ambiente_id,
+                'ambiente' => $i->ambiente?->nombre,
                 'registrado_por' => $i->usuario?->nombre_completo,
             ])
             ->values();

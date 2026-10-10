@@ -138,7 +138,7 @@ export default function HabilitarEstudiantes() {
           </p>
           <Link
             to="/examenes"
-            className="inline-block mt-6 bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm"
+            className="inline-block mt-6 bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm whitespace-nowrap"
           >
             Volver a exámenes
           </Link>
@@ -165,7 +165,7 @@ export default function HabilitarEstudiantes() {
 
       {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
 
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
         {tiene('habilitaciones.registrar') && !cerrado && (
           <button
@@ -190,8 +190,8 @@ export default function HabilitarEstudiantes() {
         </p>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-gray-50 text-gray-500 text-left">
             <tr>
               <th className="px-4 py-2">Estudiante</th>

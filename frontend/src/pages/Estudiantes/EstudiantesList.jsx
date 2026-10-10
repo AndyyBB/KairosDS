@@ -5,6 +5,8 @@ import Paginacion from '../../components/Paginacion';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
 import { IconoTitulo, StudentIcon } from '../../components/Iconos';
 import { useAuth } from '../../api/AuthContext';
+import CodigoQR from '../../components/CodigoQR';
+import ModalQR from '../../components/ModalQR';
 
 export default function EstudiantesList() {
   const { tiene } = useAuth();
@@ -14,6 +16,7 @@ export default function EstudiantesList() {
   const [pagina, setPagina] = useState(1);
   const [meta, setMeta] = useState({ last_page: 1, total: 0 });
   const [mensaje, setMensaje] = useMensajeFlash();
+  const [verQr, setVerQr] = useState(null);
 
   async function cargar(p = 1) {
     setCargando(true);
@@ -38,7 +41,7 @@ export default function EstudiantesList() {
   return (
     <div>
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
           <IconoTitulo><StudentIcon size={22} /></IconoTitulo>
           <h1 className="text-2xl font-semibold text-gray-800">Estudiantes</h1>
@@ -46,7 +49,7 @@ export default function EstudiantesList() {
         {tiene('estudiantes.registrar') && (
           <Link
             to="/estudiantes/nuevo"
-            className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm"
+            className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm whitespace-nowrap"
           >
             Registrar estudiante
           </Link>
@@ -66,8 +69,8 @@ export default function EstudiantesList() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+        <table className="w-full min-w-[860px] text-sm">
           <thead className="bg-gray-50 text-gray-500 text-left">
             <tr>
               <th className="px-4 py-2">Código</th>
@@ -75,15 +78,16 @@ export default function EstudiantesList() {
               <th className="px-4 py-2">Nombre</th>
               <th className="px-4 py-2">Carreras</th>
               <th className="px-4 py-2">Correo</th>
+              <th className="px-4 py-2">QR</th>
               <th className="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {cargando && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">Cargando...</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">Cargando...</td></tr>
             )}
             {!cargando && estudiantes.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">Sin resultados.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">Sin resultados.</td></tr>
             )}
             {estudiantes.map((e) => (
               <tr key={e.id} className="border-t border-gray-100">
@@ -92,6 +96,17 @@ export default function EstudiantesList() {
                 <td className="px-4 py-2">{e.nombre_completo}</td>
                 <td className="px-4 py-2">{(e.carreras?.length ? e.carreras.map((c) => c.nombre) : [e.carrera?.nombre]).join(', ')}</td>
                 <td className="px-4 py-2 text-gray-500">{e.correo_institucional}</td>
+                <td className="px-4 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setVerQr(e)}
+                    title="Ver código QR"
+                    aria-label={`Ver código QR de ${e.nombre_completo}`}
+                    className="block rounded border border-gray-200 hover:border-kairos-600 p-0.5"
+                  >
+                    <CodigoQR valor={e.codigo_universitario} tamano={40} />
+                  </button>
+                </td>
                 <td className="px-4 py-2 text-right space-x-3">
                   {tiene('estudiantes.editar') && (
                     <Link to={`/estudiantes/${e.id}/editar`} className="text-kairos-600 font-medium">
@@ -111,6 +126,8 @@ export default function EstudiantesList() {
       </div>
 
       <Paginacion pagina={pagina} ultima={meta.last_page} total={meta.total} onCambiar={cargar} />
+
+      {verQr && <ModalQR estudiante={verQr} onCerrar={() => setVerQr(null)} />}
     </div>
   );
 }

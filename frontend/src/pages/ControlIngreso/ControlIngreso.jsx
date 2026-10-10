@@ -33,9 +33,9 @@ function Banner({ tipo, texto }) {
 
 function Dato({ etiqueta, valor }) {
   return (
-    <div className="flex gap-6 py-1 text-sm">
-      <dt className="w-48 shrink-0 text-gray-500">{etiqueta}</dt>
-      <dd className="text-gray-800">{valor}</dd>
+    <div className="flex flex-col sm:flex-row sm:gap-6 py-1 text-sm">
+      <dt className="sm:w-48 sm:shrink-0 text-gray-500">{etiqueta}</dt>
+      <dd className="text-gray-800 break-words min-w-0">{valor}</dd>
     </div>
   );
 }
@@ -50,6 +50,8 @@ function limpiarValor(metodo, texto) {
 export default function ControlIngreso() {
   const { tiene } = useAuth();
   const puedeRegistrar = tiene('control_ingreso.registrar');
+  const puedeEditar = tiene('control_ingreso.editar');
+  const puedeEliminar = tiene('control_ingreso.eliminar');
 
   const [examenes, setExamenes] = useState([]);
   const [cargandoExamenes, setCargandoExamenes] = useState(true);
@@ -63,19 +65,40 @@ export default function ControlIngreso() {
   const [registrando, setRegistrando] = useState(false);
   const [resultado, setResultado] = useState(null);
   const [banners, setBanners] = useState([]);
+  const [errorExamenes, setErrorExamenes] = useState('');
+  // HU-12 (9): edicion / eliminacion de un ingreso (solo con los permisos correspondientes).
+  const [ambientes, setAmbientes] = useState([]);
+  const [editando, setEditando] = useState(null);
+  const [ambienteSel, setAmbienteSel] = useState('');
+  const [guardandoIngreso, setGuardandoIngreso] = useState(false);
   const [resumen, setResumen] = useState(null);
   const [intentos, setIntentos] = useState([]);
   const [paginaIntentos, setPaginaIntentos] = useState(1);
   const examenActual = useRef('');
 
-  // HU-10 (1): examenes programados para la fecha actual.
-  useEffect(() => {
-    api
+  // HU-10 (1): examenes programados para la fecha actual. La lista se vuelve a
+  // consultar sola (cada 10 s, al volver a la pestaña y al abrir el selector)
+  // para que un examen creado despues de abrir esta pantalla aparezca sin recargar.
+  const cargarExamenes = useCallback(() => {
+    return api
       .get('/control-ingreso/examenes')
-      .then((res) => setExamenes(res.data))
-      .catch((err) => setBanners([{ tipo: 'error', texto: primerError(err) }]))
+      .then((res) => {
+        setExamenes(res.data);
+        setErrorExamenes('');
+      })
+      .catch((err) => setErrorExamenes(primerError(err)))
       .finally(() => setCargandoExamenes(false));
   }, []);
+
+  useEffect(() => {
+    cargarExamenes();
+    const timer = setInterval(cargarExamenes, 10000);
+    window.addEventListener('focus', cargarExamenes);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', cargarExamenes);
+    };
+  }, [cargarExamenes]);
 
   // HU-12 (6, 7, 8) y HU-26 (8): ultimos ingresos, contador e intentos del examen,
   // actualizados sin recargar la pagina.
@@ -184,15 +207,50 @@ export default function ControlIngreso() {
     }
   }
 
+  async function abrirEdicion(ingreso) {
+    setEditando(ingreso);
+    setAmbienteSel(String(ingreso.ambiente_id ?? ''));
+    if (ambientes.length === 0) {
+      try {
+        const res = await api.get('/control-ingreso/ambientes');
+        setAmbientes(res.data);
+      } catch (err) {
+        setBanners([{ tipo: 'error', texto: primerError(err, 'No se pudieron cargar los ambientes.') }]);
+        setEditando(null);
+      }
+    }
+  }
+
+  async function guardarEdicion() {
+    if (!ambienteSel) return;
+    setGuardandoIngreso(true);
+    try {
+      const res = await api.put(`/control-ingreso/ingresos/${editando.id}`, { ambiente_id: Number(ambienteSel) });
+      setBanners([{ tipo: 'exito', texto: res.data.message }]);
+      setEditando(null);
+      await cargarListas(examenId);
+    } catch (err) {
+      setBanners([{ tipo: 'error', texto: primerError(err, 'No se pudo actualizar el ingreso.') }]);
+    } finally {
+      setGuardandoIngreso(false);
+    }
+  }
+
+  async function eliminarIngreso(ingreso) {
+    if (!confirm(`¿Eliminar el ingreso de ${ingreso.nombre}? Podrá volver a registrarse.`)) return;
+    try {
+      const res = await api.delete(`/control-ingreso/ingresos/${ingreso.id}`);
+      setBanners([{ tipo: 'exito', texto: res.data.message }]);
+      await cargarListas(examenId);
+    } catch (err) {
+      setBanners([{ tipo: 'error', texto: primerError(err, 'No se pudo eliminar el ingreso.') }]);
+    }
+  }
+
   function enviar(e) {
     e.preventDefault();
     if (metodo === 'qr') {
-      // Con el metodo Codigo QR se activa la camara; si el codigo ya fue escrito
-      // o leido por un lector externo, se verifica directamente.
-      if (valor.trim()) {
-        verificar('qr', valor);
-        return;
-      }
+      // Con el metodo Codigo QR se activa la camara del dispositivo (no hay campo de texto).
       if (!examenId) {
         setErrores({ examen: 'Seleccione un examen.' });
         return;
@@ -278,6 +336,7 @@ export default function ControlIngreso() {
           id="examen"
           className="input"
           value={examenId}
+          onFocus={cargarExamenes}
           onChange={(e) => cambiarExamen(e.target.value)}
         >
           <option value="">Seleccione un examen</option>
@@ -288,6 +347,7 @@ export default function ControlIngreso() {
           ))}
         </select>
         {errores.examen && <p className="text-red-500 text-xs mt-1">{errores.examen}</p>}
+        {errorExamenes && <p className="text-red-500 text-xs mt-1">{errorExamenes}</p>}
         {!cargandoExamenes && examenes.length === 0 && (
           <p className="text-xs text-gray-400 mt-2">No hay exámenes programados para hoy.</p>
         )}
@@ -312,16 +372,20 @@ export default function ControlIngreso() {
             ))}
           </div>
 
-          <label htmlFor="busqueda" className="block text-sm text-gray-600 mb-1">{etiquetaCampo}</label>
+          {metodo !== 'qr' && (
+            <label htmlFor="busqueda" className="block text-sm text-gray-600 mb-1">{etiquetaCampo}</label>
+          )}
           <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              id="busqueda"
-              className="input flex-1"
-              value={valor}
-              onChange={(e) => setValor(limpiarValor(metodo, e.target.value))}
-              autoComplete="off"
-              maxLength={metodo === 'qr' ? 200 : 15}
-            />
+            {metodo !== 'qr' && (
+              <input
+                id="busqueda"
+                className="input flex-1"
+                value={valor}
+                onChange={(e) => setValor(limpiarValor(metodo, e.target.value))}
+                autoComplete="off"
+                maxLength={15}
+              />
+            )}
             <button
               type="submit"
               disabled={verificando}
@@ -359,7 +423,7 @@ export default function ControlIngreso() {
       {/* HU-11: resultado de la validacion */}
       {resultado && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
-          <div className="flex items-start justify-between mb-3">
+          <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
             <h2 className="text-lg font-semibold text-gray-800">Resultado de la validación</h2>
             {habilitado ? (
               <span className="rounded-full border border-green-300 bg-green-50 text-green-700 font-bold text-sm tracking-wide px-4 py-1">
@@ -421,34 +485,65 @@ export default function ControlIngreso() {
       {/* HU-12: ultimos ingresos y contador */}
       {examenId && resumen && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h2 className="text-lg font-semibold text-gray-800">Últimos ingresos</h2>
             <span className="text-kairos-700 font-bold">
               {resumen.ingresados} ingresados / {resumen.habilitados} habilitados
             </span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[1100px] text-sm">
               <thead className="bg-gray-50 text-gray-500 text-left">
                 <tr>
                   <th className="px-3 py-2">Hora</th>
-                  <th className="px-3 py-2">Código</th>
-                  <th className="px-3 py-2">Nombre</th>
+                  <th className="px-3 py-2">Nombre completo</th>
+                  <th className="px-3 py-2">Código universitario</th>
+                  <th className="px-3 py-2">Documento de identidad</th>
+                  <th className="px-3 py-2">Carrera</th>
+                  <th className="px-3 py-2">Correo institucional</th>
+                  <th className="px-3 py-2">Ambiente</th>
                   <th className="px-3 py-2">Registrado por</th>
+                  {(puedeEditar || puedeEliminar) && <th className="px-3 py-2"></th>}
                 </tr>
               </thead>
               <tbody>
                 {resumen.ultimos.map((i) => (
                   <tr key={i.id} className="border-t border-gray-100">
-                    <td className="px-3 py-2">{i.hora}</td>
-                    <td className="px-3 py-2">{i.codigo}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{i.hora}</td>
                     <td className="px-3 py-2">{i.nombre}</td>
+                    <td className="px-3 py-2">{i.codigo}</td>
+                    <td className="px-3 py-2">{i.documento}</td>
+                    <td className="px-3 py-2">{i.carrera}</td>
+                    <td className="px-3 py-2">{i.correo}</td>
+                    <td className="px-3 py-2">{i.ambiente}</td>
                     <td className="px-3 py-2">{i.registrado_por}</td>
+                    {(puedeEditar || puedeEliminar) && (
+                      <td className="px-3 py-2 text-right whitespace-nowrap space-x-2">
+                        {puedeEditar && (
+                          <button
+                            type="button"
+                            onClick={() => abrirEdicion(i)}
+                            className="border border-kairos-600 text-kairos-700 hover:bg-kairos-50 rounded-lg px-3 py-1 text-xs font-medium"
+                          >
+                            Editar
+                          </button>
+                        )}
+                        {puedeEliminar && (
+                          <button
+                            type="button"
+                            onClick={() => eliminarIngreso(i)}
+                            className="border border-red-500 text-red-600 hover:bg-red-50 rounded-lg px-3 py-1 text-xs font-medium"
+                          >
+                            Eliminar
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {resumen.ultimos.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-3 py-4 text-center text-gray-400">
+                    <td colSpan={9} className="px-3 py-4 text-center text-gray-400">
                       Aún no hay ingresos registrados.
                     </td>
                   </tr>
@@ -462,12 +557,12 @@ export default function ControlIngreso() {
       {/* HU-26: intentos de ingreso no correspondiente */}
       {examenId && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h2 className="text-lg font-semibold text-gray-800">Intentos de ingreso no correspondiente</h2>
             <span className="text-sm text-gray-500">{intentos.length} registrados</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-gray-50 text-gray-500 text-left">
                 <tr>
                   <th className="px-3 py-2">Fecha</th>
@@ -509,6 +604,40 @@ export default function ControlIngreso() {
             total={intentos.length}
             onCambiar={setPaginaIntentos}
           />
+        </div>
+      )}
+
+      {editando && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Editar ingreso">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-1">Editar ingreso</h2>
+            <p className="text-sm text-gray-500 mb-4">{editando.nombre} · {editando.codigo}</p>
+            <label htmlFor="ambiente-ingreso" className="block text-sm text-gray-600 mb-1">Ambiente</label>
+            <select
+              id="ambiente-ingreso"
+              className="input"
+              value={ambienteSel}
+              onChange={(e) => setAmbienteSel(e.target.value)}
+            >
+              <option value="">Seleccione un ambiente</option>
+              {ambientes.map((a) => (
+                <option key={a.id} value={String(a.id)}>{a.nombre}</option>
+              ))}
+            </select>
+            <div className="flex justify-end gap-3 mt-5">
+              <button type="button" onClick={() => setEditando(null)} className="text-sm text-gray-500 px-3 py-2">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={guardarEdicion}
+                disabled={!ambienteSel || guardandoIngreso}
+                className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm disabled:opacity-60"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

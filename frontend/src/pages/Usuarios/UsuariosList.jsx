@@ -39,20 +39,20 @@ export default function UsuariosList() {
   return (
     <div>
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
           <IconoTitulo><UsersIcon size={22} /></IconoTitulo>
           <h1 className="text-2xl font-semibold text-gray-800">Usuarios</h1>
         </div>
         {tiene('usuarios.registrar') && (
-          <Link to="/usuarios/nuevo" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm">
+          <Link to="/usuarios/nuevo" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm whitespace-nowrap">
             Registrar usuario
           </Link>
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+        <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-gray-50 text-gray-500 text-left">
             <tr>
               <th className="px-4 py-2">Nombre</th>

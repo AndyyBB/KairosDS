@@ -72,7 +72,7 @@ export default function AmbientesList() {
   return (
     <div>
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-kairos-gradient flex items-center justify-center text-white shadow-md">
             <BuildingIcon size={22} />
@@ -82,7 +82,7 @@ export default function AmbientesList() {
         {tiene('ambientes.registrar') && (
           <button
             onClick={alternarForm}
-            className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm"
+            className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm whitespace-nowrap"
           >
             {mostrarForm ? 'Cerrar' : '+ Nuevo ambiente'}
           </button>
@@ -143,8 +143,8 @@ export default function AmbientesList() {
         </form>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+        <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-gray-50 text-gray-500 text-left">
             <tr>
               <th className="px-4 py-2">Nombre</th>

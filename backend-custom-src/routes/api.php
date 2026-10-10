@@ -65,9 +65,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/verificar', [ControlIngresoController::class, 'verificar'])->middleware('permiso:control_ingreso.registrar');
         Route::post('/ingresos', [ControlIngresoController::class, 'registrarIngreso'])->middleware('permiso:control_ingreso.registrar');
 
-        // HU-12 (9): solo el administrador puede modificar un registro de ingreso.
-        Route::match(['put', 'patch'], '/ingresos/{ingreso}', [ControlIngresoController::class, 'actualizarIngreso'])->middleware('rol:administrador');
-        Route::delete('/ingresos/{ingreso}', [ControlIngresoController::class, 'eliminarIngreso'])->middleware('rol:administrador');
+        // HU-12 (9): modificar o eliminar un ingreso requiere el permiso Editar / Eliminar de
+        // Control de ingreso (el administrador los tiene siempre; los demas roles solo si el
+        // administrador se los otorga en Roles y permisos).
+        Route::get('/ambientes', [ControlIngresoController::class, 'ambientes'])->middleware('permiso:control_ingreso.ver');
+        Route::match(['put', 'patch'], '/ingresos/{ingreso}', [ControlIngresoController::class, 'actualizarIngreso'])->middleware('permiso:control_ingreso.editar');
+        Route::delete('/ingresos/{ingreso}', [ControlIngresoController::class, 'eliminarIngreso'])->middleware('permiso:control_ingreso.eliminar');
 
         // HU-26 (9): los intentos registrados no se pueden modificar ni eliminar.
         Route::match(['put', 'patch', 'delete'], '/intentos/{intento}', [ControlIngresoController::class, 'intentoInmutable']);
