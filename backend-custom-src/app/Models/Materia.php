@@ -10,7 +10,7 @@ class Materia extends Model
 {
     protected $table = 'materias';
 
-    protected $fillable = ['sigla', 'nombre', 'carrera_id', 'activo'];
+    protected $fillable = ['sigla', 'nombre', 'carrera_id', 'nivel', 'activo'];
 
     protected $casts = ['activo' => 'boolean'];
 

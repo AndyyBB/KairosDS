@@ -10,8 +10,14 @@ class MateriaController extends Controller
 {
     public function index(Request $request)
     {
+        // Por defecto solo las materias activas; ?todas=1 incluye las desactivadas.
         return Materia::with('carrera')
+            ->when(! $request->boolean('todas'), fn ($q) => $q->where('activo', true))
             ->when($request->query('carrera_id'), fn ($q, $v) => $q->where('carrera_id', $v))
+            // Primero Ing. de Sistemas, luego las demas carreras.
+            ->orderByRaw("carrera_id <> (SELECT id FROM carreras WHERE codigo = 'SIS' LIMIT 1)")
+            ->orderBy('carrera_id')
+            ->orderByRaw('nivel IS NULL, nivel')
             ->orderBy('nombre')
             ->get();
     }

@@ -13,9 +13,9 @@ use Illuminate\Support\Facades\DB;
 
 // Inscripcion de estudiantes a un EXAMEN (tabla `inscripciones_examen`).
 // Un examen nuevo empieza sin inscritos. Al inscribir a un estudiante queda
-// HABILITADO por defecto (se crea su habilitacion); luego se puede cambiar a
-// "No habilitado" con su motivo desde "Habilitar estudiantes" (HU-04). Los inscritos
-// son los que reconoce el Control de ingreso (HU-11).
+// SIN DECIDIR (no se crea habilitacion): el docente debe marcarlo como
+// "Habilitado" o "No habilitado" (con motivo) desde "Habilitar estudiantes" (HU-04).
+// Los inscritos son los que reconoce el Control de ingreso (HU-11).
 class InscripcionController extends Controller
 {
     // Estudiantes activos con su estado de inscripcion en el examen.
@@ -90,12 +90,6 @@ class InscripcionController extends Controller
                     'estudiante_id' => $id,
                     'registrado_por' => $usuarioId,
                 ]);
-
-                // Inscrito = habilitado por defecto (si ya tenia una habilitacion se respeta).
-                Habilitacion::firstOrCreate(
-                    ['estudiante_id' => $id, 'examen_id' => $examen->id],
-                    ['habilitado' => true, 'registrado_por' => $usuarioId]
-                );
 
                 $nuevos++;
             }

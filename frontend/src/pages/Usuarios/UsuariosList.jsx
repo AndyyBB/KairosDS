@@ -45,15 +45,15 @@ export default function UsuariosList() {
           <h1 className="text-2xl font-semibold text-gray-800">Usuarios</h1>
         </div>
         {tiene('usuarios.registrar') && (
-          <Link to="/usuarios/nuevo" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm whitespace-nowrap">
+          <Link to="/usuarios/nuevo" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-glow whitespace-nowrap">
             Registrar usuario
           </Link>
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+      <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
         <table className="w-full min-w-[720px] text-sm">
-          <thead className="bg-gray-50 text-gray-500 text-left">
+          <thead className="bg-kairos-50/80 text-kairos-800 text-left">
             <tr>
               <th className="px-4 py-2">Nombre</th>
               <th className="px-4 py-2">Correo</th>
@@ -69,7 +69,7 @@ export default function UsuariosList() {
                 <td className="px-4 py-2 text-gray-500">{u.correo_electronico}</td>
                 <td className="px-4 py-2 capitalize">{u.rol?.nombre}</td>
                 <td className="px-4 py-2">
-                  <span className={`text-xs px-2 py-1 rounded-full ${u.activo ? 'bg-kairos-50 text-kairos-700' : 'bg-gray-100 text-gray-500'}`}>
+                  <span className={`text-xs px-2 py-1 rounded-full ${u.activo ? 'bg-kairos-gradient text-white shadow-glow' : 'bg-gray-100 text-gray-500'}`}>
                     {u.activo ? 'Activo' : 'Inactivo'}
                   </span>
                 </td>

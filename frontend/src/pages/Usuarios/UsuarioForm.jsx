@@ -98,7 +98,7 @@ export default function UsuarioForm() {
         <h1 className="text-2xl font-semibold text-gray-800">{editando ? 'Editar usuario' : 'Registrar usuario'}</h1>
       </div>
 
-      <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-6 space-y-4">
         <div>
           <Etiqueta icon={<UserIcon />}>Nombre completo</Etiqueta>
           <input

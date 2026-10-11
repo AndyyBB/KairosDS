@@ -9,7 +9,7 @@ import { IconoTitulo, ExamIcon } from '../../components/Iconos';
 import { useAuth } from '../../api/AuthContext';
 
 const ESTADO_STYLES = {
-  programado: 'bg-kairos-50 text-kairos-700',
+  programado: 'bg-kairos-gradient text-white shadow-glow',
   'en curso': 'bg-amber-50 text-amber-700',
   finalizado: 'bg-gray-100 text-gray-600',
   cancelado: 'bg-red-50 text-red-600',
@@ -62,15 +62,15 @@ export default function ExamenesList() {
           <h1 className="text-2xl font-semibold text-gray-800">Exámenes</h1>
         </div>
         {tiene('examenes.registrar') && (
-          <Link to="/examenes/programar" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm whitespace-nowrap">
+          <Link to="/examenes/programar" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-glow whitespace-nowrap">
             Programar examen
           </Link>
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+      <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
         <table className="w-full min-w-[940px] text-sm">
-          <thead className="bg-gray-50 text-gray-500 text-left">
+          <thead className="bg-kairos-50/80 text-kairos-800 text-left">
             <tr>
               <th className="px-4 py-2">Materia</th>
               <th className="px-4 py-2">Fecha</th>
@@ -92,7 +92,16 @@ export default function ExamenesList() {
               return (
                 <Fragment key={ex.id}>
                 <tr className="border-t border-gray-100">
-                  <td className="px-4 py-2">{ex.materia?.nombre}</td>
+                  <td className="px-4 py-2">
+                    {/* Clic en la materia: lleva a Habilitar estudiantes de ese examen */}
+                    <Link
+                      to={`/examenes/${ex.id}/habilitar`}
+                      className="font-medium text-kairos-700 hover:underline"
+                      title="Habilitar estudiantes"
+                    >
+                      {ex.materia?.nombre}
+                    </Link>
+                  </td>
                   <td className="px-4 py-2">{fechaDMA(ex.fecha)}</td>
                   <td className="px-4 py-2">{horaHM(ex.hora_inicio)}</td>
                   <td className="px-4 py-2">{ex.duracion_min} min</td>

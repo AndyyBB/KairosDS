@@ -81,7 +81,7 @@ export default function LectorQR({ onLeido, onFalloCamara, error }) {
   }, []);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
+    <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
       <div className="flex flex-col sm:flex-row gap-6 items-center">
         <div className="relative w-full sm:w-[340px] h-[250px] rounded-xl bg-slate-800 overflow-hidden shrink-0">
           <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />

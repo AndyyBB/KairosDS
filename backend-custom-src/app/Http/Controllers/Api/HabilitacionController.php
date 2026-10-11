@@ -25,7 +25,7 @@ class HabilitacionController extends Controller
         $estudiantes = Estudiante::query()
             ->where('activo', true)
             ->whereIn('id', InscripcionExamen::where('examen_id', $examen->id)->select('estudiante_id'))
-            ->with('carrera')
+            ->with(['carrera', 'carreras'])
             ->orderBy('nombre_completo')
             ->get();
 

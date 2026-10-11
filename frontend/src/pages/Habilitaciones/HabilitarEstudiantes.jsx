@@ -10,6 +10,12 @@ import ModalInscribir from './ModalInscribir';
 
 const POR_PAGINA = 20;
 
+// Todas las carreras del estudiante (puede tener más de una).
+function carrerasDe(estudiante) {
+  const lista = estudiante.carreras?.length ? estudiante.carreras : estudiante.carrera ? [estudiante.carrera] : [];
+  return lista.map((c) => c.nombre).join(', ') || '-';
+}
+
 // HU-04: Asociación de estudiantes habilitados a un examen
 export default function HabilitarEstudiantes() {
   const { examenId } = useParams();
@@ -131,14 +137,14 @@ export default function HabilitarEstudiantes() {
   if (exito) {
     return (
       <div className="max-w-2xl">
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
+        <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-10 text-center">
           <p className="text-lg font-semibold text-gray-800">Habilitaciones registradas con éxito.</p>
           <p className="text-sm text-gray-500 mt-2">
             {exito.habilitados} habilitados / {exito.noHabilitados} no habilitados
           </p>
           <Link
             to="/examenes"
-            className="inline-block mt-6 bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm whitespace-nowrap"
+            className="inline-block mt-6 bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-glow whitespace-nowrap"
           >
             Volver a exámenes
           </Link>
@@ -148,7 +154,7 @@ export default function HabilitarEstudiantes() {
   }
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-6xl">
       <div className="flex items-center gap-3 mb-2">
         <IconoTitulo><CheckBadgeIcon size={22} /></IconoTitulo>
         <h1 className="text-2xl font-semibold text-gray-800">Habilitar estudiantes</h1>
@@ -190,12 +196,14 @@ export default function HabilitarEstudiantes() {
         </p>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
-        <table className="w-full min-w-[640px] text-sm">
-          <thead className="bg-gray-50 text-gray-500 text-left">
+      <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
+        <table className="w-full min-w-[900px] text-sm">
+          <thead className="bg-kairos-50/80 text-kairos-800 text-left">
             <tr>
               <th className="px-4 py-2">Estudiante</th>
               <th className="px-4 py-2">Código</th>
+              <th className="px-4 py-2">CI</th>
+              <th className="px-4 py-2">Carrera</th>
               <th className="px-4 py-2">Estado</th>
               <th className="px-4 py-2">Motivo de inhabilitación</th>
             </tr>
@@ -207,6 +215,8 @@ export default function HabilitarEstudiantes() {
                 <tr key={estudiante.id} className="border-t border-gray-100 align-top">
                   <td className="px-4 py-2">{estudiante.nombre_completo}</td>
                   <td className="px-4 py-2 text-gray-500">{estudiante.codigo_universitario}</td>
+                  <td className="px-4 py-2 text-gray-500">{estudiante.documento_identidad || '-'}</td>
+                  <td className="px-4 py-2 text-gray-500">{carrerasDe(estudiante)}</td>
                   <td className="px-4 py-2">
                     <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
                       <button
@@ -246,7 +256,7 @@ export default function HabilitarEstudiantes() {
             })}
             {!cargando && inscritos.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-gray-400">
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-400">
                   Ningún estudiante está inscrito en este examen.
                   {tiene('habilitaciones.registrar') && !cerrado && (
                     <>
@@ -272,7 +282,7 @@ export default function HabilitarEstudiantes() {
         <button
           onClick={guardar}
           disabled={guardando || inscritos.length === 0 || cerrado}
-          className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm disabled:opacity-60"
+          className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-glow disabled:opacity-60"
         >
           Guardar habilitaciones
         </button>

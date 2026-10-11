@@ -17,15 +17,15 @@ export default function Home() {
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-kairos-100/70 p-5 shadow-md">
           <p className="text-sm text-gray-400">Modulo</p>
           <p className="text-lg font-semibold text-kairos-700 mt-1">Estudiantes</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-kairos-100/70 p-5 shadow-md">
           <p className="text-sm text-gray-400">Modulo</p>
           <p className="text-lg font-semibold text-kairos-700 mt-1">Examenes</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-kairos-100/70 p-5 shadow-md">
           <p className="text-sm text-gray-400">Modulo</p>
           <p className="text-lg font-semibold text-kairos-700 mt-1">Habilitaciones</p>
         </div>

@@ -23,7 +23,7 @@ export default function Aviso({ mensaje, tipo = 'exito', onCerrar }) {
     ? 'bg-green-50 border-green-200 text-green-800'
     : 'bg-red-50 border-red-200 text-red-700';
   return (
-    <div className={`mb-4 rounded-lg border px-4 py-3 text-sm flex items-center justify-between ${estilos}`}>
+    <div className={`mb-4 rounded-lg border px-4 py-3 text-sm shadow-sm flex items-center justify-between ${estilos}`}>
       <span>{mensaje}</span>
       {onCerrar && (
         <button type="button" onClick={onCerrar} className="ml-4 text-xs opacity-70">✕</button>

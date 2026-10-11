@@ -55,7 +55,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen lg:flex">
       {/* Barra superior (solo en pantallas chicas) */}
-      <header className="lg:hidden sticky top-0 z-30 flex items-center gap-3 bg-white border-b border-gray-200 px-4 py-3">
+      <header className="lg:hidden sticky top-0 z-30 flex items-center gap-3 bg-white/90 backdrop-blur border-b border-kairos-100 px-4 py-3 shadow-md">
         <button
           type="button"
           onClick={() => setMenuAbierto(true)}
@@ -72,11 +72,11 @@ export default function Layout() {
       </header>
 
       {menuAbierto && (
-        <div className="lg:hidden fixed inset-0 z-40 bg-black/40" onClick={() => setMenuAbierto(false)} aria-hidden="true" />
+        <div className="lg:hidden fixed inset-0 z-40 bg-kairos-950/40 backdrop-blur-sm" onClick={() => setMenuAbierto(false)} aria-hidden="true" />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw] bg-white border-r border-gray-200 flex flex-col overflow-y-auto transform transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:shrink-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw] bg-white border-r border-kairos-100 shadow-xl lg:shadow-lg flex flex-col overflow-y-auto transform transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:shrink-0 ${
           menuAbierto ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -93,10 +93,10 @@ export default function Layout() {
             <NavLink
               key={item.to}
               to={item.to}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition ${
                 item.activo(pathname)
-                  ? 'bg-kairos-50 text-kairos-700'
-                  : 'text-gray-600 hover:bg-gray-50'
+                  ? 'bg-kairos-gradient text-white shadow-glow'
+                  : 'text-gray-600 hover:bg-kairos-50 hover:text-kairos-700'
               }`}
             >
               <item.icon size={18} />
@@ -118,7 +118,7 @@ export default function Layout() {
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 min-w-0 bg-transparent p-4 sm:p-6 lg:p-8">
         <Outlet />
       </main>
     </div>

@@ -92,7 +92,7 @@ export default function RolesPermisos() {
         <h1 className="text-2xl font-semibold text-gray-800">Roles y permisos</h1>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
+      <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
         <p className="text-sm text-gray-600 mb-1">Rol</p>
         <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden mb-5">
           {roles.map((r, i) => (
@@ -112,7 +112,7 @@ export default function RolesPermisos() {
         {edicion && (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">
-              <thead className="bg-gray-50 text-gray-600 text-left">
+              <thead className="bg-kairos-50/80 text-kairos-800 text-left">
                 <tr>
                   <th className="px-3 py-2 font-semibold">Módulo</th>
                   {ACCIONES.map((a) => (
@@ -158,7 +158,7 @@ export default function RolesPermisos() {
               type="button"
               onClick={guardar}
               disabled={bloqueado || guardando || !edicion}
-              className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-5 py-2 shadow-sm disabled:opacity-50"
+              className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-5 py-2 shadow-glow disabled:opacity-50"
             >
               Guardar
             </button>

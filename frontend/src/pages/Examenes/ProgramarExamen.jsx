@@ -16,6 +16,14 @@ function horaAhora() {
   return `${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+// "C" -> "3er semestre (C)"
+function nombreSemestre(nivel) {
+  const n = 'ABCDEFGHIJ'.indexOf(nivel) + 1;
+  if (n === 0) return 'Otras materias';
+  const sufijo = { 1: 'er', 2: 'do', 3: 'er', 4: 'to', 5: 'to', 6: 'to', 7: 'mo', 8: 'vo', 9: 'no', 10: 'mo' }[n];
+  return `${n}${sufijo} semestre (${nivel})`;
+}
+
 // HU-02: Registro de examenes ("Programar examen")
 // Campos segun mockup: Asignatura, Fecha, Hora de inicio, Duración, Ambiente, Normas del examen.
 export default function ProgramarExamen() {
@@ -103,7 +111,7 @@ export default function ProgramarExamen() {
   return (
     <div className="max-w-2xl">
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-11 h-11 rounded-xl bg-kairos-gradient flex items-center justify-center text-white shadow-md">
+        <div className="w-11 h-11 rounded-xl bg-kairos-gradient flex items-center justify-center text-white shadow-glow">
           <CalendarIcon />
         </div>
         <div>
@@ -111,12 +119,25 @@ export default function ProgramarExamen() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
+      <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-6 space-y-5">
         <Campo label="Asignatura" icon={<BookIcon />} error={errores.materia_id}>
           <select className="input" value={form.materia_id} onChange={(e) => set('materia_id', e.target.value)}>
             <option value="">Seleccione una asignatura</option>
-            {materias.map((m) => (
-              <option key={m.id} value={m.id}>{m.sigla} - {m.nombre}</option>
+            {/* Ing. de Sistemas por semestre (A = 1er semestre); las demás carreras al final */}
+            {Object.entries(
+              materias.reduce((grupos, m) => {
+                const clave = m.carrera?.codigo === 'SIS'
+                  ? `Ing. de Sistemas · ${nombreSemestre(m.nivel)}`
+                  : m.carrera?.nombre || 'Otras materias';
+                (grupos[clave] ||= []).push(m);
+                return grupos;
+              }, {})
+            ).map(([grupo, lista]) => (
+              <optgroup key={grupo} label={grupo}>
+                {lista.map((m) => (
+                  <option key={m.id} value={m.id}>{m.sigla} - {m.nombre}</option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </Campo>
@@ -212,7 +233,7 @@ export default function ProgramarExamen() {
           <button
             type="submit"
             disabled={guardando}
-            className="bg-kairos-gradient text-white rounded-lg px-5 py-2 text-sm font-medium shadow-sm disabled:opacity-60"
+            className="bg-kairos-gradient text-white rounded-lg px-5 py-2 text-sm font-medium shadow-glow disabled:opacity-60"
           >
             {guardando ? 'Guardando...' : 'Guardar'}
           </button>

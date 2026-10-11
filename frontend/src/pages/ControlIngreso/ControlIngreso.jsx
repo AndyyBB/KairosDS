@@ -24,7 +24,7 @@ const ESTILOS_BANNER = {
 function Banner({ tipo, texto }) {
   const e = ESTILOS_BANNER[tipo];
   return (
-    <div className={`mb-4 rounded-lg border px-4 py-3 text-sm font-semibold ${e.clases}`}>
+    <div className={`mb-4 rounded-lg border px-4 py-3 text-sm shadow-sm font-semibold ${e.clases}`}>
       <span className="mr-2">{e.icono}</span>
       {texto}
     </div>
@@ -330,7 +330,7 @@ export default function ControlIngreso() {
       </div>
 
       {/* Examen */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
+      <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
         <label htmlFor="examen" className="block text-sm text-gray-600 mb-1">Examen</label>
         <select
           id="examen"
@@ -355,7 +355,7 @@ export default function ControlIngreso() {
 
       {/* Metodo de verificacion */}
       {puedeRegistrar && (
-        <form onSubmit={enviar} noValidate className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
+        <form onSubmit={enviar} noValidate className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
           <p className="text-sm text-gray-600 mb-1">Método de verificación</p>
           <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden mb-4">
             {METODOS.map((m, i) => (
@@ -389,7 +389,7 @@ export default function ControlIngreso() {
             <button
               type="submit"
               disabled={verificando}
-              className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-5 py-2 shadow-sm disabled:opacity-60"
+              className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-5 py-2 shadow-glow disabled:opacity-60"
             >
               {metodo === 'qr' ? 'Escanear QR' : 'Verificar'}
             </button>
@@ -422,7 +422,7 @@ export default function ControlIngreso() {
 
       {/* HU-11: resultado de la validacion */}
       {resultado && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
+        <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
           <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
             <h2 className="text-lg font-semibold text-gray-800">Resultado de la validación</h2>
             {habilitado ? (
@@ -484,7 +484,7 @@ export default function ControlIngreso() {
 
       {/* HU-12: ultimos ingresos y contador */}
       {examenId && resumen && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
+        <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h2 className="text-lg font-semibold text-gray-800">Últimos ingresos</h2>
             <span className="text-kairos-700 font-bold">
@@ -493,7 +493,7 @@ export default function ControlIngreso() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1100px] text-sm">
-              <thead className="bg-gray-50 text-gray-500 text-left">
+              <thead className="bg-kairos-50/80 text-kairos-800 text-left">
                 <tr>
                   <th className="px-3 py-2">Hora</th>
                   <th className="px-3 py-2">Nombre completo</th>
@@ -556,14 +556,14 @@ export default function ControlIngreso() {
 
       {/* HU-26: intentos de ingreso no correspondiente */}
       {examenId && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-5">
+        <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h2 className="text-lg font-semibold text-gray-800">Intentos de ingreso no correspondiente</h2>
             <span className="text-sm text-gray-500">{intentos.length} registrados</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">
-              <thead className="bg-gray-50 text-gray-500 text-left">
+              <thead className="bg-kairos-50/80 text-kairos-800 text-left">
                 <tr>
                   <th className="px-3 py-2">Fecha</th>
                   <th className="px-3 py-2">Hora</th>
@@ -608,8 +608,8 @@ export default function ControlIngreso() {
       )}
 
       {editando && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Editar ingreso">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+        <div className="fixed inset-0 z-50 bg-kairos-950/40 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Editar ingreso">
+          <div className="bg-white rounded-xl shadow-2xl ring-1 ring-kairos-100/70 w-full max-w-md p-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-1">Editar ingreso</h2>
             <p className="text-sm text-gray-500 mb-4">{editando.nombre} · {editando.codigo}</p>
             <label htmlFor="ambiente-ingreso" className="block text-sm text-gray-600 mb-1">Ambiente</label>
@@ -632,7 +632,7 @@ export default function ControlIngreso() {
                 type="button"
                 onClick={guardarEdicion}
                 disabled={!ambienteSel || guardandoIngreso}
-                className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm disabled:opacity-60"
+                className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-glow disabled:opacity-60"
               >
                 Guardar
               </button>

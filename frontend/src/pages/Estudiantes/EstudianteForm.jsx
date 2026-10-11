@@ -109,7 +109,7 @@ export default function EstudianteForm() {
         </h1>
       </div>
 
-      <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-6 space-y-4">
         <Campo label="Código universitario" icon={<HashIcon />} error={errores.codigo_universitario}>
           <input
             className="input"

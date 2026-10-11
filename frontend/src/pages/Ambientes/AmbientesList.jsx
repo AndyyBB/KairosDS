@@ -74,7 +74,7 @@ export default function AmbientesList() {
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-kairos-gradient flex items-center justify-center text-white shadow-md">
+          <div className="w-11 h-11 rounded-xl bg-kairos-gradient flex items-center justify-center text-white shadow-glow">
             <BuildingIcon size={22} />
           </div>
           <h1 className="text-2xl font-semibold text-gray-800">Ambientes</h1>
@@ -82,7 +82,7 @@ export default function AmbientesList() {
         {tiene('ambientes.registrar') && (
           <button
             onClick={alternarForm}
-            className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm whitespace-nowrap"
+            className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-glow whitespace-nowrap"
           >
             {mostrarForm ? 'Cerrar' : '+ Nuevo ambiente'}
           </button>
@@ -93,7 +93,7 @@ export default function AmbientesList() {
         <form
           onSubmit={handleSubmit}
           noValidate
-          className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6 space-y-5"
+          className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-6 mb-6 space-y-5"
         >
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Campo label="Nombre del ambiente" icon={<BuildingIcon />} error={errores.nombre}>
@@ -135,7 +135,7 @@ export default function AmbientesList() {
             </button>
             <button
               type="submit"
-              className="bg-kairos-gradient text-white rounded-lg px-5 py-2 text-sm font-medium shadow-sm"
+              className="bg-kairos-gradient text-white rounded-lg px-5 py-2 text-sm font-medium shadow-glow"
             >
               Guardar
             </button>
@@ -143,9 +143,9 @@ export default function AmbientesList() {
         </form>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+      <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
         <table className="w-full min-w-[720px] text-sm">
-          <thead className="bg-gray-50 text-gray-500 text-left">
+          <thead className="bg-kairos-50/80 text-kairos-800 text-left">
             <tr>
               <th className="px-4 py-2">Nombre</th>
               <th className="px-4 py-2">Capacidad</th>

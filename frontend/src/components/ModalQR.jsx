@@ -27,14 +27,14 @@ export default function ModalQR({ estudiante, onCerrar }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-kairos-950/40 backdrop-blur-sm flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Código QR del estudiante"
       onClick={onCerrar}
     >
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center"
+        className="bg-white rounded-xl shadow-2xl ring-1 ring-kairos-100/70 w-full max-w-sm p-6 text-center"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-start mb-2">

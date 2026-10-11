@@ -49,7 +49,7 @@ export default function EstudiantesList() {
         {tiene('estudiantes.registrar') && (
           <Link
             to="/estudiantes/nuevo"
-            className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-sm whitespace-nowrap"
+            className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-glow whitespace-nowrap"
           >
             Registrar estudiante
           </Link>
@@ -69,9 +69,9 @@ export default function EstudiantesList() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+      <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
         <table className="w-full min-w-[860px] text-sm">
-          <thead className="bg-gray-50 text-gray-500 text-left">
+          <thead className="bg-kairos-50/80 text-kairos-800 text-left">
             <tr>
               <th className="px-4 py-2">Código</th>
               <th className="px-4 py-2">Documento</th>

@@ -194,7 +194,7 @@ export function Etiqueta({ icon, children, className = '' }) {
 // Cuadro con degradado Kairos que acompaña al título de cada pantalla.
 export function IconoTitulo({ children }) {
   return (
-    <div className="w-11 h-11 shrink-0 rounded-xl bg-kairos-gradient flex items-center justify-center text-white shadow-md">
+    <div className="w-11 h-11 shrink-0 rounded-xl bg-kairos-gradient flex items-center justify-center text-white shadow-glow">
       {children}
     </div>
   );

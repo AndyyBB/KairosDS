@@ -3,12 +3,14 @@
 @tailwind utilities;
 
 body {
-  @apply bg-gray-50 text-gray-800;
+  @apply text-gray-800;
+  background-color: #f3f8f8; /* gris frio con un toque teal de Kairos */
 }
 
 @layer components {
   .input {
-    @apply w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-kairos-400;
+    @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition
+      hover:border-kairos-300 focus:border-kairos-400 focus:outline-none focus:ring-2 focus:ring-kairos-400/60;
   }
 }
 
@@ -17,4 +19,62 @@ body {
 input[type='password']::-ms-reveal,
 input[type='password']::-ms-clear {
   display: none;
+}
+
+/* ---------- Rediseño visual (solo estilo, misma estructura) ---------- */
+
+/* Botones principales con el degradado Kairos: brillo teal, elevacion al pasar el mouse y "presion" al hacer clic */
+button.bg-kairos-gradient,
+a.bg-kairos-gradient {
+  @apply shadow-glow transition duration-200;
+}
+button.bg-kairos-gradient:not(:disabled):hover,
+a.bg-kairos-gradient:hover {
+  @apply shadow-glow-lg -translate-y-px brightness-110;
+}
+button.bg-kairos-gradient:not(:disabled):active,
+a.bg-kairos-gradient:active {
+  @apply translate-y-0 scale-[0.98] shadow-glow;
+}
+
+/* Botones secundarios (borde gris): fondo blanco y sombra suave, se mantienen neutros */
+button.border-gray-300 {
+  @apply bg-white shadow-sm transition duration-200;
+}
+button.border-gray-300:not(:disabled):hover {
+  @apply border-kairos-300 bg-kairos-50/40 shadow;
+}
+button.border-gray-300:not(:disabled):active {
+  @apply scale-[0.98];
+}
+
+/* Botones de contorno teal / rojo */
+button.border-kairos-600,
+button.border-red-500 {
+  @apply bg-white shadow-sm transition duration-200;
+}
+button.border-kairos-600:not(:disabled):hover,
+button.border-red-500:not(:disabled):hover {
+  @apply shadow;
+}
+
+/* Tablas: filas con resaltado teal al pasar el mouse */
+tbody tr {
+  @apply transition-colors;
+}
+tbody tr:hover {
+  background-color: rgb(238 252 251 / 0.55);
+}
+
+/* Foco visible y coherente en toda la app */
+a:focus-visible,
+button:focus-visible {
+  @apply outline-none ring-2 ring-kairos-400 ring-offset-2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button, a, .input, tbody tr {
+    transition: none !important;
+    transform: none !important;
+  }
 }
