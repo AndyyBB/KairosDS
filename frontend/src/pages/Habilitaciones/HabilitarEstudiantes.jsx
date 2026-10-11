@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
 import { fechaDMA, horaHM } from '../../api/formato';
 import Paginacion from '../../components/Paginacion';
 import { primerError } from '../../api/errores';
 import { useAuth } from '../../api/AuthContext';
-import { IconoTitulo, CheckBadgeIcon } from '../../components/Iconos';
+import {
+  IconoTitulo,
+  CheckBadgeIcon,
+  CheckIcon,
+  XIcon,
+  CheckAllIcon,
+  UserPlusIcon,
+} from '../../components/Iconos';
 import ModalInscribir from './ModalInscribir';
 
 const POR_PAGINA = 20;
@@ -27,7 +34,7 @@ export default function HabilitarEstudiantes() {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
   const [erroresMotivo, setErroresMotivo] = useState({});
-  const [exito, setExito] = useState(null);
+  const navigate = useNavigate();
   const [pagina, setPagina] = useState(1);
   const [inscribiendo, setInscribiendo] = useState(false);
 
@@ -90,12 +97,8 @@ export default function HabilitarEstudiantes() {
   const totalSinDecidir = inscritos.length - totalHabilitados - totalNoHabilitados;
 
   async function guardar() {
-    const sinDecidir = inscritos.some(({ estudiante }) => estado[estudiante.id]?.habilitado == null);
-    if (sinDecidir) {
-      setError('Debes marcar a todos los estudiantes como Habilitado o No habilitado antes de guardar.');
-      return;
-    }
-
+    // Se puede guardar aunque haya estudiantes sin decidir: solo se envían
+    // los que tienen Habilitado o No habilitado; los demás quedan pendientes.
     const faltantes = {};
     inscritos.forEach(({ estudiante }) => {
       const e = estado[estudiante.id];
@@ -116,8 +119,9 @@ export default function HabilitarEstudiantes() {
     setError(null);
     setGuardando(true);
     try {
+      const decididos = inscritos.filter(({ estudiante }) => estado[estudiante.id]?.habilitado != null);
       await Promise.all(
-        inscritos.map(({ estudiante }) => {
+        decididos.map(({ estudiante }) => {
           const e = estado[estudiante.id];
           return api.post(`/examenes/${examenId}/habilitaciones`, {
             estudiante_id: estudiante.id,
@@ -126,31 +130,19 @@ export default function HabilitarEstudiantes() {
           });
         })
       );
-      setExito({ habilitados: totalHabilitados, noHabilitados: totalNoHabilitados });
+      // Vuelve a Exámenes y muestra allí el aviso de confirmación.
+      navigate('/examenes', {
+        state: {
+          mensaje:
+            `Habilitaciones registradas con éxito: ${totalHabilitados} habilitados / ${totalNoHabilitados} no habilitados` +
+            (totalSinDecidir > 0 ? ` / ${totalSinDecidir} sin decidir.` : '.'),
+        },
+      });
     } catch (err) {
       setError(primerError(err, 'No se pudo guardar las habilitaciones.'));
     } finally {
       setGuardando(false);
     }
-  }
-
-  if (exito) {
-    return (
-      <div className="max-w-2xl">
-        <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-10 text-center">
-          <p className="text-lg font-semibold text-gray-800">Habilitaciones registradas con éxito.</p>
-          <p className="text-sm text-gray-500 mt-2">
-            {exito.habilitados} habilitados / {exito.noHabilitados} no habilitados
-          </p>
-          <Link
-            to="/examenes"
-            className="inline-block mt-6 bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-glow whitespace-nowrap"
-          >
-            Volver a exámenes
-          </Link>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -172,23 +164,26 @@ export default function HabilitarEstudiantes() {
       {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
 
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2">
-        {tiene('habilitaciones.registrar') && !cerrado && (
+        <div className="flex flex-wrap items-center gap-2">
+          {tiene('habilitaciones.registrar') && !cerrado && (
+            <button
+              type="button"
+              onClick={() => setInscribiendo(true)}
+              className="inline-flex items-center gap-2 bg-kairos-gradient text-white rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition hover:shadow-md active:scale-[0.98]"
+            >
+              <UserPlusIcon size={16} />
+              Inscribir estudiantes
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => setInscribiendo(true)}
-            className="border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg px-3 py-1.5 text-sm font-medium"
+            onClick={habilitarATodos}
+            disabled={cerrado || inscritos.length === 0}
+            className="inline-flex items-center gap-2 bg-white border border-kairos-600 text-kairos-700 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-kairos-50 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
           >
-            Inscribir estudiantes
+            <CheckAllIcon size={16} />
+            Habilitar a todos
           </button>
-        )}
-        <button
-          onClick={habilitarATodos}
-          disabled={cerrado}
-          className="border border-kairos-600 text-kairos-700 hover:bg-kairos-50 rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50"
-        >
-          Habilitar a todos
-        </button>
         </div>
         <p className="text-sm text-gray-500">
           {totalHabilitados} habilitados / {totalNoHabilitados} no habilitados
@@ -218,18 +213,34 @@ export default function HabilitarEstudiantes() {
                   <td className="px-4 py-2 text-gray-500">{estudiante.documento_identidad || '-'}</td>
                   <td className="px-4 py-2 text-gray-500">{carrerasDe(estudiante)}</td>
                   <td className="px-4 py-2">
-                    <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="flex items-center gap-2 whitespace-nowrap" role="group" aria-label="Estado de habilitación">
                       <button
+                        type="button"
+                        disabled={cerrado}
+                        aria-pressed={e.habilitado === true}
                         onClick={() => marcar(estudiante.id, true)}
-                        className={`text-xs px-2 py-1 ${e.habilitado === true ? 'bg-kairos-600 text-white' : 'bg-white text-gray-500'}`}
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition active:scale-[0.97] disabled:pointer-events-none ${
+                          e.habilitado === true
+                            ? 'bg-kairos-gradient text-white shadow-sm'
+                            : 'border border-gray-300 text-gray-600 hover:border-kairos-500 hover:text-kairos-700 hover:bg-kairos-50'
+                        }`}
                       >
+                        <CheckIcon />
                         Habilitado
                       </button>
                       <button
+                        type="button"
+                        disabled={cerrado}
+                        aria-pressed={e.habilitado === false}
                         onClick={() => marcar(estudiante.id, false)}
-                        className={`text-xs px-2 py-1 border-l border-gray-200 ${e.habilitado === false ? 'bg-red-600 text-white' : 'bg-white text-gray-500'}`}
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition active:scale-[0.97] disabled:pointer-events-none ${
+                          e.habilitado === false
+                            ? 'bg-red-600 text-white shadow-sm'
+                            : 'border border-gray-300 text-gray-600 hover:border-red-400 hover:text-red-600 hover:bg-red-50'
+                        }`}
                       >
-                        No hab.
+                        <XIcon />
+                        No habilitado
                       </button>
                     </div>
                   </td>
@@ -276,15 +287,20 @@ export default function HabilitarEstudiantes() {
       <Paginacion pagina={pagina} ultima={ultimaPagina} total={inscritos.length} onCambiar={setPagina} />
 
       <div className="flex justify-end gap-3 mt-4">
-        <Link to="/examenes" className="text-sm text-gray-400 self-center">
+        <Link
+          to="/examenes"
+          className="border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg px-4 py-2 text-sm font-medium transition"
+        >
           Cancelar
         </Link>
         <button
+          type="button"
           onClick={guardar}
-          disabled={guardando || inscritos.length === 0 || cerrado}
-          className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-glow disabled:opacity-60"
+          disabled={guardando || totalHabilitados + totalNoHabilitados === 0 || cerrado}
+          className="inline-flex items-center gap-2 bg-kairos-gradient text-white text-sm font-medium rounded-lg px-5 py-2 shadow-glow transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none"
         >
-          Guardar habilitaciones
+          <CheckIcon size={16} />
+          {guardando ? 'Guardando...' : 'Guardar habilitaciones'}
         </button>
       </div>
 

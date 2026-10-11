@@ -181,6 +181,31 @@ export function ClipboardCheckIcon({ size = 18 }) {
   );
 }
 
+export function CheckIcon({ size = 14 }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+export function XIcon({ size = 14 }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
+export function CheckAllIcon({ size = 16 }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M2 12.5 6.5 17 17 6.5" />
+      <path d="m12 17 10-10.5" />
+    </svg>
+  );
+}
+
 // Etiqueta de campo con icono teal (mismo estilo que "Programar examen").
 export function Etiqueta({ icon, children, className = '' }) {
   return (
