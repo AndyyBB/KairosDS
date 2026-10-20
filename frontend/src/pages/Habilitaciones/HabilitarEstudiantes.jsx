@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
 import { fechaDMA, horaHM } from '../../api/formato';
 import Paginacion from '../../components/Paginacion';
 import { primerError } from '../../api/errores';
 import { useAuth } from '../../api/AuthContext';
+import Aviso from '../../components/Aviso';
+import Encabezado from '../../components/Encabezado';
 import {
-  IconoTitulo,
   CheckBadgeIcon,
   CheckIcon,
   XIcon,
@@ -37,8 +38,37 @@ export default function HabilitarEstudiantes() {
   const navigate = useNavigate();
   const [pagina, setPagina] = useState(1);
   const [inscribiendo, setInscribiendo] = useState(false);
+  const [examenes, setExamenes] = useState([]);
+  const [mensaje, setMensaje] = useState('');
+
+  // HU-04 (1): lista de examenes registrados que aun admiten habilitaciones.
+  useEffect(() => {
+    api
+      .get('/examenes', { params: { per_page: 100 } })
+      .then((res) => {
+        const lista = (res.data.data ?? res.data).filter(
+          (ex) => !['finalizado', 'cancelado'].includes(ex.estado_actual)
+        );
+        lista.sort((a, b) => `${a.fecha} ${a.hora_inicio}`.localeCompare(`${b.fecha} ${b.hora_inicio}`));
+        setExamenes(lista);
+      })
+      .catch((err) => setError(primerError(err, 'No se pudo cargar la lista de exámenes.')));
+  }, []);
+
+  function seleccionarExamen(id) {
+    setMensaje('');
+    setPagina(1);
+    navigate(id ? `/examenes/habilitar/${id}` : '/examenes/habilitar');
+  }
 
   async function cargar() {
+    if (!examenId) {
+      setExamen(null);
+      setInscritos([]);
+      setEstado({});
+      setCargando(false);
+      return;
+    }
     setCargando(true);
     const [examenRes, inscritosRes] = await Promise.all([
       api.get(`/examenes/${examenId}`),
@@ -130,14 +160,13 @@ export default function HabilitarEstudiantes() {
           });
         })
       );
-      // Vuelve a Exámenes y muestra allí el aviso de confirmación.
-      navigate('/examenes', {
-        state: {
-          mensaje:
-            `Habilitaciones registradas con éxito: ${totalHabilitados} habilitados / ${totalNoHabilitados} no habilitados` +
-            (totalSinDecidir > 0 ? ` / ${totalSinDecidir} sin decidir.` : '.'),
-        },
-      });
+      // HU-04 (10): el sistema muestra el mensaje de confirmacion en esta misma pantalla.
+      setMensaje(
+        `Habilitaciones registradas con éxito: ${totalHabilitados} habilitados / ${totalNoHabilitados} no habilitados` +
+          (totalSinDecidir > 0 ? ` / ${totalSinDecidir} sin decidir.` : '.')
+      );
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      await cargar();
     } catch (err) {
       setError(primerError(err, 'No se pudo guardar las habilitaciones.'));
     } finally {
@@ -147,16 +176,51 @@ export default function HabilitarEstudiantes() {
 
   return (
     <div className="max-w-6xl">
-      <div className="flex items-center gap-3 mb-2">
-        <IconoTitulo><CheckBadgeIcon size={22} /></IconoTitulo>
-        <h1 className="text-2xl font-semibold text-gray-800">Habilitar estudiantes</h1>
+      <Encabezado
+        icono={<CheckBadgeIcon size={22} />}
+        titulo="Habilitar estudiantes"
+        descripcion="Selecciona un examen y marca a cada estudiante inscrito como habilitado o no habilitado."
+      />
+
+      <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
+
+      <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
+        <label htmlFor="examen-habilitar" className="block text-sm font-medium text-gray-600 mb-1">Examen</label>
+        <select
+          id="examen-habilitar"
+          className="input"
+          value={examenId ?? ''}
+          onChange={(e) => seleccionarExamen(e.target.value)}
+        >
+          <option value="">Seleccione un examen</option>
+          {examenes.map((ex) => (
+            <option key={ex.id} value={String(ex.id)}>
+              {`${ex.materia?.nombre} — ${fechaDMA(ex.fecha)} ${horaHM(ex.hora_inicio)} — ${
+                ex.ambientes?.length ? ex.ambientes.map((a) => a.nombre).join(', ') : ex.ambiente?.nombre ?? ''
+              }`}
+            </option>
+          ))}
+          {/* Si se entra con un examen que ya no esta en la lista (finalizado), igual se muestra. */}
+          {examen && !examenes.some((ex) => String(ex.id) === String(examen.id)) && (
+            <option value={String(examen.id)}>
+              {`${examen.materia?.nombre} — ${fechaDMA(examen.fecha)} ${horaHM(examen.hora_inicio)}`}
+            </option>
+          )}
+        </select>
       </div>
-      {examen && (
-        <p className="text-gray-500 text-sm mb-4">
-          {examen.materia?.nombre} · {fechaDMA(examen.fecha)} {horaHM(examen.hora_inicio)} · {examen.ambientes?.length ? examen.ambientes.map((a) => a.nombre).join(', ') : examen.ambiente?.nombre}
-        </p>
+
+      {!examenId && (
+        <div className="rounded-xl border border-dashed border-kairos-200 bg-white/60 px-6 py-12 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-kairos-50 text-kairos-600">
+            <CheckBadgeIcon size={24} />
+          </div>
+          <p className="font-medium text-gray-700">Selecciona un examen</p>
+          <p className="text-sm text-gray-500 mt-1">Se mostrará la lista de estudiantes inscritos en ese examen.</p>
+        </div>
       )}
 
+      {examenId && (
+      <>
       {cerrado && (
         <p className="text-sm text-amber-700 mb-4">Este examen está {examen.estado_actual}: ya no admite habilitaciones.</p>
       )}
@@ -287,12 +351,13 @@ export default function HabilitarEstudiantes() {
       <Paginacion pagina={pagina} ultima={ultimaPagina} total={inscritos.length} onCambiar={setPagina} />
 
       <div className="flex justify-end gap-3 mt-4">
-        <Link
-          to="/examenes"
-          className="border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg px-4 py-2 text-sm font-medium transition"
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="border border-gray-300 text-gray-700 rounded-lg px-4 py-2 text-sm font-medium"
         >
           Cancelar
-        </Link>
+        </button>
         <button
           type="button"
           onClick={guardar}
@@ -303,6 +368,9 @@ export default function HabilitarEstudiantes() {
           {guardando ? 'Guardando...' : 'Guardar habilitaciones'}
         </button>
       </div>
+
+      </>
+      )}
 
       {inscribiendo && (
         <ModalInscribir

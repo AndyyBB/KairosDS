@@ -1,30 +1,44 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/client';
+import { primerError } from '../../api/errores';
 import Paginacion from '../../components/Paginacion';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
-import { IconoTitulo, StudentIcon } from '../../components/Iconos';
-import { useAuth } from '../../api/AuthContext';
+import Encabezado from '../../components/Encabezado';
+import Buscador from '../../components/Buscador';
+import { StudentIcon } from '../../components/Iconos';
 import CodigoQR from '../../components/CodigoQR';
 import ModalQR from '../../components/ModalQR';
+import { claseEnlaceNombre } from '../../components/AccionPeligro';
+import { useAuth } from '../../api/AuthContext';
 
+// Lista de estudiantes. Al hacer clic en el nombre se abre "Editar estudiante",
+// donde tambien se puede eliminar definitivamente (HU-06 y HU-07).
 export default function EstudiantesList() {
   const { tiene } = useAuth();
+  const puedeEditar = tiene('estudiantes.editar') || tiene('estudiantes.eliminar');
   const [estudiantes, setEstudiantes] = useState([]);
   const [buscar, setBuscar] = useState('');
   const [cargando, setCargando] = useState(true);
   const [pagina, setPagina] = useState(1);
   const [meta, setMeta] = useState({ last_page: 1, total: 0 });
   const [mensaje, setMensaje] = useMensajeFlash();
+  const [error, setError] = useState('');
   const [verQr, setVerQr] = useState(null);
 
   async function cargar(p = 1) {
     setCargando(true);
-    const res = await api.get('/estudiantes', { params: { buscar, page: p } });
-    setEstudiantes(res.data.data ?? res.data);
-    setMeta({ last_page: res.data.last_page ?? 1, total: res.data.total ?? 0 });
-    setPagina(res.data.current_page ?? p);
-    setCargando(false);
+    try {
+      const res = await api.get('/estudiantes', { params: { buscar: buscar || undefined, page: p, solo_activos: 0 } });
+      if (p > 1 && (res.data.data ?? []).length === 0) return cargar(p - 1);
+      setEstudiantes(res.data.data ?? res.data);
+      setMeta({ last_page: res.data.last_page ?? 1, total: res.data.total ?? 0 });
+      setPagina(res.data.current_page ?? p);
+    } catch (err) {
+      setError(primerError(err, 'No se pudo cargar la lista de estudiantes.'));
+    } finally {
+      setCargando(false);
+    }
   }
 
   useEffect(() => {
@@ -32,45 +46,32 @@ export default function EstudiantesList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleDesactivar(id) {
-    if (!confirm('¿Desactivar este estudiante? El historial de ingresos se conserva.')) return;
-    await api.delete(`/estudiantes/${id}`);
-    cargar(pagina);
-  }
+  const columnas = 6;
 
   return (
     <div>
-      <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div className="flex items-center gap-3">
-          <IconoTitulo><StudentIcon size={22} /></IconoTitulo>
-          <h1 className="text-2xl font-semibold text-gray-800">Estudiantes</h1>
-        </div>
-        {tiene('estudiantes.registrar') && (
-          <Link
-            to="/estudiantes/nuevo"
-            className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-glow whitespace-nowrap"
-          >
-            Registrar estudiante
-          </Link>
-        )}
-      </div>
+      <Encabezado
+        icono={<StudentIcon size={22} />}
+        titulo="Lista de estudiantes"
+        descripcion={
+          puedeEditar
+            ? 'Haz clic en el nombre de un estudiante para ver sus datos, editarlo o eliminarlo.'
+            : 'Estudiantes registrados en el sistema.'
+        }
+      />
 
-      <div className="flex gap-2 mb-4">
-        <input
-          value={buscar}
-          onChange={(e) => setBuscar(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && cargar(1)}
-          placeholder="Buscar por código, documento o nombre..."
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        />
-        <button onClick={() => cargar(1)} className="border border-gray-300 rounded-lg px-4 text-sm text-gray-700">
-          Buscar
-        </button>
-      </div>
+      <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
+      <Aviso mensaje={error} tipo="error" onCerrar={() => setError('')} />
+
+      <Buscador
+        valor={buscar}
+        onCambiar={setBuscar}
+        onBuscar={() => cargar(1)}
+        placeholder="Buscar por código, documento o nombre..."
+      />
 
       <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
-        <table className="w-full min-w-[860px] text-sm">
+        <table className="w-full min-w-[820px] text-sm">
           <thead className="bg-kairos-50/80 text-kairos-800 text-left">
             <tr>
               <th className="px-4 py-2">Código</th>
@@ -79,21 +80,31 @@ export default function EstudiantesList() {
               <th className="px-4 py-2">Carreras</th>
               <th className="px-4 py-2">Correo</th>
               <th className="px-4 py-2">QR</th>
-              <th className="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {cargando && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">Cargando...</td></tr>
+              <tr><td colSpan={columnas} className="px-4 py-6 text-center text-gray-400">Cargando...</td></tr>
             )}
             {!cargando && estudiantes.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">Sin resultados.</td></tr>
+              <tr><td colSpan={columnas} className="px-4 py-6 text-center text-gray-400">Sin resultados.</td></tr>
             )}
-            {estudiantes.map((e) => (
+            {!cargando && estudiantes.map((e) => (
               <tr key={e.id} className="border-t border-gray-100">
                 <td className="px-4 py-2">{e.codigo_universitario}</td>
                 <td className="px-4 py-2">{e.documento_identidad}</td>
-                <td className="px-4 py-2">{e.nombre_completo}</td>
+                <td className="px-4 py-2">
+                  {puedeEditar ? (
+                    <Link to={`/estudiantes/datos/${e.id}`} className={claseEnlaceNombre}>
+                      {e.nombre_completo}
+                    </Link>
+                  ) : (
+                    e.nombre_completo
+                  )}
+                  {e.activo === false && (
+                    <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">Inactivo</span>
+                  )}
+                </td>
                 <td className="px-4 py-2">{(e.carreras?.length ? e.carreras.map((c) => c.nombre) : [e.carrera?.nombre]).join(', ')}</td>
                 <td className="px-4 py-2 text-gray-500">{e.correo_institucional}</td>
                 <td className="px-4 py-2">
@@ -106,18 +117,6 @@ export default function EstudiantesList() {
                   >
                     <CodigoQR valor={e.codigo_universitario} tamano={40} />
                   </button>
-                </td>
-                <td className="px-4 py-2 text-right space-x-3">
-                  {tiene('estudiantes.editar') && (
-                    <Link to={`/estudiantes/${e.id}/editar`} className="text-kairos-600 font-medium">
-                      Editar
-                    </Link>
-                  )}
-                  {tiene('estudiantes.eliminar') && (
-                    <button onClick={() => handleDesactivar(e.id)} className="text-gray-400">
-                      Desactivar
-                    </button>
-                  )}
                 </td>
               </tr>
             ))}

@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
-import { erroresCampos } from '../../api/errores';
+import { erroresCampos, primerError } from '../../api/errores';
+import { useAuth } from '../../api/AuthContext';
+import BotonesFormulario from '../../components/BotonesFormulario';
+import Aviso from '../../components/Aviso';
+import Encabezado from '../../components/Encabezado';
+import CodigoQR from '../../components/CodigoQR';
+import ModalQR from '../../components/ModalQR';
 import {
-  IconoTitulo,
   StudentIcon,
   Etiqueta,
   HashIcon,
@@ -20,24 +25,81 @@ const initial = {
   carreras: [''],
 };
 
+// HU-01: Registrar estudiante. Con un id en la ruta es "Datos del estudiante" (se abre
+// desde la Lista de estudiantes): los campos se muestran sin poder modificarse y abajo
+// estan los botones Editar (HU-06, habilita los campos) y Eliminar (HU-07).
 export default function EstudianteForm() {
   const { id } = useParams();
-  const editando = Boolean(id);
+  const editando = Boolean(id); // pantalla "Datos del estudiante"
+  const [modoEdicion, setModoEdicion] = useState(false);
+  const [original, setOriginal] = useState(null);
   const navigate = useNavigate();
   const [form, setForm] = useState(initial);
   const [carreras, setCarreras] = useState([]);
   const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
+  const [registrado, setRegistrado] = useState(null); // ultimo estudiante registrado (para su QR)
+  const [verQr, setVerQr] = useState(false);
+  const [error, setError] = useState('');
+  const [eliminando, setEliminando] = useState(false);
+  const { tiene } = useAuth();
+  const soloLectura = editando && !modoEdicion;
 
   useEffect(() => {
     api.get('/carreras').then((res) => setCarreras(res.data));
     if (editando) {
-      api.get(`/estudiantes/${id}`).then((res) => {
-        const ids = (res.data.carreras?.length ? res.data.carreras.map((c) => c.id) : [res.data.carrera_id]).map(String);
-        setForm({ ...res.data, carreras: ids });
-      });
+      api
+        .get(`/estudiantes/${id}`)
+        .then((res) => {
+          const ids = (res.data.carreras?.length ? res.data.carreras.map((c) => c.id) : [res.data.carrera_id]).map(String);
+          const datos = {
+            codigo_universitario: res.data.codigo_universitario ?? '',
+            documento_identidad: res.data.documento_identidad ?? '',
+            nombre_completo: res.data.nombre_completo ?? '',
+            correo_institucional: res.data.correo_institucional ?? '',
+            carreras: ids,
+          };
+          setForm(datos);
+          setOriginal(datos);
+          setRegistrado({ nombre_completo: datos.nombre_completo, codigo_universitario: datos.codigo_universitario });
+        })
+        .catch((err) => setError(primerError(err, 'No se pudo cargar al estudiante.')));
     }
   }, [id, editando]);
+
+  // HU-01 (15, 16): "Cancelar" descarta los datos ingresados y cierra el formulario:
+  // el sistema redirige a la pantalla de Inicio. En "Datos del estudiante", Cancelar
+  // descarta los cambios y vuelve a mostrar los datos sin poder modificarlos.
+  function cancelar() {
+    setErrores({});
+    if (editando) {
+      setForm(original ?? initial);
+      setModoEdicion(false);
+      return;
+    }
+    setForm(initial);
+    navigate('/');
+  }
+
+  function editar() {
+    setMensaje('');
+    setModoEdicion(true);
+  }
+
+  // HU-07: desde la pantalla de edicion se elimina al estudiante definitivamente.
+  async function eliminar() {
+    if (!confirm(`¿Eliminar a ${form.nombre_completo}? Se borrará definitivamente junto con sus inscripciones, habilitaciones e ingresos.`)) return;
+    setEliminando(true);
+    setError('');
+    try {
+      await api.delete(`/estudiantes/${id}`);
+      navigate('/estudiantes/lista', { state: { mensaje: 'Estudiante eliminado con éxito.' } });
+    } catch (err) {
+      setError(primerError(err, 'No se pudo eliminar al estudiante.'));
+      setEliminando(false);
+    }
+  }
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -77,6 +139,7 @@ export default function EstudianteForm() {
     e.preventDefault();
     setGuardando(true);
     setErrores({});
+    setMensaje('');
     const payload = {
       codigo_universitario: form.codigo_universitario,
       documento_identidad: form.documento_identidad,
@@ -87,12 +150,22 @@ export default function EstudianteForm() {
     try {
       if (editando) {
         await api.put(`/estudiantes/${id}`, payload);
-      } else {
-        await api.post('/estudiantes', payload);
+        // Vuelve a mostrar los datos (ya guardados) sin poder modificarlos.
+        setOriginal(form);
+        setRegistrado({ nombre_completo: form.nombre_completo, codigo_universitario: form.codigo_universitario });
+        setModoEdicion(false);
+        setMensaje('Estudiante actualizado con éxito.');
+        return;
       }
-      navigate('/estudiantes', {
-        state: { mensaje: editando ? 'Estudiante actualizado con éxito.' : 'Estudiante registrado con éxito.' },
+      const res = await api.post('/estudiantes', payload);
+      // HU-01 (14): el sistema muestra el mensaje y deja el formulario listo para otro registro.
+      setRegistrado({
+        nombre_completo: res.data?.nombre_completo ?? payload.nombre_completo,
+        codigo_universitario: res.data?.codigo_universitario ?? payload.codigo_universitario,
       });
+      setForm(initial);
+      setMensaje('Estudiante registrado con éxito.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setErrores(erroresCampos(err));
     } finally {
@@ -102,14 +175,43 @@ export default function EstudianteForm() {
 
   return (
     <div className="max-w-xl">
-      <div className="flex items-center gap-3 mb-6">
-        <IconoTitulo><StudentIcon size={22} /></IconoTitulo>
-        <h1 className="text-2xl font-semibold text-gray-800">
-          {editando ? 'Editar estudiante' : 'Registrar estudiante'}
-        </h1>
-      </div>
+      <Encabezado
+        icono={<StudentIcon size={22} />}
+        titulo={!editando ? 'Registrar estudiante' : modoEdicion ? 'Editar estudiante' : 'Datos del estudiante'}
+        descripcion={
+          !editando
+            ? 'Ingresa los datos personales y académicos del estudiante.'
+            : modoEdicion
+              ? 'Modifica los datos y presiona "Guardar".'
+              : 'Información registrada del estudiante.'
+        }
+      />
+
+      <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
+      <Aviso mensaje={error} tipo="error" onCerrar={() => setError('')} />
+
+      {registrado && (
+        <div className="mb-5 flex items-center gap-4 rounded-xl border border-kairos-100/70 bg-white p-4 shadow-md">
+          <button
+            type="button"
+            onClick={() => setVerQr(true)}
+            className="shrink-0 rounded-lg border border-gray-200 p-1 hover:border-kairos-400"
+            aria-label={`Ver código QR de ${registrado.nombre_completo}`}
+          >
+            <CodigoQR valor={registrado.codigo_universitario} tamano={64} />
+          </button>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-800 truncate">{registrado.nombre_completo}</p>
+            <p className="text-xs text-gray-500">Código QR para el Control de ingreso ({registrado.codigo_universitario})</p>
+            <button type="button" onClick={() => setVerQr(true)} className="mt-1 text-sm font-medium text-kairos-600 hover:underline">
+              Ver, descargar o imprimir
+            </button>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-6 space-y-4">
+        <fieldset disabled={soloLectura} className="space-y-4">
         <Campo label="Código universitario" icon={<HashIcon />} error={errores.codigo_universitario}>
           <input
             className="input"
@@ -160,7 +262,7 @@ export default function EstudianteForm() {
                       <option key={c.id} value={c.id}>{c.nombre}</option>
                     ))}
                 </select>
-                {form.carreras.length > 1 && (
+                {form.carreras.length > 1 && !soloLectura && (
                   <button
                     type="button"
                     onClick={() => quitarCarrera(indice)}
@@ -173,7 +275,7 @@ export default function EstudianteForm() {
               </div>
             ))}
           </div>
-          {hayCarrerasSinUsar && (
+          {hayCarrerasSinUsar && !soloLectura && (
             <button
               type="button"
               onClick={agregarCarrera}
@@ -182,26 +284,27 @@ export default function EstudianteForm() {
               + Agregar otra carrera
             </button>
           )}
-          <p className="text-xs text-gray-400 mt-1">Un estudiante puede pertenecer a más de una carrera.</p>
+          {!soloLectura && (
+            <p className="text-xs text-gray-400 mt-1">Un estudiante puede pertenecer a más de una carrera.</p>
+          )}
         </Campo>
+        </fieldset>
 
-        <div className="flex justify-end gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => navigate('/estudiantes')}
-            className="border border-gray-300 text-gray-700 rounded-lg px-4 py-2 text-sm"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={guardando}
-            className="bg-kairos-gradient text-white rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
-          >
-            {guardando ? 'Guardando...' : 'Guardar'}
-          </button>
-        </div>
+        <BotonesFormulario
+          esDetalle={editando}
+          modoEdicion={modoEdicion}
+          puedeEditar={tiene('estudiantes.editar')}
+          puedeEliminar={tiene('estudiantes.eliminar')}
+          guardando={guardando}
+          eliminando={eliminando}
+          onCancelar={cancelar}
+          onSalir={() => navigate('/estudiantes/lista')}
+          onEditar={editar}
+          onEliminar={eliminar}
+        />
       </form>
+
+      {verQr && registrado && <ModalQR estudiante={registrado} onCerrar={() => setVerQr(false)} />}
     </div>
   );
 }

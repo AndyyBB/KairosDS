@@ -2,27 +2,28 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../api/AuthContext';
 import KairosLogo from './KairosLogo';
-import {
-  HomeIcon,
-  StudentIcon,
-  BuildingIcon,
-  ExamIcon,
-  ClipboardCheckIcon,
-  ShieldIcon,
-  UsersIcon,
-  LogoutIcon,
-} from './Iconos';
+import { LogoutIcon } from './Iconos';
+import { modulosPermitidos, rutaDeItem } from './navegacion';
 
-// HU-17 (10): el menu lateral muestra solo los modulos que el rol tiene permitido ver.
-const NAV_ITEMS = [
-  { to: '/', label: 'Inicio', icon: HomeIcon, activo: (p) => p === '/' },
-  { to: '/estudiantes', label: 'Estudiantes', icon: StudentIcon, permiso: 'estudiantes.ver', activo: (p) => p.startsWith('/estudiantes') },
-  { to: '/ambientes', label: 'Ambientes', icon: BuildingIcon, permiso: 'ambientes.ver', activo: (p) => p.startsWith('/ambientes') },
-  { to: '/examenes', label: 'Exámenes', icon: ExamIcon, permiso: 'examenes.ver', activo: (p) => p.startsWith('/examenes') },
-  { to: '/control-ingreso', label: 'Control de ingreso', icon: ClipboardCheckIcon, permiso: 'control_ingreso.ver', activo: (p) => p.startsWith('/control-ingreso') },
-  { to: '/usuarios', label: 'Usuarios', icon: UsersIcon, permiso: 'usuarios.ver', activo: (p) => p.startsWith('/usuarios') },
-  { to: '/roles-permisos', label: 'Roles y permisos', icon: ShieldIcon, soloAdmin: true, activo: (p) => p.startsWith('/roles-permisos') },
-];
+function Chevron({ abierto }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      className={`ml-auto shrink-0 transition-transform duration-200 ${abierto ? 'rotate-90' : ''}`}
+      aria-hidden="true"
+    >
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+const enModulo = (pathname, base) => pathname === base || pathname.startsWith(`${base}/`);
 
 export default function Layout() {
   const { usuario, logout, tiene, esAdministrador } = useAuth();
@@ -30,9 +31,18 @@ export default function Layout() {
   const { pathname } = useLocation();
   const [menuAbierto, setMenuAbierto] = useState(false);
 
+  const modulos = modulosPermitidos(tiene, esAdministrador);
+  const moduloActual = modulos.find((m) => m.base && enModulo(pathname, m.base));
+  const [abiertos, setAbiertos] = useState(() => new Set(moduloActual ? [moduloActual.base] : []));
+
   // En pantallas chicas el menu es un panel deslizable: se cierra al navegar o con Escape.
+  // Al navegar, el modulo de la pantalla actual queda desplegado.
   useEffect(() => {
     setMenuAbierto(false);
+    if (moduloActual) {
+      setAbiertos((prev) => (prev.has(moduloActual.base) ? prev : new Set(prev).add(moduloActual.base)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   useEffect(() => {
@@ -42,15 +52,36 @@ export default function Layout() {
     return () => window.removeEventListener('keydown', alTeclear);
   }, [menuAbierto]);
 
-  const navItems = NAV_ITEMS.filter((item) => {
-    if (item.soloAdmin) return esAdministrador;
-    return !item.permiso || tiene(item.permiso);
-  });
+  // Clic en un modulo: si no se esta en el, el sistema redirige a su primera pantalla
+  // (Lista de ...); si ya se esta en el, solo se pliega o despliega el submenu.
+  function clicModulo(modulo) {
+    if (!moduloActual || moduloActual.base !== modulo.base) {
+      setAbiertos((prev) => new Set(prev).add(modulo.base));
+      navigate(modulo.items[0].to);
+      return;
+    }
+    setAbiertos((prev) => {
+      const next = new Set(prev);
+      if (next.has(modulo.base)) next.delete(modulo.base);
+      else next.add(modulo.base);
+      return next;
+    });
+  }
+
+  const pantallaActual =
+    moduloActual?.items.find((i) => rutaDeItem(pathname, i))?.label ??
+    modulos.find((m) => m.to && (m.exacto ? pathname === m.to : enModulo(pathname, m.to)))?.label ??
+    'Kairos';
 
   async function handleLogout() {
     await logout();
     navigate('/login');
   }
+
+  const claseItem = (activo) =>
+    `flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition ${
+      activo ? 'bg-kairos-gradient text-white shadow-glow' : 'text-gray-600 hover:bg-kairos-50 hover:text-kairos-700'
+    }`;
 
   return (
     <div className="min-h-screen lg:flex">
@@ -68,7 +99,10 @@ export default function Layout() {
           </svg>
         </button>
         <KairosLogo size={32} />
-        <p className="font-semibold text-gray-800 leading-tight">Kairos</p>
+        <div className="min-w-0">
+          <p className="font-semibold text-gray-800 leading-tight">Kairos</p>
+          <p className="text-xs text-gray-400 leading-tight truncate">{pantallaActual}</p>
+        </div>
       </header>
 
       {menuAbierto && (
@@ -88,21 +122,67 @@ export default function Layout() {
           </div>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition ${
-                item.activo(pathname)
-                  ? 'bg-kairos-gradient text-white shadow-glow'
-                  : 'text-gray-600 hover:bg-kairos-50 hover:text-kairos-700'
-              }`}
-            >
-              <item.icon size={18} />
-              {item.label}
-            </NavLink>
-          ))}
+        <nav className="flex-1 px-3 py-4 space-y-1" aria-label="Menú principal">
+          {modulos.map((m) => {
+            if (!m.items) {
+              const activo = m.exacto ? pathname === m.to : enModulo(pathname, m.to);
+              return (
+                <NavLink key={m.to} to={m.to} className={claseItem(activo)}>
+                  <m.icon size={18} />
+                  {m.label}
+                </NavLink>
+              );
+            }
+
+            const activo = moduloActual?.base === m.base;
+            const abierto = abiertos.has(m.base);
+            return (
+              <div key={m.base}>
+                <button
+                  type="button"
+                  onClick={() => clicModulo(m)}
+                  aria-expanded={abierto}
+                  className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition ${
+                    activo ? 'bg-kairos-50 text-kairos-800' : 'text-gray-600 hover:bg-kairos-50 hover:text-kairos-700'
+                  }`}
+                >
+                  <m.icon size={18} />
+                  {m.label}
+                  <Chevron abierto={abierto} />
+                </button>
+
+                {/* Submenu con animacion de altura */}
+                <div
+                  className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+                    abierto ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <ul className="ml-[1.35rem] mt-1 mb-1 border-l border-kairos-100 pl-3 space-y-0.5">
+                      {m.items.map((item) => {
+                        const itemActivo = rutaDeItem(pathname, item);
+                        return (
+                          <li key={item.to}>
+                            <NavLink
+                              to={item.to}
+                              tabIndex={abierto ? 0 : -1}
+                              className={`relative block rounded-md px-3 py-1.5 text-sm transition ${
+                                itemActivo
+                                  ? 'bg-kairos-gradient text-white font-medium shadow-glow'
+                                  : 'text-gray-500 hover:bg-kairos-50 hover:text-kairos-700'
+                              }`}
+                            >
+                              {item.label}
+                            </NavLink>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </nav>
 
         <div className="px-4 py-4 border-t border-gray-100">

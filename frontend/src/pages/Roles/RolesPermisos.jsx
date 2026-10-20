@@ -4,8 +4,9 @@ import { primerError } from '../../api/errores';
 import Aviso from '../../components/Aviso';
 import { IconoTitulo, ShieldIcon } from '../../components/Iconos';
 
+// "Ver" no se configura: al marcar Registrar, Editar o Eliminar el rol ya puede
+// ver la lista del modulo (se calcula al guardar).
 const ACCIONES = [
-  { id: 'ver', etiqueta: 'Ver' },
   { id: 'registrar', etiqueta: 'Registrar' },
   { id: 'editar', etiqueta: 'Editar' },
   { id: 'eliminar', etiqueta: 'Eliminar' },
@@ -111,7 +112,7 @@ export default function RolesPermisos() {
 
         {edicion && (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
+            <table className="w-full min-w-[480px] text-sm">
               <thead className="bg-kairos-50/80 text-kairos-800 text-left">
                 <tr>
                   <th className="px-3 py-2 font-semibold">Módulo</th>
@@ -144,7 +145,10 @@ export default function RolesPermisos() {
         )}
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-5">
-          <p className="text-sm text-gray-500">Los cambios se aplican en el siguiente inicio de sesión.</p>
+          <div className="text-sm text-gray-500 space-y-0.5">
+            <p>Al marcar Registrar, Editar o Eliminar, el rol también puede ver la lista del módulo.</p>
+            <p>Los cambios se aplican en el siguiente inicio de sesión.</p>
+          </div>
           <div className="flex gap-3">
             <button
               type="button"

@@ -18,7 +18,7 @@ class StoreUsuarioRequest extends FormRequest
     {
         return [
             'nombre_completo' => ['bail', 'required', 'string', 'max:100'],
-            'correo_electronico' => ['bail', 'required', 'string', 'email', 'max:100', 'regex:/^[0-9]+@est\.umss\.edu$/i', 'unique:usuarios,correo_electronico'],
+            'correo_electronico' => ['bail', 'required', 'string', 'email', 'max:100', 'unique:usuarios,correo_electronico'],
             'password' => ['bail', 'required', 'string', 'min:8'],
             'rol_id' => ['bail', 'required', 'integer', 'exists:roles,id'],
         ];

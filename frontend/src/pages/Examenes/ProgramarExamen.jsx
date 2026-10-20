@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
-import { erroresCampos } from '../../api/errores';
+import { erroresCampos, primerError } from '../../api/errores';
+import { useAuth } from '../../api/AuthContext';
+import BotonesFormulario from '../../components/BotonesFormulario';
+import Aviso from '../../components/Aviso';
+import Encabezado from '../../components/Encabezado';
 
 // Fecha (AAAA-MM-DD) y hora (HH:MM) actuales en la hora local del equipo.
 function fechaHoy() {
@@ -24,23 +28,103 @@ function nombreSemestre(nivel) {
   return `${n}${sufijo} semestre (${nivel})`;
 }
 
+const FORM_INICIAL = {
+  materia_id: '',
+  fecha: '',
+  hora_inicio: '',
+  duracion_min: '',
+  ambientes: [''],
+  normas: '',
+};
+
 // HU-02: Registro de examenes ("Programar examen")
 // Campos segun mockup: Asignatura, Fecha, Hora de inicio, Duración, Ambiente, Normas del examen.
+// Con un id en la ruta es "Datos del examen" (se abre desde la Lista de examenes): los
+// campos se muestran sin poder modificarse y abajo estan Editar (HU-08, habilita los
+// campos) y Eliminar (HU-09).
 export default function ProgramarExamen() {
+  const { id } = useParams();
+  const editando = Boolean(id);
+  const { tiene } = useAuth();
   const navigate = useNavigate();
+  const [estadoExamen, setEstadoExamen] = useState(null);
+  const [original, setOriginal] = useState(null); // fecha y hora con que se abrio la edicion
+  const [error, setError] = useState('');
+  const [cancelando, setCancelando] = useState(false);
   const [materias, setMaterias] = useState([]);
   const [ambientes, setAmbientes] = useState([]);
   const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
 
-  const [form, setForm] = useState({
-    materia_id: '',
-    fecha: '',
-    hora_inicio: '',
-    duracion_min: '',
-    ambientes: [''],
-    normas: '',
-  });
+  const [mensaje, setMensaje] = useState('');
+  const [form, setForm] = useState(FORM_INICIAL);
+  const [formOriginal, setFormOriginal] = useState(null);
+  const [modoEdicion, setModoEdicion] = useState(false);
+
+  // Criterios 13 y 14: "Cancelar" descarta los datos ingresados y cierra el formulario
+  // (el sistema redirige a la pantalla de Inicio). En "Datos del examen" descarta los
+  // cambios y vuelve a mostrar los datos sin poder modificarlos.
+  function cancelar() {
+    setErrores({});
+    if (editando) {
+      setForm(formOriginal ?? FORM_INICIAL);
+      setModoEdicion(false);
+      return;
+    }
+    setForm(FORM_INICIAL);
+    navigate('/');
+  }
+
+  function editar() {
+    setMensaje('');
+    setModoEdicion(true);
+  }
+
+  // HU-08: se cargan los datos del examen a editar.
+  useEffect(() => {
+    if (!editando) return;
+    api
+      .get(`/examenes/${id}`)
+      .then(({ data: ex }) => {
+        const fecha = String(ex.fecha ?? '').slice(0, 10);
+        const hora = String(ex.hora_inicio ?? '').slice(0, 5);
+        const ids = ex.ambientes?.length ? ex.ambientes.map((a) => String(a.id)) : [String(ex.ambiente_id ?? '')];
+        const normas = (ex.normas ?? [])
+          .filter((n) => !n.estudiante_id)
+          .map((n) => n.descripcion)
+          .join('\n');
+        const datos = {
+          materia_id: String(ex.materia_id ?? ''),
+          fecha,
+          hora_inicio: hora,
+          duracion_min: String(ex.duracion_min ?? ''),
+          ambientes: ids.length ? ids : [''],
+          normas,
+        };
+        setForm(datos);
+        setFormOriginal(datos);
+        setOriginal({ fecha, hora });
+        setEstadoExamen(ex.estado_actual ?? ex.estado);
+      })
+      .catch((err) => setError(primerError(err, 'No se pudo cargar el examen.')));
+  }, [id, editando]);
+
+  // HU-09: desde la pantalla de edicion se elimina el examen definitivamente.
+  async function eliminarExamen() {
+    if (!confirm('¿Eliminar este examen? Se borrará definitivamente junto con sus inscripciones, habilitaciones e ingresos.')) return;
+    setCancelando(true);
+    setError('');
+    try {
+      await api.delete(`/examenes/${id}`);
+      navigate('/examenes/lista', { state: { mensaje: 'Examen eliminado con éxito.' } });
+    } catch (err) {
+      setError(primerError(err, 'No se pudo eliminar el examen.'));
+      setCancelando(false);
+    }
+  }
+
+  const cerrado = ['finalizado', 'cancelado'].includes(estadoExamen);
+  const soloLectura = editando && !modoEdicion;
 
   useEffect(() => {
     api.get('/materias').then((res) => setMaterias(res.data));
@@ -73,14 +157,17 @@ export default function ProgramarExamen() {
   async function handleSubmit(e) {
     e.preventDefault();
     setErrores({});
+    setMensaje('');
 
-    // No se permite una fecha pasada, ni una hora pasada o igual a la actual.
+    // No se permite una fecha pasada, ni una hora pasada o igual a la actual
+    // (al editar, solo si se cambio la fecha o la hora).
     const hoy = fechaHoy();
-    if (form.fecha && form.fecha < hoy) {
+    const sinCambioHorario = editando && original && form.fecha === original.fecha && form.hora_inicio === original.hora;
+    if (!sinCambioHorario && form.fecha && form.fecha < hoy) {
       setErrores({ fecha: ['La fecha del examen no puede ser anterior a la fecha actual.'] });
       return;
     }
-    if (form.fecha === hoy && form.hora_inicio && form.hora_inicio <= horaAhora()) {
+    if (!sinCambioHorario && form.fecha === hoy && form.hora_inicio && form.hora_inicio <= horaAhora()) {
       setErrores({ hora_inicio: ['La hora de inicio debe ser posterior a la hora actual.'] });
       return;
     }
@@ -99,8 +186,20 @@ export default function ProgramarExamen() {
     };
 
     try {
+      if (editando) {
+        await api.put(`/examenes/${id}`, payload);
+        // Vuelve a mostrar los datos (ya guardados) sin poder modificarlos.
+        setFormOriginal(form);
+        setOriginal({ fecha: form.fecha, hora: form.hora_inicio });
+        setModoEdicion(false);
+        setMensaje('Examen actualizado con éxito.');
+        return;
+      }
       await api.post('/examenes', payload);
-      navigate('/examenes', { state: { mensaje: 'Exámen registrado con éxito.' } });
+      // El sistema muestra el mensaje y deja el formulario listo para programar otro examen.
+      setForm(FORM_INICIAL);
+      setMensaje('Examen registrado con éxito.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setErrores(erroresCampos(err));
     } finally {
@@ -110,16 +209,28 @@ export default function ProgramarExamen() {
 
   return (
     <div className="max-w-2xl">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-11 h-11 rounded-xl bg-kairos-gradient flex items-center justify-center text-white shadow-glow">
-          <CalendarIcon />
-        </div>
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-800">Programar examen</h1>
-        </div>
-      </div>
+      <Encabezado
+        icono={<CalendarIcon />}
+        titulo={!editando ? 'Programar examen' : modoEdicion ? 'Editar examen' : 'Datos del examen'}
+        descripcion={
+          !editando
+            ? 'Indica la asignatura, la fecha, la hora, la duración, los ambientes y las normas del examen.'
+            : modoEdicion
+              ? 'Modifica los datos y presiona "Guardar".'
+              : 'Información registrada del examen.'
+        }
+      />
+
+      <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
+      <Aviso mensaje={error} tipo="error" onCerrar={() => setError('')} />
+      {editando && cerrado && (
+        <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Este examen está {estadoExamen}: ya no se puede editar, solo eliminar.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-6 space-y-5">
+        <fieldset disabled={soloLectura} className="space-y-5">
         <Campo label="Asignatura" icon={<BookIcon />} error={errores.materia_id}>
           <select className="input" value={form.materia_id} onChange={(e) => set('materia_id', e.target.value)}>
             <option value="">Seleccione una asignatura</option>
@@ -186,7 +297,7 @@ export default function ProgramarExamen() {
                       <option key={a.id} value={a.id}>{a.nombre} (cap. {a.capacidad_maxima})</option>
                     ))}
                 </select>
-                {form.ambientes.length > 1 && (
+                {form.ambientes.length > 1 && !soloLectura && (
                   <button
                     type="button"
                     onClick={() => quitarAmbiente(indice)}
@@ -200,7 +311,7 @@ export default function ProgramarExamen() {
             ))}
           </div>
           <div className="flex items-center justify-between mt-2">
-            {hayAmbientesSinUsar ? (
+            {hayAmbientesSinUsar && !soloLectura ? (
               <button type="button" onClick={agregarAmbiente} className="text-sm text-kairos-600 font-medium">
                 + Agregar otro ambiente
               </button>
@@ -221,23 +332,20 @@ export default function ProgramarExamen() {
             onChange={(e) => set('normas', e.target.value)}
           />
         </Campo>
+        </fieldset>
 
-        <div className="flex justify-end gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => navigate('/examenes')}
-            className="border border-gray-300 text-gray-700 rounded-lg px-4 py-2 text-sm font-medium"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={guardando}
-            className="bg-kairos-gradient text-white rounded-lg px-5 py-2 text-sm font-medium shadow-glow disabled:opacity-60"
-          >
-            {guardando ? 'Guardando...' : 'Guardar'}
-          </button>
-        </div>
+        <BotonesFormulario
+          esDetalle={editando}
+          modoEdicion={modoEdicion}
+          puedeEditar={tiene('examenes.editar') && !cerrado}
+          puedeEliminar={tiene('examenes.eliminar')}
+          guardando={guardando}
+          eliminando={cancelando}
+          onCancelar={cancelar}
+          onSalir={() => navigate('/examenes/lista')}
+          onEditar={editar}
+          onEliminar={eliminarExamen}
+        />
       </form>
     </div>
   );

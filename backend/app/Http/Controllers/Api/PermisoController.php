@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Permiso;
 use App\Models\Role;
+use App\Models\Usuario;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -17,11 +18,12 @@ class PermisoController extends Controller
         'examenes' => 'Examenes',
         'habilitaciones' => 'Habilitaciones',
         'control_ingreso' => 'Control de ingreso',
-        'reportes' => 'Reportes',
         'usuarios' => 'Usuarios',
     ];
 
-    private const ACCIONES = ['ver', 'registrar', 'editar', 'eliminar'];
+    // "Ver" no se configura: queda habilitado al marcar Registrar, Editar o Eliminar.
+    // (Reportes aun no tiene pantallas, por eso no aparece en la tabla y sus permisos se conservan.)
+    private const ACCIONES = ['registrar', 'editar', 'eliminar'];
 
     // Roles en el orden del mockup: Administrador, Docente, Personal de control de ingreso.
     public function roles()
@@ -74,7 +76,20 @@ class PermisoController extends Controller
             'permisos.*' => ['string', Rule::in($codigos)],
         ]);
 
-        $ids = Permiso::whereIn('codigo', $data['permisos'])->pluck('id')->all();
+        // Se ignora cualquier "ver" enviado y se calcula a partir de las demas acciones;
+        // los permisos de modulos que no estan en la tabla (Reportes) se conservan.
+        $enTabla = array_keys(self::MODULOS);
+        $marcados = array_values(array_filter($data['permisos'], function ($codigo) use ($enTabla) {
+            [$modulo, $accion] = explode('.', $codigo, 2);
+
+            return in_array($modulo, $enTabla, true) && $accion !== 'ver';
+        }));
+        $fuera = $rol->permisos()->pluck('codigo')->filter(
+            fn ($codigo) => ! in_array(explode('.', $codigo, 2)[0], $enTabla, true)
+        )->all();
+
+        $codigosFinales = array_unique(array_merge(Usuario::conVerImplicito($marcados), $fuera));
+        $ids = Permiso::whereIn('codigo', $codigosFinales)->pluck('id')->all();
         $rol->permisos()->sync($ids);
 
         return response()->json(['message' => 'Permisos actualizados con éxito.']);

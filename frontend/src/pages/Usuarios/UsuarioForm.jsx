@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
 import { erroresCampos, primerError } from '../../api/errores';
+import Aviso from '../../components/Aviso';
+import { useAuth } from '../../api/AuthContext';
+import BotonesFormulario from '../../components/BotonesFormulario';
+import Encabezado from '../../components/Encabezado';
 import {
-  IconoTitulo,
   UserPlusIcon,
   EyeIcon,
   EyeOffIcon,
@@ -14,24 +17,47 @@ import {
   ShieldIcon,
 } from '../../components/Iconos';
 
-// HU-15: Registro de usuarios (crear y editar)
+const FORM_INICIAL = {
+  nombre_completo: '',
+  correo_electronico: '',
+  password: '',
+  rol_id: '',
+  activo: true,
+};
+
+// HU-15: Registro de usuarios. Con un id en la ruta es "Datos del usuario" (se abre desde
+// la Lista de usuarios): los campos se muestran sin poder modificarse y abajo estan
+// Editar (habilita los campos) y Eliminar.
 export default function UsuarioForm() {
   const { id } = useParams();
-  const editando = Boolean(id);
+  const editando = Boolean(id); // pantalla "Datos del usuario"
+  const [modoEdicion, setModoEdicion] = useState(false);
+  const [original, setOriginal] = useState(null);
+  const soloLectura = editando && !modoEdicion;
   const navigate = useNavigate();
 
   const [roles, setRoles] = useState([]);
-  const [form, setForm] = useState({
-    nombre_completo: '',
-    correo_electronico: '',
-    password: '',
-    rol_id: '',
-    activo: true,
-  });
+  const [form, setForm] = useState(FORM_INICIAL);
+  const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState(null);
   const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
   const [verPassword, setVerPassword] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+  const { tiene } = useAuth();
+
+  async function eliminar() {
+    if (!confirm(`¿Eliminar a ${form.nombre_completo}? Su cuenta se borrará definitivamente.`)) return;
+    setEliminando(true);
+    setError(null);
+    try {
+      await api.delete(`/usuarios/${id}`);
+      navigate('/usuarios/lista', { state: { mensaje: 'Usuario eliminado con éxito.' } });
+    } catch (err) {
+      setError(primerError(err, 'No se pudo eliminar al usuario.'));
+      setEliminando(false);
+    }
+  }
 
   useEffect(() => {
     async function cargar() {
@@ -41,23 +67,47 @@ export default function UsuarioForm() {
       if (editando) {
         const usuarioRes = await api.get(`/usuarios/${id}`);
         const u = usuarioRes.data;
-        setForm({
+        const datos = {
           nombre_completo: u.nombre_completo,
           correo_electronico: u.correo_electronico,
           password: '',
           rol_id: u.rol_id,
           activo: u.activo,
-        });
+        };
+        setForm(datos);
+        setOriginal(datos);
       }
     }
     cargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // HU-15 (11, 12): "Cancelar" descarta los datos ingresados y cierra el formulario (el
+  // sistema redirige a la pantalla de Inicio). En "Datos del usuario" descarta los
+  // cambios y vuelve a mostrar los datos sin poder modificarlos.
+  function cancelar() {
+    setErrores({});
+    setError(null);
+    setVerPassword(false);
+    if (editando) {
+      setForm(original ?? FORM_INICIAL);
+      setModoEdicion(false);
+      return;
+    }
+    setForm(FORM_INICIAL);
+    navigate('/');
+  }
+
+  function editar() {
+    setMensaje('');
+    setModoEdicion(true);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
     setErrores({});
+    setMensaje('');
     setGuardando(true);
     try {
       if (editando) {
@@ -68,17 +118,26 @@ export default function UsuarioForm() {
         };
         if (form.password) payload.password = form.password;
         await api.put(`/usuarios/${id}`, payload);
-      } else {
-        await api.post('/usuarios', {
-          nombre_completo: form.nombre_completo,
-          correo_electronico: form.correo_electronico,
-          password: form.password,
-          rol_id: form.rol_id,
-        });
+        // Vuelve a mostrar los datos (ya guardados) sin poder modificarlos.
+        const guardado = { ...form, password: '' };
+        setForm(guardado);
+        setOriginal(guardado);
+        setVerPassword(false);
+        setModoEdicion(false);
+        setMensaje('Usuario actualizado con éxito.');
+        return;
       }
-      navigate('/usuarios', {
-        state: { mensaje: editando ? 'Usuario actualizado con éxito.' : 'Usuario registrado con éxito.' },
+      await api.post('/usuarios', {
+        nombre_completo: form.nombre_completo,
+        correo_electronico: form.correo_electronico,
+        password: form.password,
+        rol_id: form.rol_id,
       });
+      // HU-15 (10): el sistema muestra el mensaje y deja el formulario listo para otro registro.
+      setForm(FORM_INICIAL);
+      setVerPassword(false);
+      setMensaje('Usuario registrado con éxito.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       const campos = erroresCampos(err);
       setErrores(campos);
@@ -93,12 +152,22 @@ export default function UsuarioForm() {
 
   return (
     <div className="max-w-lg">
-      <div className="flex items-center gap-3 mb-6">
-        <IconoTitulo><UserPlusIcon size={22} /></IconoTitulo>
-        <h1 className="text-2xl font-semibold text-gray-800">{editando ? 'Editar usuario' : 'Registrar usuario'}</h1>
-      </div>
+      <Encabezado
+        icono={<UserPlusIcon size={22} />}
+        titulo={!editando ? 'Registrar usuario' : modoEdicion ? 'Editar usuario' : 'Datos del usuario'}
+        descripcion={
+          !editando
+            ? 'Crea la cuenta de un docente o del personal de control de ingreso.'
+            : modoEdicion
+              ? 'Modifica los datos y presiona "Guardar".'
+              : 'Información registrada del usuario.'
+        }
+      />
+
+      <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
 
       <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-6 space-y-4">
+        <fieldset disabled={soloLectura} className="space-y-4">
         <div>
           <Etiqueta icon={<UserIcon />}>Nombre completo</Etiqueta>
           <input
@@ -115,12 +184,13 @@ export default function UsuarioForm() {
             className="input"
             value={form.correo_electronico}
             onChange={(e) => setForm({ ...form, correo_electronico: e.target.value })}
-            placeholder="CódigoUniversitario@est.umss.edu"
+            placeholder="nombre@correo.com"
             disabled={editando}
           />
           {errores.correo_electronico && <p className="text-xs text-red-600 mt-1">{errores.correo_electronico[0]}</p>}
         </div>
 
+        {(!editando || modoEdicion) && (
         <div>
           <Etiqueta icon={<LockIcon />}>
             {editando ? 'Nueva contraseña (opcional)' : 'Contraseña'}
@@ -146,6 +216,7 @@ export default function UsuarioForm() {
           </div>
           {errores.password && <p className="text-xs text-red-600 mt-1">{errores.password[0]}</p>}
         </div>
+        )}
 
         <div>
           <Etiqueta icon={<ShieldIcon />}>Rol</Etiqueta>
@@ -161,32 +232,23 @@ export default function UsuarioForm() {
           </select>
           {errores.rol_id && <p className="text-xs text-red-600 mt-1">{errores.rol_id[0]}</p>}
         </div>
+        </fieldset>
 
-        {editando && (
-          <label className="flex items-center gap-2 text-sm text-gray-600">
-            <input
-              type="checkbox"
-              checked={form.activo}
-              onChange={(e) => setForm({ ...form, activo: e.target.checked })}
-            />
-            Usuario activo (puede iniciar sesión)
-          </label>
-        )}
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={() => navigate('/usuarios')} className="text-sm text-gray-500 px-4 py-2">
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={guardando}
-            className="bg-kairos-gradient text-white rounded-lg px-5 py-2 text-sm font-medium disabled:opacity-60"
-          >
-            {guardando ? 'Guardando...' : 'Guardar'}
-          </button>
-        </div>
+        <BotonesFormulario
+          esDetalle={editando}
+          modoEdicion={modoEdicion}
+          puedeEditar={tiene('usuarios.editar')}
+          puedeEliminar={tiene('usuarios.eliminar')}
+          guardando={guardando}
+          eliminando={eliminando}
+          onCancelar={cancelar}
+          onSalir={() => navigate('/usuarios/lista')}
+          onEditar={editar}
+          onEliminar={eliminar}
+        />
       </form>
     </div>
   );

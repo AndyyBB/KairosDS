@@ -62,9 +62,25 @@ class Usuario extends Authenticatable
             return Permiso::orderBy('id')->pluck('codigo')->all();
         }
 
-        return $this->rol
-            ? $this->rol->permisos()->orderBy('permisos.id')->pluck('codigo')->all()
-            : [];
+        return self::conVerImplicito(
+            $this->rol
+                ? $this->rol->permisos()->orderBy('permisos.id')->pluck('codigo')->all()
+                : []
+        );
+    }
+
+    // HU-17: "Ver" no se configura aparte: quien puede registrar, editar o eliminar
+    // en un modulo tambien puede ver su lista.
+    public static function conVerImplicito(array $codigos): array
+    {
+        foreach ($codigos as $codigo) {
+            [$modulo, $accion] = array_pad(explode('.', $codigo, 2), 2, '');
+            if ($accion !== 'ver' && $modulo !== '' && ! in_array("$modulo.ver", $codigos, true)) {
+                $codigos[] = "$modulo.ver";
+            }
+        }
+
+        return array_values($codigos);
     }
 
     // HU-17: los permisos se guardan en el token al iniciar sesion, de modo que un
@@ -77,7 +93,7 @@ class Usuario extends Authenticatable
         $habilidades = $token instanceof PersonalAccessToken ? ($token->abilities ?? []) : [];
 
         if (in_array('sesion', $habilidades, true)) {
-            return array_values(array_diff($habilidades, ['sesion']));
+            return self::conVerImplicito(array_values(array_diff($habilidades, ['sesion'])));
         }
 
         return $this->permisosCodigos();

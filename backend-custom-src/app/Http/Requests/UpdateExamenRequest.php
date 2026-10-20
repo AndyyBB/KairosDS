@@ -26,6 +26,11 @@ class UpdateExamenRequest extends FormRequest
             'hora_inicio' => ['bail', 'sometimes', 'required', 'date_format:H:i'],
             'duracion_min' => ['bail', 'sometimes', 'required', 'integer', 'between:5,300'],
             'estado' => ['sometimes', 'required', 'in:programado,en curso,finalizado,cancelado'],
+            // HU-08: las normas generales del examen se pueden reemplazar al editar.
+            'normas' => ['sometimes', 'nullable', 'array'],
+            'normas.*.tipo' => ['required_with:normas', 'in:general,particular'],
+            'normas.*.estudiante_id' => ['nullable', 'integer', 'exists:estudiantes,id'],
+            'normas.*.descripcion' => ['required_with:normas', 'string', 'max:500'],
         ];
     }
 

@@ -5,7 +5,9 @@ export const MENSAJE_SIN_PERMISO = 'No tiene permisos para realizar esta acción
 // HU-17 (9): si el usuario entra a una funcion sin permiso, se muestra el mensaje.
 export default function RutaPermiso({ permiso, soloAdmin = false, children }) {
   const { tiene, esAdministrador } = useAuth();
-  const permitido = soloAdmin ? esAdministrador : tiene(permiso);
+  // "permiso" puede ser una lista: basta con tener uno de ellos.
+  const lista = Array.isArray(permiso) ? permiso : [permiso];
+  const permitido = soloAdmin ? esAdministrador : lista.some((p) => tiene(p));
 
   if (!permitido) {
     return (

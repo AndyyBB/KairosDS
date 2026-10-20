@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreExamenRequest;
 use App\Http\Requests\UpdateExamenRequest;
 use App\Models\Examen;
+use App\Support\BorradoDefinitivo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -22,8 +23,8 @@ class ExamenController extends Controller
         ])
             ->when($request->query('fecha'), fn ($q, $v) => $q->whereDate('fecha', $v))
             ->when($request->query('materia_id'), fn ($q, $v) => $q->where('materia_id', $v))
-            // Un examen cancelado deja de aparecer en la lista (el registro se
-            // conserva en la base de datos para no perder el historial).
+            // Examenes cancelados antes de que la eliminacion fuera definitiva: no se
+            // listan salvo que se pidan (la Lista de examenes los muestra para poder eliminarlos).
             ->when(! $request->boolean('incluir_cancelados'), fn ($q) => $q->where('estado', '!=', 'cancelado'))
             // Los mas recientes primero: asi el examen recien programado aparece
             // arriba y no queda escondido en una pagina posterior.
@@ -69,9 +70,11 @@ class ExamenController extends Controller
     {
         $data = $request->validated();
         $ambientes = isset($data['ambientes']) ? array_values($data['ambientes']) : null;
-        unset($data['ambientes']);
+        $tieneNormas = array_key_exists('normas', $data);
+        $normas = $data['normas'] ?? [];
+        unset($data['ambientes'], $data['normas']);
 
-        DB::transaction(function () use ($examen, $data, $ambientes) {
+        DB::transaction(function () use ($examen, $data, $ambientes, $tieneNormas, $normas) {
             if ($ambientes) {
                 $data['ambiente_id'] = $ambientes[0];
             }
@@ -82,16 +85,35 @@ class ExamenController extends Controller
             } elseif (isset($data['ambiente_id'])) {
                 $examen->ambientes()->sync([$data['ambiente_id']]);
             }
+
+            // Se reemplazan solo las normas generales (las particulares de cada estudiante se conservan).
+            if ($tieneNormas) {
+                $examen->normas()->whereNull('estudiante_id')->delete();
+                foreach ($normas as $norma) {
+                    $examen->normas()->create($norma);
+                }
+            }
         });
 
-        return $examen->load(['materia', 'ambiente', 'ambientes']);
+        return $examen->load(['materia', 'ambiente', 'ambientes', 'normas']);
     }
 
-    // HU-09: Eliminacion de examenes (se cancela, no se borra: preserva historial de ingresos/habilitaciones)
+    // HU-09: Eliminacion de examenes. El examen se elimina definitivamente de la base de
+    // datos junto con sus normas, ambientes, inscripciones, habilitaciones, ingresos e intentos.
     public function destroy(Examen $examen)
     {
-        $examen->update(['estado' => 'cancelado']);
+        DB::transaction(function () use ($examen) {
+            BorradoDefinitivo::permitirBorrarIntentos();
 
-        return response()->json(['message' => 'Examen cancelado.']);
+            $habilitaciones = DB::table('habilitaciones')->where('examen_id', $examen->id)->pluck('id');
+            BorradoDefinitivo::borrarIngresosDeHabilitaciones($habilitaciones);
+            DB::table('intentos_ingreso')->where('examen_id', $examen->id)->delete();
+
+            // normas, habilitaciones, incidencias, examen_ambiente e inscripciones_examen
+            // se borran en cascada.
+            $examen->delete();
+        });
+
+        return response()->json(['message' => 'Examen eliminado con éxito.']);
     }
 }

@@ -1,12 +1,14 @@
 import { Fragment, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../api/AuthContext';
+import { claseEnlaceNombre } from '../../components/AccionPeligro';
 import api from '../../api/client';
 import { primerError } from '../../api/errores';
 import { fechaDMA, horaHM } from '../../api/formato';
 import Paginacion from '../../components/Paginacion';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
-import { IconoTitulo, ExamIcon } from '../../components/Iconos';
-import { useAuth } from '../../api/AuthContext';
+import Encabezado from '../../components/Encabezado';
+import { ExamIcon } from '../../components/Iconos';
 
 const ESTADO_STYLES = {
   programado: 'bg-kairos-gradient text-white shadow-glow',
@@ -15,8 +17,11 @@ const ESTADO_STYLES = {
   cancelado: 'bg-red-50 text-red-600',
 };
 
+// Lista de examenes. Al hacer clic en la asignatura se abre "Editar examen" (HU-08),
+// donde tambien se puede eliminar el examen (HU-09).
 export default function ExamenesList() {
   const { tiene } = useAuth();
+  const puedeEditar = tiene('examenes.editar') || tiene('examenes.eliminar');
   const [examenes, setExamenes] = useState([]);
   const [pagina, setPagina] = useState(1);
   const [meta, setMeta] = useState({ last_page: 1, total: 0 });
@@ -25,7 +30,13 @@ export default function ExamenesList() {
   const [abierto, setAbierto] = useState(null); // examen con las normas desplegadas
 
   async function cargar(p = pagina) {
-    const res = await api.get('/examenes', { params: { page: p } });
+    let res;
+    try {
+      res = await api.get('/examenes', { params: { page: p, incluir_cancelados: 1 } });
+    } catch (err) {
+      setFallo(primerError(err, 'No se pudo cargar la lista de exámenes.'));
+      return;
+    }
     // Si se cancelo el ultimo examen de una pagina, se vuelve a la anterior.
     if (p > 1 && (res.data.data ?? []).length === 0) {
       return cargar(p - 1);
@@ -40,36 +51,23 @@ export default function ExamenesList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleCancelar(id) {
-    if (!confirm('¿Cancelar este examen? Dejará de aparecer en la lista.')) return;
-    setFallo('');
-    try {
-      await api.delete(`/examenes/${id}`);
-      setMensaje('Examen cancelado.');
-      await cargar(pagina);
-    } catch (err) {
-      setFallo(primerError(err, 'No se pudo cancelar el examen.'));
-    }
-  }
-
   return (
     <div>
+      <Encabezado
+        icono={<ExamIcon size={22} />}
+        titulo="Lista de exámenes"
+        descripcion={
+          puedeEditar
+            ? 'Haz clic en la asignatura de un examen para ver sus datos, editarlo o eliminarlo.'
+            : 'Exámenes programados.'
+        }
+      />
+
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <Aviso mensaje={fallo} tipo="error" onCerrar={() => setFallo('')} />
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div className="flex items-center gap-3">
-          <IconoTitulo><ExamIcon size={22} /></IconoTitulo>
-          <h1 className="text-2xl font-semibold text-gray-800">Exámenes</h1>
-        </div>
-        {tiene('examenes.registrar') && (
-          <Link to="/examenes/programar" className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-glow whitespace-nowrap">
-            Programar examen
-          </Link>
-        )}
-      </div>
 
       <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
-        <table className="w-full min-w-[940px] text-sm">
+        <table className="w-full min-w-[860px] text-sm">
           <thead className="bg-kairos-50/80 text-kairos-800 text-left">
             <tr>
               <th className="px-4 py-2">Materia</th>
@@ -79,28 +77,25 @@ export default function ExamenesList() {
               <th className="px-4 py-2">Ambiente</th>
               <th className="px-4 py-2">Estado</th>
               <th className="px-4 py-2">Normas</th>
-              <th className="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {examenes.map((ex) => {
               // El estado se calcula con la fecha y hora reales del examen.
               const estado = ex.estado_actual || ex.estado;
-              const cerrado = estado === 'finalizado' || estado === 'cancelado';
               const normas = ex.normas ?? [];
               const verNormas = abierto === ex.id;
               return (
                 <Fragment key={ex.id}>
                 <tr className="border-t border-gray-100">
                   <td className="px-4 py-2">
-                    {/* Clic en la materia: lleva a Habilitar estudiantes de ese examen */}
-                    <Link
-                      to={`/examenes/${ex.id}/habilitar`}
-                      className="font-medium text-kairos-700 hover:underline"
-                      title="Habilitar estudiantes"
-                    >
-                      {ex.materia?.nombre}
-                    </Link>
+                    {puedeEditar ? (
+                      <Link to={`/examenes/datos/${ex.id}`} className={claseEnlaceNombre}>
+                        {ex.materia?.nombre}
+                      </Link>
+                    ) : (
+                      <span className="font-medium text-gray-800">{ex.materia?.nombre}</span>
+                    )}
                   </td>
                   <td className="px-4 py-2">{fechaDMA(ex.fecha)}</td>
                   <td className="px-4 py-2">{horaHM(ex.hora_inicio)}</td>
@@ -119,7 +114,7 @@ export default function ExamenesList() {
                         type="button"
                         onClick={() => setAbierto(verNormas ? null : ex.id)}
                         aria-expanded={verNormas}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-kairos-700 hover:underline"
+                        className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-kairos-700 hover:underline"
                       >
                         {verNormas ? 'Ocultar' : 'Ver normas'}
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={`transition-transform ${verNormas ? 'rotate-180' : ''}`}>
@@ -128,37 +123,10 @@ export default function ExamenesList() {
                       </button>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-right">
-                    <div className="inline-flex items-center gap-2">
-                      {!tiene('habilitaciones.ver') ? null : cerrado ? (
-                        <span
-                          title="El examen ya no admite habilitaciones"
-                          className="border border-gray-200 text-gray-300 rounded-lg px-3 py-1 text-xs font-medium cursor-not-allowed whitespace-nowrap"
-                        >
-                          Habilitar estudiantes
-                        </span>
-                      ) : (
-                        <Link
-                          to={`/examenes/${ex.id}/habilitar`}
-                          className="border border-kairos-600 text-kairos-700 hover:bg-kairos-50 rounded-lg px-3 py-1 text-xs font-medium whitespace-nowrap"
-                        >
-                          Habilitar estudiantes
-                        </Link>
-                      )}
-                      {tiene('examenes.eliminar') && (
-                        <button
-                          onClick={() => handleCancelar(ex.id)}
-                          className="border border-red-500 text-red-600 hover:bg-red-50 rounded-lg px-3 py-1 text-xs font-medium"
-                        >
-                          Cancelar
-                        </button>
-                      )}
-                    </div>
-                  </td>
                 </tr>
                 {verNormas && (
                   <tr className="bg-kairos-50/40">
-                    <td colSpan={8} className="px-4 pb-3 pt-1">
+                    <td colSpan={7} className="px-4 pb-3 pt-1">
                       <p className="text-xs font-semibold text-gray-500 mb-1">Normas del examen</p>
                       <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
                         {normas.map((n) => (

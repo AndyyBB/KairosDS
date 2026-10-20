@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreEstudianteRequest;
 use App\Http\Requests\UpdateEstudianteRequest;
 use App\Models\Estudiante;
+use App\Support\BorradoDefinitivo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -67,10 +68,24 @@ class EstudianteController extends Controller
     }
 
     // HU-07: Eliminacion de estudiantes (borrado logico, preserva historial de ingresos)
+    // HU-07: el estudiante se elimina definitivamente de la base de datos, junto con sus
+    // carreras, inscripciones, habilitaciones, ingresos e intentos de ingreso.
     public function destroy(Estudiante $estudiante)
     {
-        $estudiante->update(['activo' => false]);
+        DB::transaction(function () use ($estudiante) {
+            BorradoDefinitivo::permitirBorrarIntentos();
 
-        return response()->json(['message' => 'Estudiante desactivado.']);
+            $habilitaciones = DB::table('habilitaciones')->where('estudiante_id', $estudiante->id)->pluck('id');
+            BorradoDefinitivo::borrarIngresosDeHabilitaciones($habilitaciones);
+            DB::table('habilitaciones')->where('estudiante_id', $estudiante->id)->delete();
+            DB::table('intentos_ingreso')->where('estudiante_id', $estudiante->id)->delete();
+            DB::table('normas_examen')->where('estudiante_id', $estudiante->id)->delete();
+            DB::table('incidencias')->where('estudiante_id', $estudiante->id)->delete();
+
+            // inscripciones, estudiante_carrera e inscripciones_examen se borran en cascada.
+            $estudiante->delete();
+        });
+
+        return response()->json(['message' => 'Estudiante eliminado con éxito.']);
     }
 }

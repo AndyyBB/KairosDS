@@ -38,8 +38,15 @@ export function AuthProvider({ children }) {
   }
 
   // HU-17: permisos "modulo.accion" que el rol tenia al iniciar sesion.
+  // "Ver" no se configura aparte: queda habilitado al tener Registrar, Editar o Eliminar.
   function tiene(permiso) {
-    return !!usuario?.permisos?.includes(permiso);
+    const lista = usuario?.permisos ?? [];
+    if (lista.includes(permiso)) return true;
+    if (permiso.endsWith('.ver')) {
+      const modulo = permiso.slice(0, -'.ver'.length);
+      return lista.some((p) => p.startsWith(`${modulo}.`));
+    }
+    return false;
   }
 
   const esAdministrador = usuario?.rol?.nombre === 'administrador';
