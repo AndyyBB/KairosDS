@@ -30,8 +30,24 @@ class ControlIngresoController extends Controller
     ];
 
     // HU-10 (1): examenes programados para la fecha actual.
-    public function examenes()
+    // Con ?con_ingresos=1 (pantallas "Editar ingreso" y "Eliminar ingreso") se devuelven los
+    // examenes de cualquier fecha que tienen al menos un ingreso registrado.
+    public function examenes(Request $request)
     {
+        if ($request->boolean('con_ingresos')) {
+            return Examen::with(['materia', 'ambiente', 'ambientes'])
+                ->whereHas('habilitaciones', fn ($q) => $q->whereIn(
+                    'habilitaciones.id',
+                    Ingreso::query()->select('habilitacion_id')
+                ))
+                ->orderByDesc('fecha')
+                ->orderByDesc('hora_inicio')
+                ->limit(200)
+                ->get()
+                ->map(fn (Examen $e) => $this->resumenExamen($e))
+                ->values();
+        }
+
         $hoy = Carbon::now(self::TZ)->toDateString();
 
         return Examen::with(['materia', 'ambiente', 'ambientes'])
@@ -179,6 +195,22 @@ class ControlIngresoController extends Controller
     public function ingresos(Examen $examen)
     {
         return response()->json($this->resumenIngresos($examen));
+    }
+
+    // Pantallas "Editar ingreso" y "Eliminar ingreso": todos los ingresos del examen, con los
+    // datos completos del estudiante, para buscar y seleccionar el que se va a corregir.
+    public function todosLosIngresos(Examen $examen)
+    {
+        $ingresos = Ingreso::query()
+            ->whereHas('habilitacion', fn ($q) => $q->where('examen_id', $examen->id))
+            ->with(['habilitacion.estudiante.carreras', 'habilitacion.estudiante.carrera', 'usuario', 'ambiente'])
+            ->orderByDesc('fecha_hora_ingreso')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (Ingreso $i) => $this->filaIngreso($i))
+            ->values();
+
+        return response()->json($ingresos);
     }
 
     // HU-26 (8): intentos registrados del examen seleccionado.
@@ -408,26 +440,33 @@ class ControlIngresoController extends Controller
             ->orderByDesc('id')
             ->limit(10)
             ->get()
-            ->map(fn (Ingreso $i) => [
-                'id' => $i->id,
-                'hora' => $this->hora($i->fecha_hora_ingreso),
-                'codigo' => $i->habilitacion?->estudiante?->codigo_universitario,
-                'nombre' => $i->habilitacion?->estudiante?->nombre_completo,
-                'documento' => $i->habilitacion?->estudiante?->documento_identidad,
-                'carrera' => $i->habilitacion?->estudiante
-                    ? $this->datosEstudiante($i->habilitacion->estudiante)['carrera']
-                    : null,
-                'correo' => $i->habilitacion?->estudiante?->correo_institucional,
-                'ambiente_id' => $i->ambiente_id,
-                'ambiente' => $i->ambiente?->nombre,
-                'registrado_por' => $i->usuario?->nombre_completo,
-            ])
+            ->map(fn (Ingreso $i) => $this->filaIngreso($i))
             ->values();
 
         return [
             'ingresados' => $consulta->count(),
             'habilitados' => Habilitacion::where('examen_id', $examen->id)->where('habilitado', true)->count(),
             'ultimos' => $ultimos,
+        ];
+    }
+
+    // Fila de un ingreso con los datos completos del estudiante.
+    private function filaIngreso(Ingreso $i): array
+    {
+        return [
+            'id' => $i->id,
+            'hora' => $this->hora($i->fecha_hora_ingreso),
+            'fecha' => $i->fecha_hora_ingreso ? Carbon::parse($i->fecha_hora_ingreso)->setTimezone(self::TZ)->format('d/m/Y') : null,
+            'codigo' => $i->habilitacion?->estudiante?->codigo_universitario,
+            'nombre' => $i->habilitacion?->estudiante?->nombre_completo,
+            'documento' => $i->habilitacion?->estudiante?->documento_identidad,
+            'carrera' => $i->habilitacion?->estudiante
+                ? $this->datosEstudiante($i->habilitacion->estudiante)['carrera']
+                : null,
+            'correo' => $i->habilitacion?->estudiante?->correo_institucional,
+            'ambiente_id' => $i->ambiente_id,
+            'ambiente' => $i->ambiente?->nombre,
+            'registrado_por' => $i->usuario?->nombre_completo,
         ];
     }
 }

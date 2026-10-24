@@ -35,6 +35,7 @@ Route::middleware('auth:sanctum')->group(function () {
     };
 
     // HU-01, HU-06, HU-07
+    Route::get('/estudiantes-anios', [EstudianteController::class, 'anios'])->middleware('permiso:estudiantes.ver');
     $recurso('estudiantes', EstudianteController::class, 'estudiantes', 'estudiante');
 
     // HU-03
@@ -62,6 +63,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/examenes', [ControlIngresoController::class, 'examenes'])->middleware('permiso:control_ingreso.ver');
         Route::get('/examenes/{examen}/ingresos', [ControlIngresoController::class, 'ingresos'])->middleware('permiso:control_ingreso.ver');
         Route::get('/examenes/{examen}/intentos', [ControlIngresoController::class, 'intentos'])->middleware('permiso:control_ingreso.ver');
+        // Pantallas "Editar ingreso" y "Eliminar ingreso": todos los ingresos del examen.
+        Route::get('/examenes/{examen}/ingresos/todos', [ControlIngresoController::class, 'todosLosIngresos'])->middleware('permiso:control_ingreso.editar,control_ingreso.eliminar');
         Route::post('/verificar', [ControlIngresoController::class, 'verificar'])->middleware('permiso:control_ingreso.registrar');
         Route::post('/ingresos', [ControlIngresoController::class, 'registrarIngreso'])->middleware('permiso:control_ingreso.registrar');
 

@@ -8,17 +8,25 @@ import Encabezado from '../../components/Encabezado';
 import { UsersIcon } from '../../components/Iconos';
 import { claseEnlaceNombre } from '../../components/AccionPeligro';
 import { useAuth } from '../../api/AuthContext';
+import Buscador from '../../components/Buscador';
+import { useCamposUsuarios, filtrarUsuarios } from '../../components/catalogos';
 
 const POR_PAGINA = 20;
 
-// Lista de usuarios. Al hacer clic en el nombre se abre "Editar usuario",
-// donde tambien se puede eliminar definitivamente.
+// Lista de usuarios: al hacer clic en el nombre se abre "Datos de ..." solo para ver.
+// Editar y Eliminar son pantallas independientes del menu.
 export default function UsuariosList() {
   const { tiene } = useAuth();
-  const puedeEditar = tiene('usuarios.editar') || tiene('usuarios.eliminar');
+  // El nombre abre "Datos de ..." (solo para ver). Editar y Eliminar tienen sus propias
+  // pantallas en el menu.
+  const puedeVerDatos = tiene('usuarios.ver');
   const [usuarios, setUsuarios] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [pagina, setPagina] = useState(1);
+  const [buscar, setBuscar] = useState('');
+  const [aplicado, setAplicado] = useState(''); // texto buscado al presionar Buscar
+  const [filtros, setFiltros] = useState({});
+  const camposFiltro = useCamposUsuarios();
   const [mensaje, setMensaje] = useMensajeFlash();
   const [error, setError] = useState('');
 
@@ -38,7 +46,7 @@ export default function UsuariosList() {
     cargar();
   }, []);
 
-  const lista = usuarios;
+  const lista = filtrarUsuarios(usuarios, aplicado, filtros);
   const ultima = Math.max(1, Math.ceil(lista.length / POR_PAGINA));
   const visibles = lista.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
 
@@ -48,14 +56,30 @@ export default function UsuariosList() {
         icono={<UsersIcon size={22} />}
         titulo="Lista de usuarios"
         descripcion={
-          puedeEditar
-            ? 'Haz clic en el nombre de un usuario para ver sus datos, editarlo o eliminarlo.'
+          puedeVerDatos
+            ? 'Haz clic en el nombre de un usuario para ver sus datos.'
             : 'Usuarios registrados en el sistema.'
         }
       />
 
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <Aviso mensaje={error} tipo="error" onCerrar={() => setError('')} />
+
+      <Buscador
+        valor={buscar}
+        onCambiar={setBuscar}
+        onBuscar={() => {
+          setAplicado(buscar);
+          setPagina(1);
+        }}
+        placeholder="Buscar por nombre o correo electrónico..."
+        campos={camposFiltro}
+        filtros={filtros}
+        onFiltrar={(f) => {
+          setFiltros(f);
+          setPagina(1);
+        }}
+      />
 
       <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
         <table className="w-full min-w-[720px] text-sm">
@@ -71,7 +95,7 @@ export default function UsuariosList() {
             {visibles.map((u) => (
               <tr key={u.id} className="border-t border-gray-100">
                 <td className="px-4 py-2">
-                  {puedeEditar ? (
+                  {puedeVerDatos ? (
                     <Link to={`/usuarios/datos/${u.id}`} className={claseEnlaceNombre}>{u.nombre_completo}</Link>
                   ) : (
                     u.nombre_completo

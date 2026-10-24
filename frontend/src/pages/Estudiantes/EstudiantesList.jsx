@@ -11,14 +11,19 @@ import CodigoQR from '../../components/CodigoQR';
 import ModalQR from '../../components/ModalQR';
 import { claseEnlaceNombre } from '../../components/AccionPeligro';
 import { useAuth } from '../../api/AuthContext';
+import { useCamposEstudiantes, parametros } from '../../components/catalogos';
 
-// Lista de estudiantes. Al hacer clic en el nombre se abre "Editar estudiante",
-// donde tambien se puede eliminar definitivamente (HU-06 y HU-07).
+// Lista de estudiantes: al hacer clic en el nombre se abre "Datos de ..." solo para ver.
+// Editar y Eliminar son pantallas independientes del menu.
 export default function EstudiantesList() {
   const { tiene } = useAuth();
-  const puedeEditar = tiene('estudiantes.editar') || tiene('estudiantes.eliminar');
+  // El nombre abre "Datos de ..." (solo para ver). Editar y Eliminar tienen sus propias
+  // pantallas en el menu.
+  const puedeVerDatos = tiene('estudiantes.ver');
   const [estudiantes, setEstudiantes] = useState([]);
   const [buscar, setBuscar] = useState('');
+  const [filtros, setFiltros] = useState({});
+  const camposFiltro = useCamposEstudiantes();
   const [cargando, setCargando] = useState(true);
   const [pagina, setPagina] = useState(1);
   const [meta, setMeta] = useState({ last_page: 1, total: 0 });
@@ -26,11 +31,11 @@ export default function EstudiantesList() {
   const [error, setError] = useState('');
   const [verQr, setVerQr] = useState(null);
 
-  async function cargar(p = 1) {
+  async function cargar(p = 1, f = filtros) {
     setCargando(true);
     try {
-      const res = await api.get('/estudiantes', { params: { buscar: buscar || undefined, page: p, solo_activos: 0 } });
-      if (p > 1 && (res.data.data ?? []).length === 0) return cargar(p - 1);
+      const res = await api.get('/estudiantes', { params: parametros({ buscar, page: p, solo_activos: 0, ...f }) });
+      if (p > 1 && (res.data.data ?? []).length === 0) return cargar(p - 1, f);
       setEstudiantes(res.data.data ?? res.data);
       setMeta({ last_page: res.data.last_page ?? 1, total: res.data.total ?? 0 });
       setPagina(res.data.current_page ?? p);
@@ -54,8 +59,8 @@ export default function EstudiantesList() {
         icono={<StudentIcon size={22} />}
         titulo="Lista de estudiantes"
         descripcion={
-          puedeEditar
-            ? 'Haz clic en el nombre de un estudiante para ver sus datos, editarlo o eliminarlo.'
+          puedeVerDatos
+            ? 'Haz clic en el nombre de un estudiante para ver sus datos.'
             : 'Estudiantes registrados en el sistema.'
         }
       />
@@ -68,6 +73,12 @@ export default function EstudiantesList() {
         onCambiar={setBuscar}
         onBuscar={() => cargar(1)}
         placeholder="Buscar por código, documento o nombre..."
+        campos={camposFiltro}
+        filtros={filtros}
+        onFiltrar={(f) => {
+          setFiltros(f);
+          cargar(1, f);
+        }}
       />
 
       <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
@@ -94,15 +105,12 @@ export default function EstudiantesList() {
                 <td className="px-4 py-2">{e.codigo_universitario}</td>
                 <td className="px-4 py-2">{e.documento_identidad}</td>
                 <td className="px-4 py-2">
-                  {puedeEditar ? (
+                  {puedeVerDatos ? (
                     <Link to={`/estudiantes/datos/${e.id}`} className={claseEnlaceNombre}>
                       {e.nombre_completo}
                     </Link>
                   ) : (
                     e.nombre_completo
-                  )}
-                  {e.activo === false && (
-                    <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">Inactivo</span>
                   )}
                 </td>
                 <td className="px-4 py-2">{(e.carreras?.length ? e.carreras.map((c) => c.nombre) : [e.carrera?.nombre]).join(', ')}</td>

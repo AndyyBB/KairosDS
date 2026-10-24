@@ -4,7 +4,9 @@ import api from '../../api/client';
 import { erroresCampos, primerError } from '../../api/errores';
 import { useAuth } from '../../api/AuthContext';
 import BotonesFormulario from '../../components/BotonesFormulario';
-import Aviso from '../../components/Aviso';
+import Aviso, { useMensajeFlash } from '../../components/Aviso';
+import { SelectorExamen, ambientesDeExamen } from '../../components/Selectores';
+import { fechaDMA } from '../../api/formato';
 import Encabezado from '../../components/Encabezado';
 
 // Fecha (AAAA-MM-DD) y hora (HH:MM) actuales en la hora local del equipo.
@@ -37,17 +39,25 @@ const FORM_INICIAL = {
   normas: '',
 };
 
-// HU-02: Registro de examenes ("Programar examen")
-// Campos segun mockup: Asignatura, Fecha, Hora de inicio, Duración, Ambiente, Normas del examen.
-// Con un id en la ruta es "Datos del examen" (se abre desde la Lista de examenes): los
-// campos se muestran sin poder modificarse y abajo estan Editar (HU-08, habilita los
-// campos) y Eliminar (HU-09).
-export default function ProgramarExamen() {
+// Titulo y descripcion de cada pantalla (cada accion tiene su propia pantalla del menu).
+const TEXTOS = {
+  registrar: { titulo: 'Programar examen', descripcion: 'Indica la asignatura, la fecha, la hora, la duración, los ambientes y las normas del examen.' },
+  datos: { titulo: 'Datos del examen', descripcion: 'Información registrada del examen.' },
+  editar: { titulo: 'Editar examen', descripcion: 'Selecciona el examen, modifica sus datos y presiona "Guardar".' },
+  eliminar: { titulo: 'Eliminar examen', descripcion: 'Selecciona el examen, revisa sus datos y presiona "Eliminar".' },
+};
+
+// HU-02 Programar examen, HU-08 Editar examen y HU-09 Eliminar examen: cada accion es una
+// pantalla independiente del menu Examenes. Campos: Asignatura, Fecha, Hora de inicio,
+// Duracion, Ambientes y Normas del examen. "Datos del examen" se abre desde la Lista de
+// examenes (clic en la asignatura) y solo muestra los datos.
+export default function ProgramarExamen({ modo = 'registrar' }) {
   const { id } = useParams();
   const editando = Boolean(id);
   const { tiene } = useAuth();
   const navigate = useNavigate();
   const [estadoExamen, setEstadoExamen] = useState(null);
+  const [resumen, setResumen] = useState(null); // examen seleccionado (Editar / Eliminar)
   const [original, setOriginal] = useState(null); // fecha y hora con que se abrio la edicion
   const [error, setError] = useState('');
   const [cancelando, setCancelando] = useState(false);
@@ -56,33 +66,37 @@ export default function ProgramarExamen() {
   const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
 
-  const [mensaje, setMensaje] = useState('');
+  const [mensaje, setMensaje] = useMensajeFlash();
   const [form, setForm] = useState(FORM_INICIAL);
   const [formOriginal, setFormOriginal] = useState(null);
-  const [modoEdicion, setModoEdicion] = useState(false);
 
-  // Criterios 13 y 14: "Cancelar" descarta los datos ingresados y cierra el formulario
-  // (el sistema redirige a la pantalla de Inicio). En "Datos del examen" descarta los
-  // cambios y vuelve a mostrar los datos sin poder modificarlos.
+  // Al elegir otro registro se limpian los mensajes y errores anteriores.
+  useEffect(() => {
+    if (!id) return;
+    setMensaje('');
+    setError('');
+    setErrores({});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // "Cancelar": en "Registrar" descarta los datos ingresados y redirige a la pantalla de
+  // Inicio; en "Editar examen" y "Eliminar examen" descarta los cambios y vuelve a la
+  // seleccion del registro.
   function cancelar() {
     setErrores({});
-    if (editando) {
-      setForm(formOriginal ?? FORM_INICIAL);
-      setModoEdicion(false);
+    if (modo === 'editar' || modo === 'eliminar') {
+      // Descarta los cambios y vuelve a la seleccion del registro.
+      navigate(`/examenes/${modo}`);
       return;
     }
     setForm(FORM_INICIAL);
     navigate('/');
   }
 
-  function editar() {
-    setMensaje('');
-    setModoEdicion(true);
-  }
-
   // HU-08: se cargan los datos del examen a editar.
   useEffect(() => {
     if (!editando) return;
+    setResumen(null);
     api
       .get(`/examenes/${id}`)
       .then(({ data: ex }) => {
@@ -105,18 +119,22 @@ export default function ProgramarExamen() {
         setFormOriginal(datos);
         setOriginal({ fecha, hora });
         setEstadoExamen(ex.estado_actual ?? ex.estado);
+        setResumen({
+          titulo: ex.materia?.nombre ?? 'Examen',
+          detalle: `${fechaDMA(fecha)} ${hora} · ${ambientesDeExamen(ex)} · ${ex.estado_actual ?? ex.estado}`,
+        });
       })
       .catch((err) => setError(primerError(err, 'No se pudo cargar el examen.')));
   }, [id, editando]);
 
-  // HU-09: desde la pantalla de edicion se elimina el examen definitivamente.
+  // HU-09: en la pantalla "Eliminar examen" se elimina definitivamente.
   async function eliminarExamen() {
     if (!confirm('¿Eliminar este examen? Se borrará definitivamente junto con sus inscripciones, habilitaciones e ingresos.')) return;
     setCancelando(true);
     setError('');
     try {
       await api.delete(`/examenes/${id}`);
-      navigate('/examenes/lista', { state: { mensaje: 'Examen eliminado con éxito.' } });
+      navigate('/examenes/eliminar', { state: { mensaje: 'Examen eliminado con éxito.' } });
     } catch (err) {
       setError(primerError(err, 'No se pudo eliminar el examen.'));
       setCancelando(false);
@@ -124,7 +142,7 @@ export default function ProgramarExamen() {
   }
 
   const cerrado = ['finalizado', 'cancelado'].includes(estadoExamen);
-  const soloLectura = editando && !modoEdicion;
+  const soloLectura = modo === 'datos' || modo === 'eliminar' || (modo === 'editar' && cerrado);
 
   useEffect(() => {
     api.get('/materias').then((res) => setMaterias(res.data));
@@ -191,7 +209,6 @@ export default function ProgramarExamen() {
         // Vuelve a mostrar los datos (ya guardados) sin poder modificarlos.
         setFormOriginal(form);
         setOriginal({ fecha: form.fecha, hora: form.hora_inicio });
-        setModoEdicion(false);
         setMensaje('Examen actualizado con éxito.');
         return;
       }
@@ -208,26 +225,32 @@ export default function ProgramarExamen() {
   }
 
   return (
-    <div className="max-w-2xl">
+    // Sin registro elegido en Editar / Eliminar se muestra la tabla de seleccion (mas ancha).
+    <div className={(modo === 'editar' || modo === 'eliminar') && !editando ? 'max-w-5xl' : 'max-w-2xl'}>
       <Encabezado
         icono={<CalendarIcon />}
-        titulo={!editando ? 'Programar examen' : modoEdicion ? 'Editar examen' : 'Datos del examen'}
-        descripcion={
-          !editando
-            ? 'Indica la asignatura, la fecha, la hora, la duración, los ambientes y las normas del examen.'
-            : modoEdicion
-              ? 'Modifica los datos y presiona "Guardar".'
-              : 'Información registrada del examen.'
-        }
+        titulo={TEXTOS[modo].titulo}
+        descripcion={TEXTOS[modo].descripcion}
       />
 
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <Aviso mensaje={error} tipo="error" onCerrar={() => setError('')} />
-      {editando && cerrado && (
+      {editando && cerrado && modo !== 'eliminar' && (
         <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Este examen está {estadoExamen}: ya no se puede editar, solo eliminar.
         </p>
       )}
+      {(modo === 'editar' || modo === 'eliminar') && (
+        <SelectorExamen modo={modo} seleccionado={editando ? (resumen ?? { titulo: 'Cargando...' }) : null} />
+      )}
+
+      {(modo === 'registrar' || editando) && (
+        <>
+          {modo === 'eliminar' && (
+            <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              Revisa los datos antes de eliminar. El examen se borrará definitivamente junto con sus normas, inscripciones, habilitaciones e ingresos.
+            </p>
+          )}
 
       <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-6 space-y-5">
         <fieldset disabled={soloLectura} className="space-y-5">
@@ -335,18 +358,18 @@ export default function ProgramarExamen() {
         </fieldset>
 
         <BotonesFormulario
-          esDetalle={editando}
-          modoEdicion={modoEdicion}
-          puedeEditar={tiene('examenes.editar') && !cerrado}
+          modo={modo}
+          puedeGuardar={!cerrado}
           puedeEliminar={tiene('examenes.eliminar')}
           guardando={guardando}
           eliminando={cancelando}
           onCancelar={cancelar}
           onSalir={() => navigate('/examenes/lista')}
-          onEditar={editar}
           onEliminar={eliminarExamen}
         />
       </form>
+        </>
+      )}
     </div>
   );
 }

@@ -46,12 +46,11 @@ function limpiarValor(metodo, texto) {
   return texto.slice(0, 200);
 }
 
-// Sprint 2 - HU-10, HU-11, HU-12, HU-13 y HU-26: Control de ingreso.
+// HU-10: Control de ingreso (pantalla "Registrar ingreso"). Editar y eliminar un ingreso
+// son pantallas independientes del menu (GestionIngreso.jsx).
 export default function ControlIngreso() {
   const { tiene } = useAuth();
   const puedeRegistrar = tiene('control_ingreso.registrar');
-  const puedeEditar = tiene('control_ingreso.editar');
-  const puedeEliminar = tiene('control_ingreso.eliminar');
 
   const [examenes, setExamenes] = useState([]);
   const [cargandoExamenes, setCargandoExamenes] = useState(true);
@@ -66,11 +65,6 @@ export default function ControlIngreso() {
   const [resultado, setResultado] = useState(null);
   const [banners, setBanners] = useState([]);
   const [errorExamenes, setErrorExamenes] = useState('');
-  // HU-12 (9): edicion / eliminacion de un ingreso (solo con los permisos correspondientes).
-  const [ambientes, setAmbientes] = useState([]);
-  const [editando, setEditando] = useState(null);
-  const [ambienteSel, setAmbienteSel] = useState('');
-  const [guardandoIngreso, setGuardandoIngreso] = useState(false);
   const [resumen, setResumen] = useState(null);
   const [intentos, setIntentos] = useState([]);
   const [paginaIntentos, setPaginaIntentos] = useState(1);
@@ -204,46 +198,6 @@ export default function ControlIngreso() {
       }
     } finally {
       setVerificando(false);
-    }
-  }
-
-  async function abrirEdicion(ingreso) {
-    setEditando(ingreso);
-    setAmbienteSel(String(ingreso.ambiente_id ?? ''));
-    if (ambientes.length === 0) {
-      try {
-        const res = await api.get('/control-ingreso/ambientes');
-        setAmbientes(res.data);
-      } catch (err) {
-        setBanners([{ tipo: 'error', texto: primerError(err, 'No se pudieron cargar los ambientes.') }]);
-        setEditando(null);
-      }
-    }
-  }
-
-  async function guardarEdicion() {
-    if (!ambienteSel) return;
-    setGuardandoIngreso(true);
-    try {
-      const res = await api.put(`/control-ingreso/ingresos/${editando.id}`, { ambiente_id: Number(ambienteSel) });
-      setBanners([{ tipo: 'exito', texto: res.data.message }]);
-      setEditando(null);
-      await cargarListas(examenId);
-    } catch (err) {
-      setBanners([{ tipo: 'error', texto: primerError(err, 'No se pudo actualizar el ingreso.') }]);
-    } finally {
-      setGuardandoIngreso(false);
-    }
-  }
-
-  async function eliminarIngreso(ingreso) {
-    if (!confirm(`¿Eliminar el ingreso de ${ingreso.nombre}? Podrá volver a registrarse.`)) return;
-    try {
-      const res = await api.delete(`/control-ingreso/ingresos/${ingreso.id}`);
-      setBanners([{ tipo: 'exito', texto: res.data.message }]);
-      await cargarListas(examenId);
-    } catch (err) {
-      setBanners([{ tipo: 'error', texto: primerError(err, 'No se pudo eliminar el ingreso.') }]);
     }
   }
 
@@ -492,7 +446,7 @@ export default function ControlIngreso() {
             </span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-sm">
+            <table className="w-full min-w-[880px] text-sm">
               <thead className="bg-kairos-50/80 text-kairos-800 text-left">
                 <tr>
                   <th className="px-3 py-2">Hora</th>
@@ -503,7 +457,6 @@ export default function ControlIngreso() {
                   <th className="px-3 py-2">Correo institucional</th>
                   <th className="px-3 py-2">Ambiente</th>
                   <th className="px-3 py-2">Registrado por</th>
-                  {(puedeEditar || puedeEliminar) && <th className="px-3 py-2"></th>}
                 </tr>
               </thead>
               <tbody>
@@ -517,33 +470,11 @@ export default function ControlIngreso() {
                     <td className="px-3 py-2">{i.correo}</td>
                     <td className="px-3 py-2">{i.ambiente}</td>
                     <td className="px-3 py-2">{i.registrado_por}</td>
-                    {(puedeEditar || puedeEliminar) && (
-                      <td className="px-3 py-2 text-right whitespace-nowrap space-x-2">
-                        {puedeEditar && (
-                          <button
-                            type="button"
-                            onClick={() => abrirEdicion(i)}
-                            className="border border-kairos-600 text-kairos-700 hover:bg-kairos-50 rounded-lg px-3 py-1 text-xs font-medium"
-                          >
-                            Editar
-                          </button>
-                        )}
-                        {puedeEliminar && (
-                          <button
-                            type="button"
-                            onClick={() => eliminarIngreso(i)}
-                            className="border border-red-500 text-red-600 hover:bg-red-50 rounded-lg px-3 py-1 text-xs font-medium"
-                          >
-                            Eliminar
-                          </button>
-                        )}
-                      </td>
-                    )}
                   </tr>
                 ))}
                 {resumen.ultimos.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-3 py-4 text-center text-gray-400">
+                    <td colSpan={8} className="px-3 py-4 text-center text-gray-400">
                       Aún no hay ingresos registrados.
                     </td>
                   </tr>
@@ -604,40 +535,6 @@ export default function ControlIngreso() {
             total={intentos.length}
             onCambiar={setPaginaIntentos}
           />
-        </div>
-      )}
-
-      {editando && (
-        <div className="fixed inset-0 z-50 bg-kairos-950/40 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Editar ingreso">
-          <div className="bg-white rounded-xl shadow-2xl ring-1 ring-kairos-100/70 w-full max-w-md p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-1">Editar ingreso</h2>
-            <p className="text-sm text-gray-500 mb-4">{editando.nombre} · {editando.codigo}</p>
-            <label htmlFor="ambiente-ingreso" className="block text-sm text-gray-600 mb-1">Ambiente</label>
-            <select
-              id="ambiente-ingreso"
-              className="input"
-              value={ambienteSel}
-              onChange={(e) => setAmbienteSel(e.target.value)}
-            >
-              <option value="">Seleccione un ambiente</option>
-              {ambientes.map((a) => (
-                <option key={a.id} value={String(a.id)}>{a.nombre}</option>
-              ))}
-            </select>
-            <div className="flex justify-end gap-3 mt-5">
-              <button type="button" onClick={() => setEditando(null)} className="text-sm text-gray-500 px-3 py-2">
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={guardarEdicion}
-                disabled={!ambienteSel || guardandoIngreso}
-                className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-glow disabled:opacity-60"
-              >
-                Guardar
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
 import { erroresCampos, primerError } from '../../api/errores';
-import Aviso from '../../components/Aviso';
+import Aviso, { useMensajeFlash } from '../../components/Aviso';
+import { SelectorUsuario } from '../../components/Selectores';
 import { useAuth } from '../../api/AuthContext';
 import BotonesFormulario from '../../components/BotonesFormulario';
 import Encabezado from '../../components/Encabezado';
@@ -25,20 +26,28 @@ const FORM_INICIAL = {
   activo: true,
 };
 
-// HU-15: Registro de usuarios. Con un id en la ruta es "Datos del usuario" (se abre desde
-// la Lista de usuarios): los campos se muestran sin poder modificarse y abajo estan
-// Editar (habilita los campos) y Eliminar.
-export default function UsuarioForm() {
+// Titulo y descripcion de cada pantalla (cada accion tiene su propia pantalla del menu).
+const TEXTOS = {
+  registrar: { titulo: 'Registrar usuario', descripcion: 'Crea la cuenta de un docente o del personal de control de ingreso.' },
+  datos: { titulo: 'Datos del usuario', descripcion: 'Información registrada del usuario.' },
+  editar: { titulo: 'Editar usuario', descripcion: 'Selecciona al usuario, modifica sus datos y presiona "Guardar".' },
+  eliminar: { titulo: 'Eliminar usuario', descripcion: 'Selecciona al usuario, revisa sus datos y presiona "Eliminar".' },
+};
+
+// HU-15 Registrar usuario, HU-32 Editar usuario y HU-33 Eliminar usuario: cada accion es una
+// pantalla independiente del menu Usuarios. "Datos del usuario" se abre desde la Lista de
+// usuarios (clic en el nombre) y solo muestra los datos.
+export default function UsuarioForm({ modo = 'registrar' }) {
   const { id } = useParams();
-  const editando = Boolean(id); // pantalla "Datos del usuario"
-  const [modoEdicion, setModoEdicion] = useState(false);
+  const editando = Boolean(id); // hay un usuario cargado (datos, editar o eliminar)
+  const modoEdicion = modo === 'editar';
   const [original, setOriginal] = useState(null);
-  const soloLectura = editando && !modoEdicion;
+  const soloLectura = modo === 'datos' || modo === 'eliminar';
   const navigate = useNavigate();
 
   const [roles, setRoles] = useState([]);
   const [form, setForm] = useState(FORM_INICIAL);
-  const [mensaje, setMensaje] = useState('');
+  const [mensaje, setMensaje] = useMensajeFlash();
   const [error, setError] = useState(null);
   const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
@@ -52,7 +61,7 @@ export default function UsuarioForm() {
     setError(null);
     try {
       await api.delete(`/usuarios/${id}`);
-      navigate('/usuarios/lista', { state: { mensaje: 'Usuario eliminado con éxito.' } });
+      navigate('/usuarios/eliminar', { state: { mensaje: 'Usuario eliminado con éxito.' } });
     } catch (err) {
       setError(primerError(err, 'No se pudo eliminar al usuario.'));
       setEliminando(false);
@@ -65,6 +74,7 @@ export default function UsuarioForm() {
       setRoles(rolesRes.data);
 
       if (editando) {
+        setOriginal(null);
         const usuarioRes = await api.get(`/usuarios/${id}`);
         const u = usuarioRes.data;
         const datos = {
@@ -82,26 +92,31 @@ export default function UsuarioForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // HU-15 (11, 12): "Cancelar" descarta los datos ingresados y cierra el formulario (el
-  // sistema redirige a la pantalla de Inicio). En "Datos del usuario" descarta los
-  // cambios y vuelve a mostrar los datos sin poder modificarlos.
+  // Al elegir otro registro se limpian los mensajes y errores anteriores.
+  useEffect(() => {
+    if (!id) return;
+    setMensaje('');
+    setError(null);
+    setErrores({});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // "Cancelar": en "Registrar" descarta los datos ingresados y redirige a la pantalla de
+  // Inicio; en "Editar usuario" y "Eliminar usuario" descarta los cambios y vuelve a la
+  // seleccion del registro.
   function cancelar() {
     setErrores({});
     setError(null);
     setVerPassword(false);
-    if (editando) {
-      setForm(original ?? FORM_INICIAL);
-      setModoEdicion(false);
+    if (modo === 'editar' || modo === 'eliminar') {
+      // Descarta los cambios y vuelve a la seleccion del registro.
+      navigate(`/usuarios/${modo}`);
       return;
     }
     setForm(FORM_INICIAL);
     navigate('/');
   }
 
-  function editar() {
-    setMensaje('');
-    setModoEdicion(true);
-  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -123,7 +138,6 @@ export default function UsuarioForm() {
         setForm(guardado);
         setOriginal(guardado);
         setVerPassword(false);
-        setModoEdicion(false);
         setMensaje('Usuario actualizado con éxito.');
         return;
       }
@@ -151,20 +165,29 @@ export default function UsuarioForm() {
   }
 
   return (
-    <div className="max-w-lg">
+    // Sin registro elegido en Editar / Eliminar se muestra la tabla de seleccion (mas ancha).
+    <div className={(modo === 'editar' || modo === 'eliminar') && !editando ? 'max-w-5xl' : 'max-w-lg'}>
       <Encabezado
         icono={<UserPlusIcon size={22} />}
-        titulo={!editando ? 'Registrar usuario' : modoEdicion ? 'Editar usuario' : 'Datos del usuario'}
-        descripcion={
-          !editando
-            ? 'Crea la cuenta de un docente o del personal de control de ingreso.'
-            : modoEdicion
-              ? 'Modifica los datos y presiona "Guardar".'
-              : 'Información registrada del usuario.'
-        }
+        titulo={TEXTOS[modo].titulo}
+        descripcion={TEXTOS[modo].descripcion}
       />
 
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
+      {(modo === 'editar' || modo === 'eliminar') && (
+        <SelectorUsuario
+          modo={modo}
+          seleccionado={editando ? (original ? { titulo: original.nombre_completo, detalle: original.correo_electronico } : { titulo: 'Cargando...' }) : null}
+        />
+      )}
+
+      {(modo === 'registrar' || editando) && (
+        <>
+          {modo === 'eliminar' && (
+            <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              Revisa los datos antes de eliminar. La cuenta se borrará definitivamente y el usuario ya no podrá ingresar al sistema.
+            </p>
+          )}
 
       <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-6 space-y-4">
         <fieldset disabled={soloLectura} className="space-y-4">
@@ -238,18 +261,18 @@ export default function UsuarioForm() {
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <BotonesFormulario
-          esDetalle={editando}
-          modoEdicion={modoEdicion}
-          puedeEditar={tiene('usuarios.editar')}
+          modo={modo}
+          puedeGuardar={true}
           puedeEliminar={tiene('usuarios.eliminar')}
           guardando={guardando}
           eliminando={eliminando}
           onCancelar={cancelar}
           onSalir={() => navigate('/usuarios/lista')}
-          onEditar={editar}
           onEliminar={eliminar}
         />
       </form>
+        </>
+      )}
     </div>
   );
 }

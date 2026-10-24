@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../api/client';
 import { useAuth } from '../api/AuthContext';
 import { HomeIcon } from '../components/Iconos';
 import Encabezado from '../components/Encabezado';
@@ -12,7 +14,57 @@ function Flecha() {
   );
 }
 
-// Pantalla principal: accesos directos a las pantallas que el rol tiene permitidas.
+// Resumen de cada modulo: un dato principal (las opciones de cada modulo ya estan en el
+// menu lateral, por eso aqui no se repiten).
+const RESUMENES = {
+  '/estudiantes': {
+    texto: 'estudiantes registrados',
+    cargar: async () => (await api.get('/estudiantes', { params: { per_page: 1, solo_activos: 0 } })).data.total ?? 0,
+  },
+  '/ambientes': {
+    texto: 'ambientes registrados',
+    cargar: async () => (await api.get('/ambientes', { params: { solo_activos: 0 } })).data.length,
+  },
+  '/examenes': {
+    texto: 'exámenes programados',
+    cargar: async () => (await api.get('/examenes', { params: { per_page: 1, estado: 'programado' } })).data.total ?? 0,
+  },
+  '/control-ingreso': {
+    texto: 'exámenes hoy',
+    cargar: async () => (await api.get('/control-ingreso/examenes')).data.length,
+  },
+  '/usuarios': {
+    texto: 'usuarios del sistema',
+    cargar: async () => (await api.get('/usuarios')).data.length,
+  },
+};
+
+function Resumen({ base }) {
+  const resumen = RESUMENES[base];
+  const [valor, setValor] = useState(null);
+
+  useEffect(() => {
+    if (!resumen) return;
+    let vigente = true;
+    resumen
+      .cargar()
+      .then((v) => vigente && setValor(v))
+      .catch(() => vigente && setValor('—'));
+    return () => {
+      vigente = false;
+    };
+  }, [resumen]);
+
+  if (!resumen) return null;
+  return (
+    <p className="mt-4 flex items-baseline gap-2">
+      <span className="text-3xl font-semibold text-kairos-800">{valor ?? '…'}</span>
+      <span className="text-sm text-gray-500">{resumen.texto}</span>
+    </p>
+  );
+}
+
+// Pantalla principal: un acceso por modulo permitido, con su dato principal.
 export default function Home() {
   const { usuario, tiene, esAdministrador } = useAuth();
   const modulos = modulosPermitidos(tiene, esAdministrador).filter((m) => m.to !== '/');
@@ -27,11 +79,12 @@ export default function Home() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {modulos.map((m) => {
-          const pantallas = m.items ?? [{ to: m.to, label: m.label }];
+          const destino = m.items ? m.items[0].to : m.to;
           return (
-            <section
+            <Link
               key={m.base ?? m.to}
-              className="group rounded-xl border border-kairos-100/70 bg-white p-5 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg"
+              to={destino}
+              className="group flex flex-col rounded-xl border border-kairos-100/70 bg-white p-5 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-kairos-400"
             >
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-kairos-50 text-kairos-700 transition group-hover:bg-kairos-gradient group-hover:text-white">
@@ -43,20 +96,12 @@ export default function Home() {
                 </div>
               </div>
 
-              <ul className="mt-4 space-y-1">
-                {pantallas.map((p) => (
-                  <li key={p.to}>
-                    <Link
-                      to={p.to}
-                      className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-gray-600 transition hover:bg-kairos-50 hover:text-kairos-700"
-                    >
-                      {p.label}
-                      <Flecha />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
+              <Resumen base={m.base} />
+
+              <span className="mt-auto pt-4 inline-flex items-center gap-1 text-sm font-medium text-kairos-700 group-hover:text-kairos-900">
+                Ir a {m.label.toLowerCase()} <Flecha />
+              </span>
+            </Link>
           );
         })}
       </div>

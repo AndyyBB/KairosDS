@@ -3,6 +3,7 @@ import api from '../../api/client';
 import { primerError } from '../../api/errores';
 import Aviso from '../../components/Aviso';
 import { IconoTitulo, ShieldIcon } from '../../components/Iconos';
+import { pantallaDePermiso } from '../../components/navegacion';
 
 // "Ver" no se configura: al marcar Registrar, Editar o Eliminar el rol ya puede
 // ver la lista del modulo (se calcula al guardar).
@@ -11,6 +12,19 @@ const ACCIONES = [
   { id: 'editar', etiqueta: 'Editar' },
   { id: 'eliminar', etiqueta: 'Eliminar' },
 ];
+
+// Opcion del menu que habilita cada casilla. Cada accion es una pantalla independiente
+// ("Registrar ...", "Editar ...", "Eliminar ..."); la habilitacion de estudiantes se hace
+// en una sola pantalla.
+const PANTALLAS_EXTRA = {
+  'habilitaciones.registrar': 'Habilitar estudiantes',
+  'habilitaciones.editar': 'Habilitar estudiantes (cambiar)',
+};
+
+function pantalla(modulo, accion) {
+  const permiso = `${modulo}.${accion}`;
+  return pantallaDePermiso(permiso) ?? PANTALLAS_EXTRA[permiso] ?? null;
+}
 
 function nombreRol(nombre) {
   return nombre ? nombre.charAt(0).toUpperCase() + nombre.slice(1) : '';
@@ -83,6 +97,7 @@ export default function RolesPermisos() {
       setError(primerError(err));
     } finally {
       setGuardando(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
 
@@ -92,6 +107,10 @@ export default function RolesPermisos() {
         <IconoTitulo><ShieldIcon size={22} /></IconoTitulo>
         <h1 className="text-2xl font-semibold text-gray-800">Roles y permisos</h1>
       </div>
+
+      {/* Mensajes arriba, a la vista al guardar. */}
+      <Aviso mensaje={mensaje ? `✓ ${mensaje}` : ''} onCerrar={() => setMensaje('')} />
+      <Aviso mensaje={error} tipo="error" onCerrar={() => setError('')} />
 
       <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
         <p className="text-sm text-gray-600 mb-1">Rol</p>
@@ -112,7 +131,7 @@ export default function RolesPermisos() {
 
         {edicion && (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[480px] text-sm">
+            <table className="w-full min-w-[560px] text-sm">
               <thead className="bg-kairos-50/80 text-kairos-800 text-left">
                 <tr>
                   <th className="px-3 py-2 font-semibold">Módulo</th>
@@ -124,9 +143,9 @@ export default function RolesPermisos() {
               <tbody>
                 {edicion.map((m) => (
                   <tr key={m.modulo} className="border-t border-gray-100">
-                    <td className="px-3 py-3 text-gray-800">{m.etiqueta}</td>
+                    <td className="px-3 py-3 text-gray-800 font-medium align-top">{m.etiqueta}</td>
                     {ACCIONES.map((a) => (
-                      <td key={a.id} className="px-3 py-3 text-center">
+                      <td key={a.id} className="px-3 py-3 text-center align-top">
                         <input
                           type="checkbox"
                           aria-label={`${a.etiqueta} ${m.etiqueta}`}
@@ -135,6 +154,11 @@ export default function RolesPermisos() {
                           disabled={bloqueado}
                           onChange={() => alternar(m.modulo, a.id)}
                         />
+                        {pantalla(m.modulo, a.id) && (
+                          <span className={`mt-1 block text-xs ${m[a.id] ? 'text-kairos-700' : 'text-gray-400'}`}>
+                            {pantalla(m.modulo, a.id)}
+                          </span>
+                        )}
                       </td>
                     ))}
                   </tr>
@@ -146,6 +170,7 @@ export default function RolesPermisos() {
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-5">
           <div className="text-sm text-gray-500 space-y-0.5">
+            <p>Cada casilla habilita la opción del menú indicada debajo; si no se marca, la opción no aparece en el menú del rol.</p>
             <p>Al marcar Registrar, Editar o Eliminar, el rol también puede ver la lista del módulo.</p>
             <p>Los cambios se aplican en el siguiente inicio de sesión.</p>
           </div>
@@ -170,8 +195,6 @@ export default function RolesPermisos() {
         </div>
       </div>
 
-      <Aviso mensaje={mensaje ? `✓ ${mensaje}` : ''} />
-      <Aviso mensaje={error} tipo="error" onCerrar={() => setError('')} />
     </div>
   );
 }

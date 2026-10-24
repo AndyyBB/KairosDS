@@ -25,6 +25,27 @@ function Chevron({ abierto }) {
 
 const enModulo = (pathname, base) => pathname === base || pathname.startsWith(`${base}/`);
 
+// Boton para ocultar / mostrar el menu lateral (en computadora queda solo la columna de
+// iconos). La preferencia se recuerda en el navegador.
+const CLAVE_MENU = 'kairos_menu_oculto';
+function leerPreferencia() {
+  try {
+    return localStorage.getItem(CLAVE_MENU) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function IconoPanel({ oculto }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16" />
+      {oculto ? <path d="m13 10 2 2-2 2" /> : <path d="m16 10-2 2 2 2" />}
+    </svg>
+  );
+}
+
 export default function Layout() {
   const { usuario, logout, tiene, esAdministrador } = useAuth();
   const navigate = useNavigate();
@@ -33,15 +54,28 @@ export default function Layout() {
 
   const modulos = modulosPermitidos(tiene, esAdministrador);
   const moduloActual = modulos.find((m) => m.base && enModulo(pathname, m.base));
-  const [abiertos, setAbiertos] = useState(() => new Set(moduloActual ? [moduloActual.base] : []));
+  // Solo un modulo desplegado a la vez: el de la pantalla actual (en Inicio, ninguno).
+  const [abierto, setAbierto] = useState(moduloActual?.base ?? null);
+  const [oculto, setOculto] = useState(leerPreferencia);
+  // En celular el menu siempre se muestra completo (panel deslizable).
+  const compacto = oculto && !menuAbierto;
+
+  function alternarMenu() {
+    setOculto((v) => {
+      try {
+        localStorage.setItem(CLAVE_MENU, v ? '0' : '1');
+      } catch {
+        // sin almacenamiento: solo se cambia en esta sesion
+      }
+      return !v;
+    });
+  }
 
   // En pantallas chicas el menu es un panel deslizable: se cierra al navegar o con Escape.
-  // Al navegar, el modulo de la pantalla actual queda desplegado.
+  // Al navegar, queda desplegado solo el modulo de la pantalla actual.
   useEffect(() => {
     setMenuAbierto(false);
-    if (moduloActual) {
-      setAbiertos((prev) => (prev.has(moduloActual.base) ? prev : new Set(prev).add(moduloActual.base)));
-    }
+    setAbierto(moduloActual?.base ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
@@ -54,18 +88,17 @@ export default function Layout() {
 
   // Clic en un modulo: si no se esta en el, el sistema redirige a su primera pantalla
   // (Lista de ...); si ya se esta en el, solo se pliega o despliega el submenu.
+  // Con el menu oculto, el clic en el icono de un modulo vuelve a mostrar el menu.
   function clicModulo(modulo) {
+    if (compacto) {
+      alternarMenu();
+    }
     if (!moduloActual || moduloActual.base !== modulo.base) {
-      setAbiertos((prev) => new Set(prev).add(modulo.base));
+      setAbierto(modulo.base);
       navigate(modulo.items[0].to);
       return;
     }
-    setAbiertos((prev) => {
-      const next = new Set(prev);
-      if (next.has(modulo.base)) next.delete(modulo.base);
-      else next.add(modulo.base);
-      return next;
-    });
+    setAbierto((a) => (a === modulo.base && !compacto ? null : modulo.base));
   }
 
   const pantallaActual =
@@ -79,7 +112,7 @@ export default function Layout() {
   }
 
   const claseItem = (activo) =>
-    `flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition ${
+    `flex items-center gap-3 w-full rounded-lg text-sm font-medium transition ${compacto ? 'justify-center px-0 py-2.5' : 'px-3 py-2'} ${
       activo ? 'bg-kairos-gradient text-white shadow-glow' : 'text-gray-600 hover:bg-kairos-50 hover:text-kairos-700'
     }`;
 
@@ -110,51 +143,63 @@ export default function Layout() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw] bg-white border-r border-kairos-100 shadow-xl lg:shadow-lg flex flex-col overflow-y-auto transform transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:shrink-0 ${
+        className={`fixed inset-y-0 left-0 z-50 ${compacto ? 'w-64 lg:w-20' : 'w-64'} max-w-[85vw] transition-[width,transform] bg-white border-r border-kairos-100 shadow-xl lg:shadow-lg flex flex-col overflow-y-auto overflow-x-hidden transform duration-200 lg:static lg:z-auto lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:shrink-0 ${
           menuAbierto ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-100">
+        <div className={`flex border-b border-gray-100 ${compacto ? 'flex-col items-center gap-3 px-2 py-4' : 'items-center gap-3 px-5 py-5'}`}>
           <KairosLogo size={40} />
-          <div>
-            <p className="font-semibold text-gray-800 leading-tight">Kairos</p>
-            <p className="text-xs text-gray-400 leading-tight">Digital Systems</p>
-          </div>
+          {!compacto && (
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-gray-800 leading-tight">Kairos</p>
+              <p className="text-xs text-gray-400 leading-tight">Digital Systems</p>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={alternarMenu}
+            title={oculto ? 'Mostrar menú' : 'Ocultar menú'}
+            aria-label={oculto ? 'Mostrar menú' : 'Ocultar menú'}
+            className="hidden lg:inline-flex shrink-0 items-center justify-center rounded-lg border border-gray-200 p-1.5 text-gray-500 hover:bg-kairos-50 hover:text-kairos-700"
+          >
+            <IconoPanel oculto={oculto} />
+          </button>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1" aria-label="Menú principal">
+        <nav className={`flex-1 py-4 space-y-1 ${compacto ? 'px-2' : 'px-3'}`} aria-label="Menú principal">
           {modulos.map((m) => {
             if (!m.items) {
               const activo = m.exacto ? pathname === m.to : enModulo(pathname, m.to);
               return (
-                <NavLink key={m.to} to={m.to} className={claseItem(activo)}>
+                <NavLink key={m.to} to={m.to} className={claseItem(activo)} title={compacto ? m.label : undefined}>
                   <m.icon size={18} />
-                  {m.label}
+                  {!compacto && m.label}
                 </NavLink>
               );
             }
 
             const activo = moduloActual?.base === m.base;
-            const abierto = abiertos.has(m.base);
+            const desplegado = abierto === m.base && !compacto;
             return (
               <div key={m.base}>
                 <button
                   type="button"
                   onClick={() => clicModulo(m)}
-                  aria-expanded={abierto}
-                  className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition ${
+                  aria-expanded={desplegado}
+                  title={compacto ? m.label : undefined}
+                  className={`flex items-center gap-3 w-full rounded-lg text-sm font-medium transition ${compacto ? 'justify-center px-0 py-2.5' : 'px-3 py-2'} ${
                     activo ? 'bg-kairos-50 text-kairos-800' : 'text-gray-600 hover:bg-kairos-50 hover:text-kairos-700'
                   }`}
                 >
                   <m.icon size={18} />
-                  {m.label}
-                  <Chevron abierto={abierto} />
+                  {!compacto && m.label}
+                  {!compacto && <Chevron abierto={desplegado} />}
                 </button>
 
                 {/* Submenu con animacion de altura */}
                 <div
                   className={`grid transition-[grid-template-rows] duration-200 ease-out ${
-                    abierto ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                    desplegado ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
                   }`}
                 >
                   <div className="overflow-hidden">
@@ -165,7 +210,7 @@ export default function Layout() {
                           <li key={item.to}>
                             <NavLink
                               to={item.to}
-                              tabIndex={abierto ? 0 : -1}
+                              tabIndex={desplegado ? 0 : -1}
                               className={`relative block rounded-md px-3 py-1.5 text-sm transition ${
                                 itemActivo
                                   ? 'bg-kairos-gradient text-white font-medium shadow-glow'
@@ -185,15 +230,21 @@ export default function Layout() {
           })}
         </nav>
 
-        <div className="px-4 py-4 border-t border-gray-100">
-          <p className="text-sm text-gray-700 truncate">{usuario?.nombre_completo}</p>
-          <p className="text-xs text-gray-400 truncate">{usuario?.rol?.nombre}</p>
+        <div className={`border-t border-gray-100 ${compacto ? 'px-2 py-4' : 'px-4 py-4'}`}>
+          {!compacto && (
+            <>
+              <p className="text-sm text-gray-700 truncate">{usuario?.nombre_completo}</p>
+              <p className="text-xs text-gray-400 truncate">{usuario?.rol?.nombre}</p>
+            </>
+          )}
           <button
             onClick={handleLogout}
-            className="mt-3 w-full flex items-center justify-center gap-2 text-sm border border-gray-300 text-gray-700 rounded-lg py-1.5 hover:bg-gray-50"
+            title={compacto ? 'Cerrar sesión' : undefined}
+            aria-label="Cerrar sesión"
+            className={`${compacto ? '' : 'mt-3'} w-full flex items-center justify-center gap-2 text-sm border border-gray-300 text-gray-700 rounded-lg py-1.5 hover:bg-gray-50`}
           >
             <LogoutIcon />
-            Cerrar sesión
+            {!compacto && 'Cerrar sesión'}
           </button>
         </div>
       </aside>

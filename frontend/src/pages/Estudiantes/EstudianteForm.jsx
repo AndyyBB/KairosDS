@@ -4,7 +4,8 @@ import api from '../../api/client';
 import { erroresCampos, primerError } from '../../api/errores';
 import { useAuth } from '../../api/AuthContext';
 import BotonesFormulario from '../../components/BotonesFormulario';
-import Aviso from '../../components/Aviso';
+import Aviso, { useMensajeFlash } from '../../components/Aviso';
+import { SelectorEstudiante } from '../../components/Selectores';
 import Encabezado from '../../components/Encabezado';
 import CodigoQR from '../../components/CodigoQR';
 import ModalQR from '../../components/ModalQR';
@@ -25,30 +26,38 @@ const initial = {
   carreras: [''],
 };
 
-// HU-01: Registrar estudiante. Con un id en la ruta es "Datos del estudiante" (se abre
-// desde la Lista de estudiantes): los campos se muestran sin poder modificarse y abajo
-// estan los botones Editar (HU-06, habilita los campos) y Eliminar (HU-07).
-export default function EstudianteForm() {
+// Titulo y descripcion de cada pantalla (cada accion tiene su propia pantalla del menu).
+const TEXTOS = {
+  registrar: { titulo: 'Registrar estudiante', descripcion: 'Ingresa los datos personales y académicos del estudiante.' },
+  datos: { titulo: 'Datos del estudiante', descripcion: 'Información registrada del estudiante.' },
+  editar: { titulo: 'Editar estudiante', descripcion: 'Selecciona al estudiante, modifica sus datos y presiona "Guardar".' },
+  eliminar: { titulo: 'Eliminar estudiante', descripcion: 'Selecciona al estudiante, revisa sus datos y presiona "Eliminar".' },
+};
+
+// HU-01 Registrar estudiante, HU-06 Editar estudiante y HU-07 Eliminar estudiante: cada
+// accion es una pantalla independiente del menu Estudiantes. "Datos del estudiante" se abre
+// desde la Lista de estudiantes (clic en el nombre) y solo muestra los datos.
+export default function EstudianteForm({ modo = 'registrar' }) {
   const { id } = useParams();
-  const editando = Boolean(id); // pantalla "Datos del estudiante"
-  const [modoEdicion, setModoEdicion] = useState(false);
+  const editando = Boolean(id); // hay un estudiante cargado (datos, editar o eliminar)
   const [original, setOriginal] = useState(null);
   const navigate = useNavigate();
   const [form, setForm] = useState(initial);
   const [carreras, setCarreras] = useState([]);
   const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
-  const [mensaje, setMensaje] = useState('');
+  const [mensaje, setMensaje] = useMensajeFlash();
   const [registrado, setRegistrado] = useState(null); // ultimo estudiante registrado (para su QR)
   const [verQr, setVerQr] = useState(false);
   const [error, setError] = useState('');
   const [eliminando, setEliminando] = useState(false);
   const { tiene } = useAuth();
-  const soloLectura = editando && !modoEdicion;
+  const soloLectura = modo === 'datos' || modo === 'eliminar';
 
   useEffect(() => {
     api.get('/carreras').then((res) => setCarreras(res.data));
     if (editando) {
+      setOriginal(null);
       api
         .get(`/estudiantes/${id}`)
         .then((res) => {
@@ -68,33 +77,37 @@ export default function EstudianteForm() {
     }
   }, [id, editando]);
 
-  // HU-01 (15, 16): "Cancelar" descarta los datos ingresados y cierra el formulario:
-  // el sistema redirige a la pantalla de Inicio. En "Datos del estudiante", Cancelar
-  // descarta los cambios y vuelve a mostrar los datos sin poder modificarlos.
+  // Al elegir otro registro se limpian los mensajes y errores anteriores.
+  useEffect(() => {
+    if (!id) return;
+    setMensaje('');
+    setError('');
+    setErrores({});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // "Cancelar": en "Registrar" descarta los datos ingresados y redirige a la pantalla de
+  // Inicio; en "Editar estudiante" y "Eliminar estudiante" descarta los cambios y vuelve a la
+  // seleccion del registro.
   function cancelar() {
     setErrores({});
-    if (editando) {
-      setForm(original ?? initial);
-      setModoEdicion(false);
+    if (modo === 'editar' || modo === 'eliminar') {
+      // Descarta los cambios y vuelve a la seleccion del registro.
+      navigate(`/estudiantes/${modo}`);
       return;
     }
     setForm(initial);
     navigate('/');
   }
 
-  function editar() {
-    setMensaje('');
-    setModoEdicion(true);
-  }
-
-  // HU-07: desde la pantalla de edicion se elimina al estudiante definitivamente.
+  // HU-07: en la pantalla "Eliminar estudiante" se elimina definitivamente.
   async function eliminar() {
     if (!confirm(`¿Eliminar a ${form.nombre_completo}? Se borrará definitivamente junto con sus inscripciones, habilitaciones e ingresos.`)) return;
     setEliminando(true);
     setError('');
     try {
       await api.delete(`/estudiantes/${id}`);
-      navigate('/estudiantes/lista', { state: { mensaje: 'Estudiante eliminado con éxito.' } });
+      navigate('/estudiantes/eliminar', { state: { mensaje: 'Estudiante eliminado con éxito.' } });
     } catch (err) {
       setError(primerError(err, 'No se pudo eliminar al estudiante.'));
       setEliminando(false);
@@ -153,7 +166,6 @@ export default function EstudianteForm() {
         // Vuelve a mostrar los datos (ya guardados) sin poder modificarlos.
         setOriginal(form);
         setRegistrado({ nombre_completo: form.nombre_completo, codigo_universitario: form.codigo_universitario });
-        setModoEdicion(false);
         setMensaje('Estudiante actualizado con éxito.');
         return;
       }
@@ -174,23 +186,19 @@ export default function EstudianteForm() {
   }
 
   return (
-    <div className="max-w-xl">
+    // Sin registro elegido en Editar / Eliminar se muestra la tabla de seleccion (mas ancha).
+    <div className={(modo === 'editar' || modo === 'eliminar') && !editando ? 'max-w-5xl' : 'max-w-xl'}>
       <Encabezado
         icono={<StudentIcon size={22} />}
-        titulo={!editando ? 'Registrar estudiante' : modoEdicion ? 'Editar estudiante' : 'Datos del estudiante'}
-        descripcion={
-          !editando
-            ? 'Ingresa los datos personales y académicos del estudiante.'
-            : modoEdicion
-              ? 'Modifica los datos y presiona "Guardar".'
-              : 'Información registrada del estudiante.'
-        }
+        titulo={TEXTOS[modo].titulo}
+        descripcion={TEXTOS[modo].descripcion}
       />
 
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <Aviso mensaje={error} tipo="error" onCerrar={() => setError('')} />
 
-      {registrado && (
+      {/* Codigo QR: en Registrar (ultimo registrado) y en Datos del estudiante. */}
+      {registrado && (modo === 'registrar' || (modo === 'datos' && editando)) && (
         <div className="mb-5 flex items-center gap-4 rounded-xl border border-kairos-100/70 bg-white p-4 shadow-md">
           <button
             type="button"
@@ -209,6 +217,20 @@ export default function EstudianteForm() {
           </div>
         </div>
       )}
+      {(modo === 'editar' || modo === 'eliminar') && (
+        <SelectorEstudiante
+          modo={modo}
+          seleccionado={editando ? (original ? { titulo: original.nombre_completo, detalle: `${original.codigo_universitario} · ${original.documento_identidad}` } : { titulo: 'Cargando...' }) : null}
+        />
+      )}
+
+      {(modo === 'registrar' || editando) && (
+        <>
+          {modo === 'eliminar' && (
+            <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              Revisa los datos antes de eliminar. El estudiante se borrará definitivamente junto con sus carreras, inscripciones, habilitaciones e ingresos.
+            </p>
+          )}
 
       <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-6 space-y-4">
         <fieldset disabled={soloLectura} className="space-y-4">
@@ -291,18 +313,18 @@ export default function EstudianteForm() {
         </fieldset>
 
         <BotonesFormulario
-          esDetalle={editando}
-          modoEdicion={modoEdicion}
-          puedeEditar={tiene('estudiantes.editar')}
+          modo={modo}
+          puedeGuardar={true}
           puedeEliminar={tiene('estudiantes.eliminar')}
           guardando={guardando}
           eliminando={eliminando}
           onCancelar={cancelar}
           onSalir={() => navigate('/estudiantes/lista')}
-          onEditar={editar}
           onEliminar={eliminar}
         />
       </form>
+        </>
+      )}
 
       {verQr && registrado && <ModalQR estudiante={registrado} onCerrar={() => setVerQr(false)} />}
     </div>

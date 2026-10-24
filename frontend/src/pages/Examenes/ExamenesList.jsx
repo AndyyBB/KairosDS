@@ -9,6 +9,8 @@ import Paginacion from '../../components/Paginacion';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
 import Encabezado from '../../components/Encabezado';
 import { ExamIcon } from '../../components/Iconos';
+import Buscador from '../../components/Buscador';
+import { useCamposExamenes, parametros } from '../../components/catalogos';
 
 const ESTADO_STYLES = {
   programado: 'bg-kairos-gradient text-white shadow-glow',
@@ -17,29 +19,34 @@ const ESTADO_STYLES = {
   cancelado: 'bg-red-50 text-red-600',
 };
 
-// Lista de examenes. Al hacer clic en la asignatura se abre "Editar examen" (HU-08),
-// donde tambien se puede eliminar el examen (HU-09).
+// Lista de examenes: al hacer clic en la asignatura se abre "Datos de ..." solo para ver.
+// Editar y Eliminar son pantallas independientes del menu.
 export default function ExamenesList() {
   const { tiene } = useAuth();
-  const puedeEditar = tiene('examenes.editar') || tiene('examenes.eliminar');
+  // El nombre abre "Datos de ..." (solo para ver). Editar y Eliminar tienen sus propias
+  // pantallas en el menu.
+  const puedeVerDatos = tiene('examenes.ver');
   const [examenes, setExamenes] = useState([]);
   const [pagina, setPagina] = useState(1);
   const [meta, setMeta] = useState({ last_page: 1, total: 0 });
   const [mensaje, setMensaje] = useMensajeFlash();
   const [fallo, setFallo] = useState('');
   const [abierto, setAbierto] = useState(null); // examen con las normas desplegadas
+  const [buscar, setBuscar] = useState('');
+  const [filtros, setFiltros] = useState({});
+  const camposFiltro = useCamposExamenes();
 
-  async function cargar(p = pagina) {
+  async function cargar(p = pagina, f = filtros, b = buscar) {
     let res;
     try {
-      res = await api.get('/examenes', { params: { page: p, incluir_cancelados: 1 } });
+      res = await api.get('/examenes', { params: parametros({ page: p, incluir_cancelados: 1, buscar: b.trim(), ...f }) });
     } catch (err) {
       setFallo(primerError(err, 'No se pudo cargar la lista de exámenes.'));
       return;
     }
     // Si se cancelo el ultimo examen de una pagina, se vuelve a la anterior.
     if (p > 1 && (res.data.data ?? []).length === 0) {
-      return cargar(p - 1);
+      return cargar(p - 1, f, b);
     }
     setExamenes(res.data.data ?? res.data);
     setMeta({ last_page: res.data.last_page ?? 1, total: res.data.total ?? 0 });
@@ -57,14 +64,27 @@ export default function ExamenesList() {
         icono={<ExamIcon size={22} />}
         titulo="Lista de exámenes"
         descripcion={
-          puedeEditar
-            ? 'Haz clic en la asignatura de un examen para ver sus datos, editarlo o eliminarlo.'
+          puedeVerDatos
+            ? 'Haz clic en la asignatura de un examen para ver sus datos.'
             : 'Exámenes programados.'
         }
       />
 
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <Aviso mensaje={fallo} tipo="error" onCerrar={() => setFallo('')} />
+
+      <Buscador
+        valor={buscar}
+        onCambiar={setBuscar}
+        onBuscar={() => cargar(1)}
+        placeholder="Buscar por asignatura..."
+        campos={camposFiltro}
+        filtros={filtros}
+        onFiltrar={(f) => {
+          setFiltros(f);
+          cargar(1, f);
+        }}
+      />
 
       <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
         <table className="w-full min-w-[860px] text-sm">
@@ -89,7 +109,7 @@ export default function ExamenesList() {
                 <Fragment key={ex.id}>
                 <tr className="border-t border-gray-100">
                   <td className="px-4 py-2">
-                    {puedeEditar ? (
+                    {puedeVerDatos ? (
                       <Link to={`/examenes/datos/${ex.id}`} className={claseEnlaceNombre}>
                         {ex.materia?.nombre}
                       </Link>
@@ -139,6 +159,9 @@ export default function ExamenesList() {
                 </Fragment>
               );
             })}
+            {examenes.length === 0 && (
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">No se encontraron exámenes.</td></tr>
+            )}
           </tbody>
         </table>
       </div>

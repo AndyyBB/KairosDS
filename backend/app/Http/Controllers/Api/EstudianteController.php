@@ -24,8 +24,46 @@ class EstudianteController extends Controller
                 });
             })
             ->when($request->boolean('solo_activos', true), fn ($q) => $q->where('activo', true))
-            ->orderBy('nombre_completo')
+            // Filtros (boton "Filtros" de las listas y de las tablas de seleccion).
+            ->when($request->query('carrera_id'), fn ($q, $carrera) => $q->whereHas(
+                'carreras',
+                fn ($qq) => $qq->where('carreras.id', $carrera)
+            ))
+            // Filtro "Código (primeros 4 dígitos)": codigos que empiezan con esos 4 digitos (2022 -> 202244567).
+            ->when($request->query('anio_ingreso'), fn ($q, $anio) => $q->where(
+                'codigo_universitario',
+                'like',
+                substr(preg_replace('/\D/', '', (string) $anio), 0, 4).'%'
+            ))
+            // Estudiantes inscritos en un examen.
+            ->when($request->query('examen_id'), fn ($q, $examen) => $q->whereExists(
+                fn ($s) => $s->from('inscripciones_examen')
+                    ->whereColumn('inscripciones_examen.estudiante_id', 'estudiantes.id')
+                    ->where('inscripciones_examen.examen_id', $examen)
+            ))
+            // Habilitacion (en el examen elegido o en cualquier examen).
+            ->when(in_array($request->query('habilitacion'), ['habilitado', 'no_habilitado'], true), fn ($q) => $q->whereHas(
+                'habilitaciones',
+                fn ($qq) => $qq->where('habilitado', $request->query('habilitacion') === 'habilitado')
+                    ->when($request->query('examen_id'), fn ($x, $examen) => $x->where('examen_id', $examen))
+            ))
+            ->when(true, fn ($q) => match ($request->query('orden')) {
+                'codigo' => $q->orderBy('codigo_universitario'),
+                'anio_reciente' => $q->orderByDesc('codigo_universitario'),
+                default => $q->orderBy('nombre_completo'),
+            })
             ->paginate(min((int) $request->query('per_page', 20), 100));
+    }
+
+    // Primeros 4 digitos de los codigos universitarios registrados, para el filtro
+    // "Código (primeros 4 dígitos)".
+    public function anios()
+    {
+        return Estudiante::query()
+            ->selectRaw('DISTINCT LEFT(codigo_universitario, 4) AS anio')
+            ->whereRaw("codigo_universitario ~ '^[0-9]{4}'")
+            ->orderByDesc('anio')
+            ->pluck('anio');
     }
 
     public function store(StoreEstudianteRequest $request)

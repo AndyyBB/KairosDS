@@ -4,32 +4,41 @@ import api from '../../api/client';
 import { erroresCampos, primerError } from '../../api/errores';
 import { useAuth } from '../../api/AuthContext';
 import BotonesFormulario from '../../components/BotonesFormulario';
-import Aviso from '../../components/Aviso';
+import Aviso, { useMensajeFlash } from '../../components/Aviso';
+import { SelectorAmbiente } from '../../components/Selectores';
 import Encabezado from '../../components/Encabezado';
 import { BuildingIcon, UsersIcon, Etiqueta } from '../../components/Iconos';
 
 const initial = { nombre: '', capacidad_maxima: '', ubicacion: '' };
 
-// HU-03: Registro de ambientes (pantalla propia, solo el formulario).
-// Con un id en la ruta es "Datos del ambiente" (se abre desde la Lista de ambientes):
-// los campos se muestran sin poder modificarse y abajo estan Editar y Eliminar.
-export default function RegistrarAmbiente() {
+// Titulo y descripcion de cada pantalla (cada accion tiene su propia pantalla del menu).
+const TEXTOS = {
+  registrar: { titulo: 'Registrar ambiente', descripcion: 'Agrega un aula o laboratorio disponible para programar exámenes.' },
+  datos: { titulo: 'Datos del ambiente', descripcion: 'Información registrada del ambiente.' },
+  editar: { titulo: 'Editar ambiente', descripcion: 'Selecciona el ambiente, modifica sus datos y presiona "Guardar".' },
+  eliminar: { titulo: 'Eliminar ambiente', descripcion: 'Selecciona el ambiente, revisa sus datos y presiona "Eliminar".' },
+};
+
+// HU-03 Registrar ambiente, HU-30 Editar ambiente y HU-31 Eliminar ambiente: cada accion
+// es una pantalla independiente del menu Ambientes. "Datos del ambiente" se abre desde la
+// Lista de ambientes (clic en el nombre) y solo muestra los datos.
+export default function RegistrarAmbiente({ modo = 'registrar' }) {
   const { id } = useParams();
-  const editando = Boolean(id); // pantalla "Datos del ambiente"
+  const editando = Boolean(id); // hay un ambiente cargado (datos, editar o eliminar)
   const { tiene } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState(initial);
   const [original, setOriginal] = useState(null);
-  const [modoEdicion, setModoEdicion] = useState(false);
   const [errores, setErrores] = useState({});
-  const [mensaje, setMensaje] = useState('');
+  const [mensaje, setMensaje] = useMensajeFlash();
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
-  const soloLectura = editando && !modoEdicion;
+  const soloLectura = modo === 'datos' || modo === 'eliminar';
 
   useEffect(() => {
     if (!editando) return;
+    setOriginal(null);
     api
       .get(`/ambientes/${id}`)
       .then((res) => {
@@ -44,24 +53,29 @@ export default function RegistrarAmbiente() {
       .catch((err) => setError(primerError(err, 'No se pudo cargar el ambiente.')));
   }, [id, editando]);
 
-  // Criterios 11 y 12: descarta los datos ingresados y cierra el formulario (el sistema
-  // redirige a la pantalla de Inicio). En "Datos del ambiente" descarta los cambios y
-  // vuelve a mostrar los datos sin poder modificarlos.
+  // Al elegir otro registro se limpian los mensajes y errores anteriores.
+  useEffect(() => {
+    if (!id) return;
+    setMensaje('');
+    setError('');
+    setErrores({});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // "Cancelar": en "Registrar" descarta los datos ingresados y redirige a la pantalla de
+  // Inicio; en "Editar ambiente" y "Eliminar ambiente" descarta los cambios y vuelve a la
+  // seleccion del registro.
   function cancelar() {
     setErrores({});
-    if (editando) {
-      setForm(original ?? initial);
-      setModoEdicion(false);
+    if (modo === 'editar' || modo === 'eliminar') {
+      // Descarta los cambios y vuelve a la seleccion del registro.
+      navigate(`/ambientes/${modo}`);
       return;
     }
     setForm(initial);
     navigate('/');
   }
 
-  function editar() {
-    setMensaje('');
-    setModoEdicion(true);
-  }
 
   async function eliminar() {
     if (!confirm(`¿Eliminar el ambiente "${form.nombre}"? Se borrará definitivamente.`)) return;
@@ -69,7 +83,7 @@ export default function RegistrarAmbiente() {
     setError('');
     try {
       await api.delete(`/ambientes/${id}`);
-      navigate('/ambientes/lista', { state: { mensaje: 'Ambiente eliminado con éxito.' } });
+      navigate('/ambientes/eliminar', { state: { mensaje: 'Ambiente eliminado con éxito.' } });
     } catch (err) {
       setError(primerError(err, 'No se pudo eliminar el ambiente.'));
       setEliminando(false);
@@ -85,7 +99,6 @@ export default function RegistrarAmbiente() {
       if (editando) {
         await api.put(`/ambientes/${id}`, form);
         setOriginal(form);
-        setModoEdicion(false);
         setMensaje('Ambiente actualizado con éxito.');
         return;
       }
@@ -100,21 +113,30 @@ export default function RegistrarAmbiente() {
   }
 
   return (
-    <div className="max-w-xl">
+    // Sin registro elegido en Editar / Eliminar se muestra la tabla de seleccion (mas ancha).
+    <div className={(modo === 'editar' || modo === 'eliminar') && !editando ? 'max-w-5xl' : 'max-w-xl'}>
       <Encabezado
         icono={<BuildingIcon size={22} />}
-        titulo={!editando ? 'Registrar ambiente' : modoEdicion ? 'Editar ambiente' : 'Datos del ambiente'}
-        descripcion={
-          !editando
-            ? 'Agrega un aula o laboratorio disponible para programar exámenes.'
-            : modoEdicion
-              ? 'Modifica los datos y presiona "Guardar".'
-              : 'Información registrada del ambiente.'
-        }
+        titulo={TEXTOS[modo].titulo}
+        descripcion={TEXTOS[modo].descripcion}
       />
 
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <Aviso mensaje={error} tipo="error" onCerrar={() => setError('')} />
+      {(modo === 'editar' || modo === 'eliminar') && (
+        <SelectorAmbiente
+          modo={modo}
+          seleccionado={editando ? (original ? { titulo: original.nombre, detalle: `Capacidad ${original.capacidad_maxima}${original.ubicacion ? ` · ${original.ubicacion}` : ''}` } : { titulo: 'Cargando...' }) : null}
+        />
+      )}
+
+      {(modo === 'registrar' || editando) && (
+        <>
+          {modo === 'eliminar' && (
+            <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              Revisa los datos antes de eliminar. El ambiente se borrará definitivamente (no se puede eliminar si está asignado a un examen).
+            </p>
+          )}
 
       <form
         onSubmit={handleSubmit}
@@ -152,18 +174,18 @@ export default function RegistrarAmbiente() {
         </fieldset>
 
         <BotonesFormulario
-          esDetalle={editando}
-          modoEdicion={modoEdicion}
-          puedeEditar={tiene('ambientes.editar')}
+          modo={modo}
+          puedeGuardar={true}
           puedeEliminar={tiene('ambientes.eliminar')}
           guardando={guardando}
           eliminando={eliminando}
           onCancelar={cancelar}
           onSalir={() => navigate('/ambientes/lista')}
-          onEditar={editar}
           onEliminar={eliminar}
         />
       </form>
+        </>
+      )}
     </div>
   );
 }

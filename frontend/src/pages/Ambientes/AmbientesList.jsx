@@ -5,22 +5,30 @@ import { primerError } from '../../api/errores';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
 import { claseEnlaceNombre } from '../../components/AccionPeligro';
 import { useAuth } from '../../api/AuthContext';
+import Buscador from '../../components/Buscador';
+import { useCamposAmbientes, filtrarAmbientes } from '../../components/catalogos';
 import Encabezado from '../../components/Encabezado';
 import Paginacion from '../../components/Paginacion';
 import { BuildingIcon } from '../../components/Iconos';
 
 const POR_PAGINA = 20;
 
-// Lista de ambientes. Al hacer clic en el nombre se abre "Editar ambiente",
-// donde tambien se puede eliminar definitivamente.
+// Lista de ambientes: al hacer clic en el nombre se abre "Datos de ..." solo para ver.
+// Editar y Eliminar son pantallas independientes del menu.
 export default function AmbientesList() {
   const { tiene } = useAuth();
-  const puedeEditar = tiene('ambientes.editar') || tiene('ambientes.eliminar');
+  // El nombre abre "Datos de ..." (solo para ver). Editar y Eliminar tienen sus propias
+  // pantallas en el menu.
+  const puedeVerDatos = tiene('ambientes.ver');
   const [ambientes, setAmbientes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [mensaje, setMensaje] = useMensajeFlash();
   const [error, setError] = useState('');
   const [pagina, setPagina] = useState(1);
+  const [buscar, setBuscar] = useState('');
+  const [aplicado, setAplicado] = useState(''); // texto buscado al presionar Buscar
+  const [filtros, setFiltros] = useState({});
+  const camposFiltro = useCamposAmbientes();
 
   async function cargar() {
     setCargando(true);
@@ -38,8 +46,9 @@ export default function AmbientesList() {
     cargar();
   }, []);
 
-  const ultima = Math.max(1, Math.ceil(ambientes.length / POR_PAGINA));
-  const visibles = ambientes.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
+  const lista = filtrarAmbientes(ambientes, aplicado, filtros);
+  const ultima = Math.max(1, Math.ceil(lista.length / POR_PAGINA));
+  const visibles = lista.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
 
   return (
     <div>
@@ -47,14 +56,30 @@ export default function AmbientesList() {
         icono={<BuildingIcon size={22} />}
         titulo="Lista de ambientes"
         descripcion={
-          puedeEditar
-            ? 'Haz clic en el nombre de un ambiente para ver sus datos, editarlo o eliminarlo.'
+          puedeVerDatos
+            ? 'Haz clic en el nombre de un ambiente para ver sus datos.'
             : 'Ambientes disponibles para programar exámenes.'
         }
       />
 
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <Aviso mensaje={error} tipo="error" onCerrar={() => setError('')} />
+
+      <Buscador
+        valor={buscar}
+        onCambiar={setBuscar}
+        onBuscar={() => {
+          setAplicado(buscar);
+          setPagina(1);
+        }}
+        placeholder="Buscar por nombre o ubicación..."
+        campos={camposFiltro}
+        filtros={filtros}
+        onFiltrar={(f) => {
+          setFiltros(f);
+          setPagina(1);
+        }}
+      />
 
       <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
         <table className="w-full min-w-[640px] text-sm">
@@ -69,27 +94,24 @@ export default function AmbientesList() {
             {visibles.map((a) => (
               <tr key={a.id} className="border-t border-gray-100">
                 <td className="px-4 py-2">
-                  {puedeEditar ? (
+                  {puedeVerDatos ? (
                     <Link to={`/ambientes/datos/${a.id}`} className={claseEnlaceNombre}>{a.nombre}</Link>
                   ) : (
                     a.nombre
-                  )}
-                  {a.activo === false && (
-                    <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">Inactivo</span>
                   )}
                 </td>
                 <td className="px-4 py-2">{a.capacidad_maxima}</td>
                 <td className="px-4 py-2 text-gray-500">{a.ubicacion}</td>
               </tr>
             ))}
-            {!cargando && ambientes.length === 0 && (
-              <tr><td colSpan={3} className="px-4 py-6 text-center text-gray-400">Aún no hay ambientes registrados.</td></tr>
+            {!cargando && lista.length === 0 && (
+              <tr><td colSpan={3} className="px-4 py-6 text-center text-gray-400">{ambientes.length ? 'Sin resultados.' : 'Aún no hay ambientes registrados.'}</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
-      <Paginacion pagina={pagina} ultima={ultima} total={ambientes.length} onCambiar={setPagina} />
+      <Paginacion pagina={pagina} ultima={ultima} total={lista.length} onCambiar={setPagina} />
     </div>
   );
 }
