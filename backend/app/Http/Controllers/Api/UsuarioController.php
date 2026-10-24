@@ -81,7 +81,6 @@ class UsuarioController extends Controller
                 || DB::table('expulsiones')->where('usuario_id', $usuario->id)->exists(),
             'intentos de ingreso' => DB::table('intentos_ingreso')->where('usuario_id', $usuario->id)->exists(),
             'incidencias' => DB::table('incidencias')->where('usuario_id', $usuario->id)->exists(),
-            'operaciones del historial' => DB::table('historial_operaciones')->where('usuario_id', $usuario->id)->exists(),
         ];
         $conRegistros = array_keys(array_filter($registros));
         if ($conRegistros) {

@@ -12,11 +12,21 @@ import AmbientesList from './pages/Ambientes/AmbientesList';
 import ProgramarExamen from './pages/Examenes/ProgramarExamen';
 import ExamenesList from './pages/Examenes/ExamenesList';
 import HabilitarEstudiantes from './pages/Habilitaciones/HabilitarEstudiantes';
+import InscribirEstudiantes from './pages/Habilitaciones/InscribirEstudiantes';
 import ControlIngreso from './pages/ControlIngreso/ControlIngreso';
 import GestionIngreso from './pages/ControlIngreso/GestionIngreso';
 import UsuarioForm from './pages/Usuarios/UsuarioForm';
 import UsuariosList from './pages/Usuarios/UsuariosList';
 import RolesPermisos from './pages/Roles/RolesPermisos';
+import ConsultaMotivo from './pages/Consultas/ConsultaMotivo';
+import EstudiantesIngresados from './pages/Consultas/EstudiantesIngresados';
+import RegistrarExpulsion from './pages/Incidencias/RegistrarExpulsion';
+import RegistrarSituacion from './pages/Incidencias/RegistrarSituacion';
+import ReporteAsistencia from './pages/Reportes/ReporteAsistencia';
+import ReporteAusentismo from './pages/Reportes/ReporteAusentismo';
+import ReporteIntentos from './pages/Reportes/ReporteIntentos';
+import ReporteRegistrados from './pages/Reportes/ReporteRegistrados';
+import HistorialOperaciones from './pages/Historial/HistorialOperaciones';
 
 // Cada accion es una pantalla independiente: Lista, Registrar, Editar y Eliminar. La lista
 // abre "Datos de ..." (solo lectura) al hacer clic en el nombre. Cada ruta exige el permiso
@@ -67,6 +77,8 @@ export default function App() {
         <Route path="examenes/editar/:id" element={con('examenes.editar', <ProgramarExamen key="editar" modo="editar" />)} />
         <Route path="examenes/eliminar" element={con('examenes.eliminar', <ProgramarExamen key="eliminar" modo="eliminar" />)} />
         <Route path="examenes/eliminar/:id" element={con('examenes.eliminar', <ProgramarExamen key="eliminar" modo="eliminar" />)} />
+        <Route path="examenes/inscribir" element={con(['habilitaciones.registrar', 'habilitaciones.editar'], <InscribirEstudiantes />)} />
+        <Route path="examenes/inscribir/:examenId" element={con(['habilitaciones.registrar', 'habilitaciones.editar'], <InscribirEstudiantes />)} />
         <Route path="examenes/habilitar" element={con('habilitaciones.ver', <HabilitarEstudiantes />)} />
         <Route path="examenes/habilitar/:examenId" element={con('habilitaciones.ver', <HabilitarEstudiantes />)} />
 
@@ -85,6 +97,29 @@ export default function App() {
         <Route path="usuarios/editar/:id" element={con('usuarios.editar', <UsuarioForm key="editar" modo="editar" />)} />
         <Route path="usuarios/eliminar" element={con('usuarios.eliminar', <UsuarioForm key="eliminar" modo="eliminar" />)} />
         <Route path="usuarios/eliminar/:id" element={con('usuarios.eliminar', <UsuarioForm key="eliminar" modo="eliminar" />)} />
+
+        {/* Sprint 3: Consultas (HU-05, HU-18) */}
+        <Route path="consultas" element={<EntrarModulo base="/consultas" />} />
+        <Route path="consultas/motivo" element={con('control_ingreso.ver', <ConsultaMotivo />)} />
+        <Route
+          path="consultas/ingresados"
+          element={<RutaPermiso permiso="control_ingreso.ver" roles={['administrador', 'docente']}><EstudiantesIngresados /></RutaPermiso>}
+        />
+
+        {/* Sprint 3: Incidencias (HU-24, HU-25) */}
+        <Route path="incidencias" element={<EntrarModulo base="/incidencias" />} />
+        <Route path="incidencias/expulsion" element={con('control_ingreso.registrar', <RegistrarExpulsion />)} />
+        <Route path="incidencias/situacion" element={con('control_ingreso.registrar', <RegistrarSituacion />)} />
+
+        {/* Sprint 3: Reportes (HU-19, HU-20, HU-21, HU-22): Administrador y Docente */}
+        <Route path="reportes" element={<EntrarModulo base="/reportes" />} />
+        <Route path="reportes/asistencia" element={<RutaPermiso roles={['administrador', 'docente']}><ReporteAsistencia /></RutaPermiso>} />
+        <Route path="reportes/ausentismo" element={<RutaPermiso roles={['administrador', 'docente']}><ReporteAusentismo /></RutaPermiso>} />
+        <Route path="reportes/intentos" element={<RutaPermiso roles={['administrador', 'docente']}><ReporteIntentos /></RutaPermiso>} />
+        <Route path="reportes/registrados" element={<RutaPermiso roles={['administrador', 'docente']}><ReporteRegistrados /></RutaPermiso>} />
+
+        {/* Sprint 3: Historial de operaciones (HU-27): solo el administrador; otro rol vuelve a Inicio */}
+        <Route path="historial" element={<RutaPermiso soloAdmin alInicio><HistorialOperaciones /></RutaPermiso>} />
 
         {/* Roles y permisos */}
         <Route path="roles-permisos" element={<RutaPermiso soloAdmin><RolesPermisos /></RutaPermiso>} />

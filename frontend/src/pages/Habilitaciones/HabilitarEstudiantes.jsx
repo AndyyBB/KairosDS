@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
 import { fechaDMA, horaHM } from '../../api/formato';
 import Paginacion from '../../components/Paginacion';
@@ -12,9 +12,7 @@ import {
   CheckIcon,
   XIcon,
   CheckAllIcon,
-  UserPlusIcon,
 } from '../../components/Iconos';
-import ModalInscribir from './ModalInscribir';
 
 const POR_PAGINA = 20;
 
@@ -37,7 +35,6 @@ export default function HabilitarEstudiantes() {
   const [erroresMotivo, setErroresMotivo] = useState({});
   const navigate = useNavigate();
   const [pagina, setPagina] = useState(1);
-  const [inscribiendo, setInscribiendo] = useState(false);
   const [examenes, setExamenes] = useState([]);
   const [mensaje, setMensaje] = useState('');
 
@@ -229,16 +226,6 @@ export default function HabilitarEstudiantes() {
 
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div className="flex flex-wrap items-center gap-2">
-          {tiene('habilitaciones.registrar') && !cerrado && (
-            <button
-              type="button"
-              onClick={() => setInscribiendo(true)}
-              className="inline-flex items-center gap-2 bg-kairos-gradient text-white rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition hover:shadow-md active:scale-[0.98]"
-            >
-              <UserPlusIcon size={16} />
-              Inscribir estudiantes
-            </button>
-          )}
           <button
             type="button"
             onClick={habilitarATodos}
@@ -335,10 +322,11 @@ export default function HabilitarEstudiantes() {
                   Ningún estudiante está inscrito en este examen.
                   {tiene('habilitaciones.registrar') && !cerrado && (
                     <>
-                      {' '}
-                      <button type="button" onClick={() => setInscribiendo(true)} className="text-kairos-600 font-medium">
+                      {' '}Primero inscríbelos en la pantalla{' '}
+                      <Link to={`/examenes/inscribir/${examenId}`} className="text-kairos-600 font-medium hover:underline">
                         Inscribir estudiantes
-                      </button>
+                      </Link>
+                      .
                     </>
                   )}
                 </td>
@@ -370,17 +358,6 @@ export default function HabilitarEstudiantes() {
       </div>
 
       </>
-      )}
-
-      {inscribiendo && (
-        <ModalInscribir
-          examenId={examenId}
-          cerrado={cerrado}
-          onCerrar={(huboCambios) => {
-            setInscribiendo(false);
-            if (huboCambios) cargar();
-          }}
-        />
       )}
     </div>
   );

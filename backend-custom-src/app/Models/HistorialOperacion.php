@@ -13,6 +13,10 @@ class HistorialOperacion extends Model
 
     protected $fillable = [
         'usuario_id',
+        'usuario_nombre',
+        'usuario_rol',
+        'modulo',
+        'detalle',
         'accion',
         'entidad',
         'entidad_id',

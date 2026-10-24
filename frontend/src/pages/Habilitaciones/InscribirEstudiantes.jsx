@@ -1,17 +1,120 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
 import { useAuth } from '../../api/AuthContext';
 import { primerError } from '../../api/errores';
+import { fechaDMA, horaHM } from '../../api/formato';
 import Aviso from '../../components/Aviso';
+import Encabezado from '../../components/Encabezado';
 import Paginacion from '../../components/Paginacion';
+import { UserPlusIcon } from '../../components/Iconos';
 
-// Inscripcion de estudiantes a un examen, dentro de la pantalla de HU-04
-// (ventana emergente, sin pantalla aparte). Al inscribir, el estudiante queda
-// sin decidir: luego se marca Habilitado / No habilitado en HU-04.
-// Las confirmaciones se hacen dentro de la fila (sin confirm() del navegador,
-// que Chrome puede bloquear en silencio).
-export default function ModalInscribir({ examenId, cerrado = false, onCerrar }) {
-  const [huboCambios, setHuboCambios] = useState(false);
+// HU-04: "Inscribir estudiantes" es una pantalla independiente del menu Examenes (antes
+// era una ventana dentro de "Habilitar estudiantes"). Se elige el examen y se inscribe a
+// los estudiantes que lo rendiran; despues se marcan como Habilitado / No habilitado en
+// la pantalla "Habilitar estudiantes".
+export default function InscribirEstudiantes() {
+  const { examenId } = useParams();
+  const navigate = useNavigate();
+  const { tiene } = useAuth();
+  const [examenes, setExamenes] = useState([]);
+  const [examen, setExamen] = useState(null);
+  const [error, setError] = useState('');
+
+  // Examenes que todavia admiten inscripciones (no finalizados ni cancelados).
+  useEffect(() => {
+    api
+      .get('/examenes', { params: { per_page: 100 } })
+      .then((res) => {
+        const lista = (res.data.data ?? res.data).filter((ex) => !['finalizado', 'cancelado'].includes(ex.estado_actual));
+        lista.sort((a, b) => `${a.fecha} ${a.hora_inicio}`.localeCompare(`${b.fecha} ${b.hora_inicio}`));
+        setExamenes(lista);
+      })
+      .catch((err) => setError(primerError(err, 'No se pudo cargar la lista de exámenes.')));
+  }, []);
+
+  useEffect(() => {
+    setExamen(null);
+    if (!examenId) return;
+    api
+      .get(`/examenes/${examenId}`)
+      .then((res) => setExamen(res.data))
+      .catch((err) => setError(primerError(err, 'No se pudo cargar el examen.')));
+  }, [examenId]);
+
+  const cerrado = ['finalizado', 'cancelado'].includes(examen?.estado_actual);
+  const etiqueta = (ex) =>
+    `${ex.materia?.nombre} — ${fechaDMA(ex.fecha)} ${horaHM(ex.hora_inicio)} — ${
+      ex.ambientes?.length ? ex.ambientes.map((a) => a.nombre).join(', ') : ex.ambiente?.nombre ?? ''
+    }`;
+
+  return (
+    <div className="max-w-6xl">
+      <Encabezado
+        icono={<UserPlusIcon size={22} />}
+        titulo="Inscribir estudiantes"
+        descripcion="Selecciona un examen e inscribe a los estudiantes que lo rendirán."
+      />
+      <Aviso mensaje={error} tipo="error" onCerrar={() => setError('')} />
+
+      <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
+        <label htmlFor="examen-inscribir" className="block text-sm font-medium text-gray-600 mb-1">Examen</label>
+        <select
+          id="examen-inscribir"
+          className="input"
+          value={examenId ?? ''}
+          onChange={(e) => navigate(e.target.value ? `/examenes/inscribir/${e.target.value}` : '/examenes/inscribir')}
+        >
+          <option value="">Seleccione un examen</option>
+          {examenes.map((ex) => (
+            <option key={ex.id} value={String(ex.id)}>{etiqueta(ex)}</option>
+          ))}
+          {examen && !examenes.some((ex) => String(ex.id) === String(examen.id)) && (
+            <option value={String(examen.id)}>{etiqueta(examen)}</option>
+          )}
+        </select>
+      </div>
+
+      {!examenId && (
+        <div className="rounded-xl border border-dashed border-kairos-200 bg-white/60 px-6 py-12 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-kairos-50 text-kairos-600">
+            <UserPlusIcon size={24} />
+          </div>
+          <p className="font-medium text-gray-700">Selecciona un examen</p>
+          <p className="text-sm text-gray-500 mt-1">Se mostrarán los estudiantes para inscribirlos en ese examen.</p>
+        </div>
+      )}
+
+      {examenId && (
+        <>
+          <PanelInscripcion key={examenId} examenId={examenId} cerrado={cerrado} />
+          <div className="flex flex-wrap justify-end gap-3 mt-4">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg px-4 py-2 text-sm font-medium"
+            >
+              Volver al inicio
+            </button>
+            {tiene('habilitaciones.ver') && (
+              <Link
+                to={`/examenes/habilitar/${examenId}`}
+                className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-5 py-2 shadow-glow"
+              >
+                Ir a Habilitar estudiantes
+              </Link>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Busqueda de estudiantes (nombre, codigo, documento y carrera) para inscribirlos en el
+// examen o quitar su inscripcion. Al inscribir, el estudiante queda "sin decidir".
+// Las confirmaciones se hacen dentro de la fila (sin confirm() del navegador).
+function PanelInscripcion({ examenId, cerrado = false }) {
   const { tiene } = useAuth();
   const puedeInscribir = tiene('habilitaciones.registrar');
   const puedeQuitar = tiene('habilitaciones.editar');
@@ -80,7 +183,6 @@ export default function ModalInscribir({ examenId, cerrado = false, onCerrar }) 
     try {
       const res = await api.post(`/examenes/${examenId}/inscripciones`, { estudiante_ids: ids });
       setMensaje(res.data.message);
-      setHuboCambios(true);
       await cargar();
     } catch (err) {
       setError(primerError(err, 'No se pudo inscribir al estudiante.'));
@@ -101,7 +203,6 @@ export default function ModalInscribir({ examenId, cerrado = false, onCerrar }) 
         carrera_id: carreraId || undefined,
       });
       setMensaje(res.data.message);
-      setHuboCambios(true);
       await cargar();
     } catch (err) {
       setError(primerError(err, 'No se pudo inscribir a los estudiantes.'));
@@ -119,7 +220,6 @@ export default function ModalInscribir({ examenId, cerrado = false, onCerrar }) 
     try {
       const res = await api.delete(`/examenes/${examenId}/inscripciones/${id}`);
       setMensaje(res.data.message);
-      setHuboCambios(true);
       await cargar();
     } catch (err) {
       // El error se muestra junto al estudiante, donde el usuario está mirando.
@@ -129,34 +229,14 @@ export default function ModalInscribir({ examenId, cerrado = false, onCerrar }) 
     }
   }
 
-  const cerrarVentana = () => onCerrar(huboCambios);
-
   return (
-    <div
-      className="fixed inset-0 z-50 bg-kairos-950/40 backdrop-blur-sm flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Inscribir estudiantes"
-    >
-      <div className="bg-white rounded-xl shadow-2xl ring-1 ring-kairos-100/70 w-full max-w-5xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-800">Inscribir estudiantes</h2>
-          <button
-            type="button"
-            onClick={cerrarVentana}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none px-2"
-            aria-label="Cerrar"
-          >
-            ×
-          </button>
-        </div>
-        <div className="overflow-y-auto px-5 py-4">
-          <p className="text-xs text-gray-400 mb-3">
-            Los estudiantes inscritos quedan sin decidir: luego márcalos como Habilitado o No habilitado en esta pantalla.
-          </p>
-
+    <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5">
+      <p className="text-xs text-gray-500 mb-3">
+        Los estudiantes inscritos quedan sin decidir: después márcalos como Habilitado o No habilitado en la pantalla
+        "Habilitar estudiantes".
+      </p>
       {cerrado && (
-        <p className="text-sm text-amber-700 mb-4">Este examen ya no admite inscripciones.</p>
+        <p className="text-sm text-amber-700 mb-4">Este examen ya finalizó: ya no admite inscripciones.</p>
       )}
 
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
@@ -228,7 +308,7 @@ export default function ModalInscribir({ examenId, cerrado = false, onCerrar }) 
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
+      <div className="rounded-lg border border-gray-100 overflow-x-auto">
         <table className="w-full min-w-[820px] text-sm">
           <thead className="bg-kairos-50/80 text-kairos-800 text-left">
             <tr>
@@ -316,17 +396,6 @@ export default function ModalInscribir({ examenId, cerrado = false, onCerrar }) 
       </div>
 
       <Paginacion pagina={meta.pagina} ultima={meta.ultima} total={meta.total} onCambiar={setPagina} />
-        </div>
-        <div className="flex justify-end px-5 py-3 border-t border-gray-100">
-          <button
-            type="button"
-            onClick={cerrarVentana}
-            className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-4 py-2 shadow-glow whitespace-nowrap"
-          >
-            Listo
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

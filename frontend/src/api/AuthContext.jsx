@@ -52,7 +52,7 @@ export function AuthProvider({ children }) {
   const esAdministrador = usuario?.rol?.nombre === 'administrador';
 
   return (
-    <AuthContext.Provider value={{ usuario, cargando, login, logout, tiene, esAdministrador }}>
+    <AuthContext.Provider value={{ usuario, cargando, login, logout, tiene, esAdministrador, rol: usuario?.rol?.nombre }}>
       {children}
     </AuthContext.Provider>
   );

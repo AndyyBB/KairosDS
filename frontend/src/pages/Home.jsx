@@ -66,8 +66,8 @@ function Resumen({ base }) {
 
 // Pantalla principal: un acceso por modulo permitido, con su dato principal.
 export default function Home() {
-  const { usuario, tiene, esAdministrador } = useAuth();
-  const modulos = modulosPermitidos(tiene, esAdministrador).filter((m) => m.to !== '/');
+  const { usuario, tiene, esAdministrador, rol } = useAuth();
+  const modulos = modulosPermitidos(tiene, esAdministrador, rol).filter((m) => m.to !== '/');
 
   return (
     <div>

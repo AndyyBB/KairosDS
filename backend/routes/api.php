@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\Api\ConsultaController;
+use App\Http\Controllers\Api\HistorialController;
+use App\Http\Controllers\Api\IncidenciaController;
+use App\Http\Controllers\Api\ReporteController;
 use App\Http\Controllers\Api\AmbienteController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CarreraController;
@@ -90,4 +94,35 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // HU-15
     $recurso('usuarios', UsuarioController::class, 'usuarios', 'usuario');
+
+    // ---------------- Sprint 3 ----------------
+    // HU-05 y HU-18: Consultas.
+    Route::get('/consultas/examenes', [ConsultaController::class, 'examenes']);
+    Route::post('/consultas/motivo', [ConsultaController::class, 'motivo'])->middleware('permiso:control_ingreso.ver');
+    // HU-18: Administrador, Docente o roles con permiso sobre Control de ingreso (se valida en el controlador).
+    Route::get('/consultas/examenes/{examen}/ingresados', [ConsultaController::class, 'ingresados']);
+
+    // HU-24 y HU-25: Incidencias (permiso "Registrar" de Control de ingreso).
+    Route::middleware('permiso:control_ingreso.registrar')->prefix('incidencias')->group(function () {
+        Route::post('/expulsiones/buscar', [IncidenciaController::class, 'buscarParaExpulsion']);
+        Route::post('/expulsiones', [IncidenciaController::class, 'registrarExpulsion']);
+        Route::get('/tipos', [IncidenciaController::class, 'tipos']);
+        Route::post('/estudiante', [IncidenciaController::class, 'buscarEstudiante']);
+        Route::post('/situaciones', [IncidenciaController::class, 'registrarSituacion']);
+    });
+
+    // HU-19, HU-20, HU-21 y HU-22: Reportes (roles Administrador y Docente).
+    Route::middleware('rol:administrador,docente')->prefix('reportes')->group(function () {
+        Route::get('/examenes', [ReporteController::class, 'examenes']);
+        Route::get('/asistencia/{examen}', [ReporteController::class, 'asistencia']);
+        Route::get('/ausentismo/{examen}', [ReporteController::class, 'ausentismo']);
+        Route::get('/intentos', [ReporteController::class, 'intentos']);
+        Route::get('/registrados', [ReporteController::class, 'registrados']);
+    });
+
+    // HU-27: Historial de operaciones (solo el administrador; solo consulta).
+    Route::middleware('rol:administrador')->group(function () {
+        Route::get('/historial', [HistorialController::class, 'index']);
+        Route::get('/historial/filtros', [HistorialController::class, 'filtros']);
+    });
 });

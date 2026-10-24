@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Permiso;
 use App\Models\Role;
 use App\Models\Usuario;
+use App\Support\Historial;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -90,7 +91,18 @@ class PermisoController extends Controller
 
         $codigosFinales = array_unique(array_merge(Usuario::conVerImplicito($marcados), $fuera));
         $ids = Permiso::whereIn('codigo', $codigosFinales)->pluck('id')->all();
+        $antes = $rol->permisos()->pluck('codigo')->sort()->values()->all();
         $rol->permisos()->sync($ids);
+
+        // HU-27: el cambio de permisos queda en el historial (permisos agregados y quitados).
+        $despues = collect($codigosFinales)->sort()->values()->all();
+        $agregados = array_values(array_diff($despues, $antes));
+        $quitados = array_values(array_diff($antes, $despues));
+        if ($agregados || $quitados) {
+            Historial::registrar('Editar', 'Roles y permisos', 'Permisos del rol '.ucfirst($rol->nombre)
+                .($agregados ? ' — agregados: '.implode(', ', $agregados) : '')
+                .($quitados ? ' — quitados: '.implode(', ', $quitados) : ''), $rol, ['permisos' => $antes], ['permisos' => $despues]);
+        }
 
         return response()->json(['message' => 'Permisos actualizados con éxito.']);
     }

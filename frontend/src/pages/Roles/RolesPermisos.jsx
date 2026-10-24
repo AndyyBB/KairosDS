@@ -17,13 +17,13 @@ const ACCIONES = [
 // ("Registrar ...", "Editar ...", "Eliminar ..."); la habilitacion de estudiantes se hace
 // en una sola pantalla.
 const PANTALLAS_EXTRA = {
-  'habilitaciones.registrar': 'Habilitar estudiantes',
-  'habilitaciones.editar': 'Habilitar estudiantes (cambiar)',
+  'habilitaciones.registrar': 'Inscribir estudiantes, Habilitar estudiantes',
+  'habilitaciones.editar': 'Quitar inscripciones y cambiar habilitaciones',
 };
 
 function pantalla(modulo, accion) {
   const permiso = `${modulo}.${accion}`;
-  return pantallaDePermiso(permiso) ?? PANTALLAS_EXTRA[permiso] ?? null;
+  return PANTALLAS_EXTRA[permiso] ?? pantallaDePermiso(permiso) ?? null;
 }
 
 function nombreRol(nombre) {

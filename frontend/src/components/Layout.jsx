@@ -47,12 +47,12 @@ function IconoPanel({ oculto }) {
 }
 
 export default function Layout() {
-  const { usuario, logout, tiene, esAdministrador } = useAuth();
+  const { usuario, logout, tiene, esAdministrador, rol } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [menuAbierto, setMenuAbierto] = useState(false);
 
-  const modulos = modulosPermitidos(tiene, esAdministrador);
+  const modulos = modulosPermitidos(tiene, esAdministrador, rol);
   const moduloActual = modulos.find((m) => m.base && enModulo(pathname, m.base));
   // Solo un modulo desplegado a la vez: el de la pantalla actual (en Inicio, ninguno).
   const [abierto, setAbierto] = useState(moduloActual?.base ?? null);

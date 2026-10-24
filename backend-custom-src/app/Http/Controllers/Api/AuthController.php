@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Models\Usuario;
+use App\Support\Historial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -46,6 +47,9 @@ class AuthController extends Controller
         $permisos = $usuario->permisosCodigos();
         $token = $usuario->createToken('kairos-web', array_merge(['sesion'], $permisos))->plainTextToken;
         $usuario->setAttribute('permisos', $permisos);
+
+        // HU-27: el inicio de sesion queda en el historial de operaciones.
+        Historial::registrar('Iniciar sesión', 'Sesión', 'Inicio de sesión', null, null, null, $usuario);
 
         return response()->json([
             'token' => $token,

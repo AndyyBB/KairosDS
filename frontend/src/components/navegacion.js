@@ -6,6 +6,10 @@ import {
   ClipboardCheckIcon,
   ShieldIcon,
   UsersIcon,
+  BuscarIcon,
+  AlertaIcon,
+  ReporteIcon,
+  HistorialIcon,
 } from './Iconos';
 
 // Menu del sistema. Cada accion es una pantalla independiente del menu de su modulo:
@@ -55,6 +59,8 @@ export const MODULOS = [
       { to: '/examenes/programar', label: 'Programar examen', permiso: 'examenes.registrar', hu: 'HU-02' },
       { to: '/examenes/editar', label: 'Editar examen', permiso: 'examenes.editar', hu: 'HU-08' },
       { to: '/examenes/eliminar', label: 'Eliminar examen', permiso: 'examenes.eliminar', hu: 'HU-09' },
+      // Inscribir (o quitar la inscripcion) y habilitar son pantallas independientes.
+      { to: '/examenes/inscribir', label: 'Inscribir estudiantes', permiso: ['habilitaciones.registrar', 'habilitaciones.editar'], hu: 'HU-04' },
       { to: '/examenes/habilitar', label: 'Habilitar estudiantes', permiso: 'habilitaciones.ver', hu: 'HU-04' },
     ],
   },
@@ -84,34 +90,80 @@ export const MODULOS = [
     ],
   },
   {
+    base: '/consultas',
+    label: 'Consultas',
+    icon: BuscarIcon,
+    descripcion: 'Motivo de inhabilitación y estudiantes ingresados.',
+    items: [
+      { to: '/consultas/motivo', label: 'Motivo de inhabilitación', permiso: 'control_ingreso.ver', hu: 'HU-05' },
+      // HU-18: Administrador, Docente o roles con permiso sobre Control de ingreso.
+      { to: '/consultas/ingresados', label: 'Estudiantes ingresados', permiso: 'control_ingreso.ver', roles: ['administrador', 'docente'], hu: 'HU-18' },
+    ],
+  },
+  {
+    base: '/incidencias',
+    label: 'Incidencias',
+    icon: AlertaIcon,
+    descripcion: 'Expulsiones y situaciones excepcionales durante el examen.',
+    items: [
+      { to: '/incidencias/expulsion', label: 'Registrar expulsión', permiso: 'control_ingreso.registrar', hu: 'HU-24' },
+      { to: '/incidencias/situacion', label: 'Registrar situación excepcional', permiso: 'control_ingreso.registrar', hu: 'HU-25' },
+    ],
+  },
+  {
+    base: '/reportes',
+    label: 'Reportes',
+    icon: ReporteIcon,
+    descripcion: 'Asistencia, ausentismo, intentos indebidos y registrados por examen.',
+    items: [
+      { to: '/reportes/asistencia', label: 'Reporte de asistencia', roles: ['administrador', 'docente'], hu: 'HU-19' },
+      { to: '/reportes/ausentismo', label: 'Reporte de ausentismo', roles: ['administrador', 'docente'], hu: 'HU-20' },
+      { to: '/reportes/intentos', label: 'Intentos de ingreso indebido', roles: ['administrador', 'docente'], hu: 'HU-21' },
+      { to: '/reportes/registrados', label: 'Estudiantes registrados', roles: ['administrador', 'docente'], hu: 'HU-22' },
+    ],
+  },
+  {
     to: '/roles-permisos',
     label: 'Roles y permisos',
     icon: ShieldIcon,
     soloAdmin: true,
     descripcion: 'Permisos de cada rol sobre los módulos del sistema.',
   },
+  {
+    to: '/historial',
+    label: 'Historial de operaciones',
+    icon: HistorialIcon,
+    soloAdmin: true,
+    descripcion: 'Operaciones realizadas en el sistema, con su usuario, fecha y hora.',
+  },
 ];
 
-// Opcion del menu que habilita cada permiso (se muestra en "Roles y permisos").
+// Opciones del menu que habilita cada permiso (se muestran en "Roles y permisos").
 export function pantallaDePermiso(permiso) {
-  for (const m of MODULOS) {
-    const item = (m.items ?? []).find((i) => i.permiso === permiso);
-    if (item) return item.label;
-  }
-  return null;
+  const etiquetas = MODULOS.flatMap((m) => (m.items ?? []).filter((i) => [].concat(i.permiso).includes(permiso) && !i.roles).map((i) => i.label));
+  return etiquetas.length ? etiquetas.join(', ') : null;
 }
 
 // Devuelve el menu filtrado segun los permisos del usuario.
-export function modulosPermitidos(tiene, esAdministrador) {
-  const permitido = (e) => (e.soloAdmin ? esAdministrador : !e.permiso || tiene(e.permiso));
+// Una opcion es visible si: es solo para el administrador y el usuario lo es; o su rol esta
+// en "roles"; o tiene el permiso indicado. Sin "permiso" ni "roles", es visible para todos.
+export function opcionPermitida(e, tiene, esAdministrador, rol) {
+  if (e.soloAdmin) return esAdministrador;
+  if (e.roles?.includes(rol)) return true;
+  if (e.permiso) return (Array.isArray(e.permiso) ? e.permiso : [e.permiso]).some((p) => tiene(p));
+  return !e.roles;
+}
+
+export function modulosPermitidos(tiene, esAdministrador, rol) {
+  const permitido = (e) => opcionPermitida(e, tiene, esAdministrador, rol);
   return MODULOS.map((m) => (m.items ? { ...m, items: m.items.filter(permitido) } : m)).filter((m) =>
     m.items ? m.items.length > 0 : permitido(m)
   );
 }
 
 // Primera pantalla permitida de un modulo (a donde se entra al hacer clic en el modulo).
-export function primeraPantalla(base, tiene, esAdministrador) {
-  const modulo = modulosPermitidos(tiene, esAdministrador).find((m) => m.base === base);
+export function primeraPantalla(base, tiene, esAdministrador, rol) {
+  const modulo = modulosPermitidos(tiene, esAdministrador, rol).find((m) => m.base === base);
   return modulo?.items?.[0]?.to ?? null;
 }
 

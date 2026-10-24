@@ -13,6 +13,7 @@ class Incidencia extends Model
         'examen_id',
         'estudiante_id',
         'tipo_incidencia_id',
+        'ambiente_destino_id',
         'descripcion',
         'fecha_hora',
         'usuario_id',
@@ -38,5 +39,11 @@ class Incidencia extends Model
     public function usuario(): BelongsTo
     {
         return $this->belongsTo(Usuario::class, 'usuario_id');
+    }
+
+    // HU-25: ambiente de destino en un cambio de ambiente.
+    public function ambienteDestino(): BelongsTo
+    {
+        return $this->belongsTo(Ambiente::class, 'ambiente_destino_id');
     }
 }

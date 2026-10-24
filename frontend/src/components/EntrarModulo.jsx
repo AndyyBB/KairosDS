@@ -6,8 +6,8 @@ import { MENSAJE_SIN_PERMISO } from './RutaPermiso';
 // Al entrar a un modulo (por ejemplo /estudiantes), el sistema redirige a su
 // primera pantalla permitida (Registrar estudiante).
 export default function EntrarModulo({ base }) {
-  const { tiene, esAdministrador } = useAuth();
-  const destino = primeraPantalla(base, tiene, esAdministrador);
+  const { tiene, esAdministrador, rol } = useAuth();
+  const destino = primeraPantalla(base, tiene, esAdministrador, rol);
 
   if (!destino) {
     return (

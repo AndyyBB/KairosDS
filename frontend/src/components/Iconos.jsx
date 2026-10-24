@@ -224,3 +224,40 @@ export function IconoTitulo({ children }) {
     </div>
   );
 }
+
+export function BuscarIcon({ size = 18 }) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
+}
+
+export function AlertaIcon({ size = 18 }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+      <path d="M12 9v4M12 17h.01" />
+    </svg>
+  );
+}
+
+export function ReporteIcon({ size = 18 }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M3 3v18h18" />
+      <path d="M7 16v-4M12 16V8M17 16v-7" />
+    </svg>
+  );
+}
+
+export function HistorialIcon({ size = 18 }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
