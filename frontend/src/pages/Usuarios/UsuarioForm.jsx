@@ -255,6 +255,25 @@ export default function UsuarioForm({ modo = 'registrar' }) {
           </select>
           {errores.rol_id && <p className="text-xs text-red-600 mt-1">{errores.rol_id[0]}</p>}
         </div>
+
+        {/* HU-32: estado de la cuenta. Un usuario inactivo conserva su historial pero no puede iniciar sesion. */}
+        {editando && (
+        <div>
+          <Etiqueta icon={<ShieldIcon />}>Estado</Etiqueta>
+          <select
+            className="input"
+            value={form.activo ? '1' : '0'}
+            onChange={(e) => setForm({ ...form, activo: e.target.value === '1' })}
+          >
+            <option value="1">Activo</option>
+            <option value="0">Inactivo</option>
+          </select>
+          {!soloLectura && (
+            <p className="text-xs text-gray-400 mt-1">Un usuario inactivo no puede iniciar sesión en el sistema.</p>
+          )}
+          {errores.activo && <p className="text-xs text-red-600 mt-1">{errores.activo[0]}</p>}
+        </div>
+        )}
         </fieldset>
 
 

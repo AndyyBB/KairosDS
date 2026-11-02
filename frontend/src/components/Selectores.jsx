@@ -206,6 +206,9 @@ export function SelectorUsuario({ modo, seleccionado }) {
   const navigate = useNavigate();
   const campos = useCamposUsuarios();
   const usuarios = useRef(null);
+  // Al elegir un registro se descarta la copia: al volver a la tabla (por ejemplo, despues
+  // de editar o eliminar) se cargan los datos actualizados.
+  if (seleccionado) usuarios.current = null;
   return (
     <TablaSeleccion
       etiqueta="Usuario"
@@ -234,6 +237,9 @@ export function SelectorAmbiente({ modo, seleccionado }) {
   const navigate = useNavigate();
   const campos = useCamposAmbientes();
   const ambientes = useRef(null);
+  // Al elegir un registro se descarta la copia: al volver a la tabla (por ejemplo, despues
+  // de editar o eliminar) se cargan los datos actualizados.
+  if (seleccionado) ambientes.current = null;
   return (
     <TablaSeleccion
       etiqueta="Ambiente"

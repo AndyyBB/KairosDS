@@ -21,11 +21,23 @@ function textoGenerado(g) {
   return g ? `Generado el ${g.fecha} a las ${g.hora}${g.usuario ? ` por ${g.usuario}` : ''}` : '';
 }
 
+// Nombre de archivo seguro: sin tildes ni caracteres especiales (algunos navegadores
+// descartan el nombre sugerido si contiene caracteres fuera de ASCII).
+function nombreSeguro(nombre) {
+  return nombre
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ñ/g, 'n')
+    .replace(/Ñ/g, 'N')
+    .replace(/[^A-Za-z0-9._-]+/g, '_')
+    .replace(/_+/g, '_');
+}
+
 function descargar(blob, nombre) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = nombre;
+  a.download = nombreSeguro(nombre);
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -100,7 +112,7 @@ export async function exportarPDF(r) {
     doc.text(`Página ${p} de ${paginas}`, ancho - 14, doc.internal.pageSize.getHeight() - 7, { align: 'right' });
   }
 
-  doc.save(`${r.archivo}.pdf`);
+  descargar(doc.output('blob'), `${r.archivo}.pdf`);
 }
 
 // ---------------------------------------------------------------- Excel (.xlsx)

@@ -48,12 +48,38 @@ class UsuarioController extends Controller
     {
         $data = $request->validated();
 
+        // HU-32: al desactivar una cuenta se protege la propia cuenta y al ultimo administrador activo.
+        if (array_key_exists('activo', $data) && ! $data['activo'] && $usuario->activo) {
+            if ($request->user()?->id === $usuario->id) {
+                return response()->json([
+                    'message' => 'No puedes desactivar tu propia cuenta.',
+                    'errors' => ['activo' => ['No puedes desactivar tu propia cuenta.']],
+                ], 422);
+            }
+            if ($usuario->esAdministrador()) {
+                $adminsActivos = Usuario::where('activo', true)
+                    ->whereHas('rol', fn ($q) => $q->where('nombre', 'administrador'))
+                    ->count();
+                if ($adminsActivos <= 1) {
+                    return response()->json([
+                        'message' => 'No se puede desactivar al único administrador activo.',
+                        'errors' => ['activo' => ['No se puede desactivar al único administrador activo.']],
+                    ], 422);
+                }
+            }
+        }
+
         if (! empty($data['password'])) {
             $data['contrasena_hash'] = Hash::make($data['password']);
         }
         unset($data['password']);
 
         $usuario->update($data);
+
+        // Un usuario desactivado pierde sus sesiones abiertas y ya no puede ingresar.
+        if (array_key_exists('activo', $data) && ! $data['activo']) {
+            $usuario->tokens()->delete();
+        }
 
         return $usuario->load('rol');
     }
