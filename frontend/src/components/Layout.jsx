@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../api/AuthContext';
 import KairosLogo from './KairosLogo';
 import { LogoutIcon } from './Iconos';
 import { modulosPermitidos, rutaDeItem } from './navegacion';
+import { useTablasMoviles } from './TablasMoviles';
 
 function Chevron({ abierto }) {
   return (
@@ -50,6 +51,9 @@ export default function Layout() {
   const { usuario, logout, tiene, esAdministrador, rol } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  // Hito 5: en celulares las tablas se muestran como tarjetas.
+  const principal = useRef(null);
+  useTablasMoviles(principal);
   const [menuAbierto, setMenuAbierto] = useState(false);
 
   const modulos = modulosPermitidos(tiene, esAdministrador, rol);
@@ -249,7 +253,7 @@ export default function Layout() {
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 bg-transparent p-4 sm:p-6 lg:p-8">
+      <main ref={principal} className="tablas-moviles flex-1 min-w-0 bg-transparent p-4 sm:p-6 lg:p-8">
         <Outlet />
       </main>
     </div>

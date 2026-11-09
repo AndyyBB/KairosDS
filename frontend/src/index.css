@@ -79,3 +79,84 @@ button:focus-visible {
     transform: none !important;
   }
 }
+
+/* ---------- Hito 5 (Sprint 4): adaptacion a dispositivos moviles ---------- */
+
+/* Campos de 16px en celulares: el navegador no hace zoom al tocarlos (iPhone). */
+@media (max-width: 639px) {
+  .input,
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Tablas como tarjetas en pantallas chicas: cada fila es una tarjeta y cada dato lleva el
+   titulo de su columna (data-label, ver components/TablasMoviles.js). Asi no hace falta
+   deslizar hacia los costados para ver las columnas ni los botones de cada fila. */
+@media (max-width: 639px) {
+  .tablas-moviles table {
+    min-width: 0 !important;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .tablas-moviles table thead {
+    display: none;
+  }
+  .tablas-moviles table tbody,
+  .tablas-moviles table tfoot {
+    display: block;
+  }
+  .tablas-moviles table tr {
+    display: block;
+    margin: 0.5rem 0.5rem 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgb(204 236 234);
+    border-radius: 0.75rem;
+    background-color: #fff;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  }
+  .tablas-moviles table td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.35rem 0 !important;
+    border: 0 !important;
+    text-align: right;
+    white-space: normal !important;
+    word-break: break-word;
+  }
+  .tablas-moviles table td + td {
+    border-top: 1px dashed rgb(229 231 235) !important;
+  }
+  .tablas-moviles table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 45%;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgb(15 94 92);
+  }
+  /* Celdas sin titulo (mensajes "Sin resultados", columnas de botones): ocupan todo el ancho. */
+  .tablas-moviles table td[data-label='']::before,
+  .tablas-moviles table td:not([data-label])::before {
+    display: none;
+  }
+  .tablas-moviles table td[data-label=''],
+  .tablas-moviles table td[colspan] {
+    justify-content: center;
+    text-align: center;
+  }
+  /* Grupos de botones dentro de una celda (Habilitado / No habilitado) se acomodan. */
+  .tablas-moviles table td > div {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .tablas-moviles table tbody tr:hover {
+    background-color: #fff;
+  }
+}
