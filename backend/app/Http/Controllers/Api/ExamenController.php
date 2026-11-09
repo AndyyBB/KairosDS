@@ -54,6 +54,13 @@ class ExamenController extends Controller
         $ambientes = array_values($data['ambientes']);
         unset($data['normas'], $data['ambientes']);
 
+        // Sprint 4 (observaciones 2 y 8): no se registra un examen duplicado. Si ya existe un
+        // examen de la misma asignatura el mismo dia en un horario que se cruza, se avisa y se
+        // sugiere editar ese examen (por ejemplo, para agregarle aulas).
+        if ($duplicado = $this->buscarDuplicado($data['materia_id'], $data['fecha'], $data['hora_inicio'], (int) ($data['duracion_min'] ?? 0))) {
+            return $this->respuestaDuplicado($duplicado, $request);
+        }
+
         $examen = DB::transaction(function () use ($data, $normas, $ambientes, $request) {
             // El primer ambiente queda como principal (columna ambiente_id).
             $examen = Examen::create([
@@ -71,6 +78,25 @@ class ExamenController extends Controller
         });
 
         return response()->json($examen->load(['materia', 'ambiente', 'ambientes', 'normas']), 201);
+    }
+
+    // Sprint 4: aviso anticipado en "Programar examen". Mientras se llenan la asignatura, la
+    // fecha y la hora, la pantalla consulta si ya existe un examen igual para mostrar la alerta
+    // antes de presionar "Guardar".
+    public function duplicado(Request $request)
+    {
+        $data = $request->validate([
+            'materia_id' => ['required', 'integer'],
+            'fecha' => ['required', 'date_format:Y-m-d'],
+            'hora_inicio' => ['required', 'date_format:H:i'],
+            'duracion_min' => ['nullable', 'integer', 'min:0', 'max:300'],
+        ]);
+
+        $duplicado = $this->buscarDuplicado($data['materia_id'], $data['fecha'], $data['hora_inicio'], (int) ($data['duracion_min'] ?? 0));
+
+        return response()->json([
+            'duplicado' => $duplicado ? $this->datosDuplicado($duplicado, $request) : null,
+        ]);
     }
 
     public function show(Examen $examen)
@@ -128,6 +154,62 @@ class ExamenController extends Controller
         });
 
         return response()->json(['message' => 'Examen eliminado con éxito.']);
+    }
+
+    // Examen no cancelado de la misma asignatura, el mismo dia, cuyo horario se cruza con el
+    // nuevo (si no se indica la duracion, basta con la misma hora de inicio).
+    private function buscarDuplicado($materiaId, string $fecha, string $hora, int $duracion, ?int $excepto = null): ?Examen
+    {
+        $hora = substr($hora, 0, 5);
+        $minutos = max($duracion, 1);
+
+        return Examen::with(['materia', 'ambiente', 'ambientes'])
+            ->where('materia_id', $materiaId)
+            ->whereDate('fecha', $fecha)
+            ->where('estado', '!=', 'cancelado')
+            ->when($excepto, fn ($q) => $q->where('id', '!=', $excepto))
+            ->where(function ($q) use ($hora, $minutos) {
+                $q->whereRaw("to_char(hora_inicio, 'HH24:MI') = ?", [$hora])
+                    ->orWhereRaw(
+                        "hora_inicio < (?::time + make_interval(mins => ?)) AND (hora_inicio + make_interval(mins => GREATEST(COALESCE(duracion_min, 0), 1))) > ?::time",
+                        [$hora, $minutos, $hora]
+                    );
+            })
+            ->orderBy('hora_inicio')
+            ->first();
+    }
+
+    private function datosDuplicado(Examen $ex, Request $request): array
+    {
+        $ambientes = $ex->ambientes->pluck('nombre');
+        if ($ambientes->isEmpty() && $ex->ambiente) {
+            $ambientes = collect([$ex->ambiente->nombre]);
+        }
+        $estado = $ex->estado_actual ?? $ex->estado;
+
+        return [
+            'id' => $ex->id,
+            'asignatura' => $ex->materia?->nombre,
+            'fecha' => \Carbon\Carbon::parse($ex->fecha)->format('d/m/Y'),
+            'hora' => substr((string) $ex->hora_inicio, 0, 5),
+            'duracion' => $ex->duracion_min,
+            'ambientes' => $ambientes->implode(', '),
+            'estado' => $estado,
+            // Se puede ir a editarlo si el usuario tiene el permiso y el examen no termino.
+            'editable' => ! in_array($estado, ['finalizado', 'cancelado'], true)
+                && in_array('examenes.editar', $request->user()?->permisosDeSesion() ?? [], true),
+        ];
+    }
+
+    private function respuestaDuplicado(Examen $ex, Request $request)
+    {
+        $d = $this->datosDuplicado($ex, $request);
+
+        return response()->json([
+            'message' => "Ya existe un examen de {$d['asignatura']} el {$d['fecha']} a las {$d['hora']} ({$d['ambientes']}). "
+                .'Si necesitas más aulas, edita ese examen en lugar de registrar otro.',
+            'duplicado' => $d,
+        ], 409);
     }
 
     // Estado calculado con la fecha, la hora y la duracion del examen (hora de La Paz),

@@ -69,6 +69,35 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
   const [mensaje, setMensaje] = useMensajeFlash();
   const [form, setForm] = useState(FORM_INICIAL);
   const [formOriginal, setFormOriginal] = useState(null);
+  // Sprint 4 (observaciones 2 y 8): examen ya registrado con la misma asignatura, fecha y hora.
+  const [duplicado, setDuplicado] = useState(null);
+
+  // Aviso anticipado: al completar asignatura, fecha y hora se consulta si ya existe un
+  // examen igual, para sugerir editarlo (por ejemplo, agregarle aulas) en lugar de duplicarlo.
+  useEffect(() => {
+    if (modo !== 'registrar' || !form.materia_id || !form.fecha || !form.hora_inicio) {
+      setDuplicado(null);
+      return undefined;
+    }
+    let vigente = true;
+    const espera = setTimeout(() => {
+      api
+        .get('/examenes-duplicado', {
+          params: {
+            materia_id: form.materia_id,
+            fecha: form.fecha,
+            hora_inicio: form.hora_inicio,
+            duracion_min: form.duracion_min || undefined,
+          },
+        })
+        .then((res) => vigente && setDuplicado(res.data.duplicado))
+        .catch(() => vigente && setDuplicado(null));
+    }, 400);
+    return () => {
+      vigente = false;
+      clearTimeout(espera);
+    };
+  }, [modo, form.materia_id, form.fecha, form.hora_inicio, form.duracion_min]);
 
   // Al elegir otro registro se limpian los mensajes y errores anteriores.
   useEffect(() => {
@@ -215,10 +244,17 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
       await api.post('/examenes', payload);
       // El sistema muestra el mensaje y deja el formulario listo para programar otro examen.
       setForm(FORM_INICIAL);
+      setDuplicado(null);
       setMensaje('Examen registrado con éxito.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      setErrores(erroresCampos(err));
+      if (err?.response?.status === 409 && err.response.data?.duplicado) {
+        // Examen duplicado: no se registra y se muestra la alerta con la opcion de editarlo.
+        setDuplicado(err.response.data.duplicado);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        setErrores(erroresCampos(err));
+      }
     } finally {
       setGuardando(false);
     }
@@ -235,6 +271,38 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
 
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <Aviso mensaje={error} tipo="error" onCerrar={() => setError('')} />
+      {modo === 'registrar' && duplicado && (
+        <div role="alert" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-4 text-sm text-amber-900 shadow-sm">
+          <p className="font-semibold">Ya existe un examen de esta asignatura en ese horario</p>
+          <p className="mt-1">
+            {duplicado.asignatura} — {duplicado.fecha} a las {duplicado.hora}
+            {duplicado.duracion ? ` (${duplicado.duracion} min)` : ''} — {duplicado.ambientes}
+          </p>
+          <p className="mt-1">
+            No se puede registrar otro examen igual. Si necesitas más aulas o cambiar sus datos, edita ese examen.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {duplicado.editable && (
+              <button
+                type="button"
+                onClick={() => navigate(`/examenes/editar/${duplicado.id}`)}
+                className="bg-amber-600 text-white text-sm font-medium rounded-lg px-4 py-2 hover:bg-amber-700"
+              >
+                Ir a Editar examen
+              </button>
+            )}
+            {tiene('examenes.ver') && (
+              <button
+                type="button"
+                onClick={() => navigate(`/examenes/datos/${duplicado.id}`)}
+                className="border border-amber-400 text-amber-900 text-sm font-medium rounded-lg px-4 py-2 hover:bg-amber-100"
+              >
+                Ver datos del examen
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       {editando && cerrado && modo !== 'eliminar' && (
         <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Este examen está {estadoExamen}: ya no se puede editar, solo eliminar.
