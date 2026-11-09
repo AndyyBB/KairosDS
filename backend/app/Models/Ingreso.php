@@ -18,10 +18,16 @@ class Ingreso extends Model
         'fecha_hora_ingreso',
         'ambiente_correcto',
         'usuario_id',
+        // Sprint 4: salida del examen (para poder ingresar a otro) y observacion del ingreso.
+        'fecha_hora_salida',
+        'observacion_salida',
+        'salida_registrada_por',
+        'observacion',
     ];
 
     protected $casts = [
         'fecha_hora_ingreso' => 'datetime',
+        'fecha_hora_salida' => 'datetime',
         'ambiente_correcto' => 'boolean',
     ];
 

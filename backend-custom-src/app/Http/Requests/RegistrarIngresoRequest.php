@@ -19,6 +19,10 @@ class RegistrarIngresoRequest extends FormRequest
             'examen_id' => ['bail', 'required', 'integer', 'exists:examenes,id'],
             'estudiante_id' => ['bail', 'required', 'integer', 'exists:estudiantes,id'],
             'metodo' => ['required', Rule::in(['codigo', 'documento', 'qr'])],
+            // Sprint 4: si el estudiante esta rindiendo otro examen, se puede registrar su
+            // salida de ese examen con una observacion obligatoria y luego su ingreso.
+            'registrar_salida' => ['sometimes', 'boolean'],
+            'observacion' => ['bail', 'nullable', 'required_if:registrar_salida,true,1', 'string', 'max:300'],
         ];
     }
 
@@ -33,6 +37,8 @@ class RegistrarIngresoRequest extends FormRequest
             'estudiante_id.exists' => 'Estudiante no encontrado.',
             'metodo.required' => 'Seleccione un método de verificación.',
             'metodo.in' => 'Seleccione un método de verificación.',
+            'observacion.required_if' => 'La observación es obligatoria para registrar la salida del otro examen.',
+            'observacion.max' => 'La observación tiene un límite de 300 caracteres.',
         ];
     }
 }

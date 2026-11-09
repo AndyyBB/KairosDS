@@ -13,6 +13,7 @@ use App\Models\Ingreso;
 use App\Models\InscripcionExamen;
 use App\Models\IntentoIngreso;
 use App\Models\MetodoVerificacion;
+use App\Support\Historial;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -110,6 +111,14 @@ class ControlIngresoController extends Controller
             }
         }
 
+        // Sprint 4 (observacion 8): el estudiante ya esta rindiendo otro examen en un horario
+        // que se cruza con este (y no registro su salida).
+        $otroExamen = null;
+        if ($estado === 'habilitado' && ! $ingresoPrevio) {
+            $otro = $this->ingresoEnOtroExamen($examen, $estudiante);
+            $otroExamen = $otro ? $this->datosOtroExamen($otro) : null;
+        }
+
         return response()->json([
             'message' => 'Identidad verificada.',
             'estudiante' => $this->datosEstudiante($estudiante),
@@ -118,6 +127,7 @@ class ControlIngresoController extends Controller
             'mensaje_estado' => $mensajeEstado,
             'examen' => $this->resumenExamen($examen),
             'ingreso_previo' => $ingresoPrevio,
+            'otro_examen' => $otroExamen,
             'intento_registrado' => $intentoRegistrado,
             'mensaje_intento' => $intentoRegistrado ? 'Intento de ingreso no correspondiente registrado.' : null,
         ]);
@@ -151,10 +161,42 @@ class ControlIngresoController extends Controller
             return $this->respuestaDuplicado($existente);
         }
 
+        // Sprint 4 (observacion 8): no puede ingresar si ya esta rindiendo otro examen, salvo
+        // que se registre su salida de ese examen con una observacion.
+        $otro = $this->ingresoEnOtroExamen($examen, $estudiante);
+        $observacion = null;
+        if ($otro && ! ($data['registrar_salida'] ?? false)) {
+            $d = $this->datosOtroExamen($otro);
+
+            return response()->json([
+                'message' => $d['mensaje'],
+                'otro_examen' => $d,
+            ], 409);
+        }
+
         $metodoId = MetodoVerificacion::where('codigo', self::METODOS[$data['metodo']])->value('id')
             ?? MetodoVerificacion::orderBy('id')->value('id');
 
         try {
+            if ($otro) {
+                // Salida del otro examen: fecha y hora del servidor, observacion y usuario.
+                $observacion = trim($data['observacion']);
+                $d = $this->datosOtroExamen($otro);
+                $otro->update([
+                    'fecha_hora_salida' => Carbon::now(),
+                    'observacion_salida' => $observacion,
+                    'salida_registrada_por' => $request->user()->id,
+                ]);
+                Historial::registrar(
+                    'Registrar salida',
+                    'Control de ingreso',
+                    "Salida de {$estudiante->codigo_universitario} del examen {$d['asignatura']} ({$d['fecha']} {$d['hora']}) "
+                        ."para ingresar a {$examen->materia?->nombre}: {$observacion}",
+                    $otro
+                );
+                $observacion = "Salió del examen {$d['asignatura']} ({$d['hora']}) para ingresar a este examen: {$observacion}";
+            }
+
             // HU-12 (2, 3, 4): fecha y hora del servidor, usuario responsable y ambiente del examen.
             $ingreso = Ingreso::create([
                 'habilitacion_id' => $habilitacion->id,
@@ -163,6 +205,7 @@ class ControlIngresoController extends Controller
                 'fecha_hora_ingreso' => Carbon::now(),
                 'ambiente_correcto' => true,
                 'usuario_id' => $request->user()->id,
+                'observacion' => $observacion,
             ]);
         } catch (QueryException $e) {
             // HU-13 (6): si dos usuarios registran a la vez, la restriccion unica de la
@@ -195,22 +238,6 @@ class ControlIngresoController extends Controller
     public function ingresos(Examen $examen)
     {
         return response()->json($this->resumenIngresos($examen));
-    }
-
-    // Pantallas "Editar ingreso" y "Eliminar ingreso": todos los ingresos del examen, con los
-    // datos completos del estudiante, para buscar y seleccionar el que se va a corregir.
-    public function todosLosIngresos(Examen $examen)
-    {
-        $ingresos = Ingreso::query()
-            ->whereHas('habilitacion', fn ($q) => $q->where('examen_id', $examen->id))
-            ->with(['habilitacion.estudiante.carreras', 'habilitacion.estudiante.carrera', 'usuario', 'ambiente'])
-            ->orderByDesc('fecha_hora_ingreso')
-            ->orderByDesc('id')
-            ->get()
-            ->map(fn (Ingreso $i) => $this->filaIngreso($i))
-            ->values();
-
-        return response()->json($ingresos);
     }
 
     // HU-26 (8): intentos registrados del examen seleccionado.
@@ -246,47 +273,10 @@ class ControlIngresoController extends Controller
         return Ambiente::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']);
     }
 
-    // HU-12 (9): solo quien tiene el permiso "Editar - Control de ingreso" (el
-    // administrador y los roles a los que el administrador se lo otorga) puede modificar
-    // un registro de ingreso. Se corrige el ambiente donde se registro.
-    public function actualizarIngreso(Request $request, Ingreso $ingreso)
+    // Sprint 4 (observaciones 19 y 20): los ingresos registrados no se modifican ni se eliminan.
+    public function ingresoInmutable()
     {
-        $data = $request->validate([
-            'ambiente_id' => ['required', 'integer', 'exists:ambientes,id'],
-        ], [
-            'ambiente_id.required' => 'El ambiente es obligatorio.',
-            'ambiente_id.exists' => 'El ambiente no existe.',
-        ]);
-
-        $examen = $ingreso->habilitacion?->examen()->with(['ambientes'])->first();
-        $permitidos = $examen
-            ? $examen->ambientes->pluck('id')->push($examen->ambiente_id)->filter()->unique()
-            : collect();
-
-        $ingreso->update([
-            'ambiente_id' => $data['ambiente_id'],
-            'ambiente_correcto' => $permitidos->contains((int) $data['ambiente_id']),
-        ]);
-
-        return response()->json([
-            'message' => 'Ingreso actualizado con éxito.',
-            'ingreso' => $ingreso->load(['ambiente', 'usuario']),
-        ]);
-    }
-
-    public function eliminarIngreso(Ingreso $ingreso)
-    {
-        try {
-            $ingreso->delete();
-        } catch (QueryException $e) {
-            // El ingreso tiene una expulsion asociada: no se puede borrar.
-            if (($e->errorInfo[0] ?? $e->getCode()) == '23503') {
-                return response()->json(['message' => 'No se puede eliminar un ingreso con una expulsión registrada.'], 409);
-            }
-            throw $e;
-        }
-
-        return response()->json(['message' => 'Ingreso eliminado con éxito.']);
+        return response()->json(['message' => 'Los ingresos registrados no se pueden modificar ni eliminar.'], 403);
     }
 
     // HU-26 (9): los intentos registrados no se pueden modificar ni eliminar.
@@ -450,6 +440,48 @@ class ControlIngresoController extends Controller
         ];
     }
 
+    // Sprint 4 (observacion 8): ingreso del estudiante, sin salida registrada, en OTRO examen
+    // (no cancelado) cuyo horario se cruza con el del examen actual.
+    private function ingresoEnOtroExamen(Examen $examen, Estudiante $estudiante): ?Ingreso
+    {
+        $inicio = Carbon::parse($examen->fecha->toDateString().' '.substr((string) $examen->hora_inicio, 0, 8));
+        $fin = (clone $inicio)->addMinutes(max((int) $examen->duracion_min, 1));
+
+        return Ingreso::query()
+            ->whereNull('fecha_hora_salida')
+            ->whereHas('habilitacion', fn ($q) => $q
+                ->where('estudiante_id', $estudiante->id)
+                ->where('examen_id', '!=', $examen->id)
+                ->whereHas('examen', fn ($e) => $e
+                    ->where('estado', '!=', 'cancelado')
+                    ->whereRaw('(fecha + hora_inicio) < ?::timestamp', [$fin->format('Y-m-d H:i:s')])
+                    ->whereRaw('(fecha + hora_inicio + make_interval(mins => GREATEST(COALESCE(duracion_min, 0), 1))) > ?::timestamp', [$inicio->format('Y-m-d H:i:s')])))
+            ->with(['habilitacion.examen.materia', 'ambiente'])
+            ->orderByDesc('fecha_hora_ingreso')
+            ->first();
+    }
+
+    private function datosOtroExamen(Ingreso $ingreso): array
+    {
+        $ex = $ingreso->habilitacion?->examen;
+        $asignatura = $ex?->materia?->nombre ?? 'otro examen';
+        $hora = substr((string) $ex?->hora_inicio, 0, 5);
+        $ingresoHora = $this->hora($ingreso->fecha_hora_ingreso);
+
+        return [
+            'ingreso_id' => $ingreso->id,
+            'examen_id' => $ex?->id,
+            'asignatura' => $asignatura,
+            'fecha' => $ex?->fecha ? Carbon::parse($ex->fecha)->format('d/m/Y') : null,
+            'hora' => $hora,
+            'ambiente' => $ingreso->ambiente?->nombre,
+            'hora_ingreso' => $ingresoHora,
+            'mensaje' => "El estudiante ya está rindiendo otro examen: {$asignatura} ({$hora}"
+                .($ingreso->ambiente?->nombre ? ", {$ingreso->ambiente->nombre}" : '')
+                ."), ingresó a las {$ingresoHora}.",
+        ];
+    }
+
     // Fila de un ingreso con los datos completos del estudiante.
     private function filaIngreso(Ingreso $i): array
     {
@@ -467,6 +499,8 @@ class ControlIngresoController extends Controller
             'ambiente_id' => $i->ambiente_id,
             'ambiente' => $i->ambiente?->nombre,
             'registrado_por' => $i->usuario?->nombre_completo,
+            'salida' => $i->fecha_hora_salida ? $this->hora($i->fecha_hora_salida) : null,
+            'observacion' => $i->observacion,
         ];
     }
 }

@@ -26,6 +26,10 @@ class PermisoController extends Controller
     // (Reportes aun no tiene pantallas, por eso no aparece en la tabla y sus permisos se conservan.)
     private const ACCIONES = ['registrar', 'editar', 'eliminar'];
 
+    // Sprint 4 (observaciones 19 y 20): los ingresos no se editan ni se eliminan, por eso
+    // Control de ingreso solo tiene la accion Registrar.
+    private const SIN_ACCION = ['control_ingreso.editar', 'control_ingreso.eliminar'];
+
     // Roles en el orden del mockup: Administrador, Docente, Personal de control de ingreso.
     public function roles()
     {
@@ -48,7 +52,10 @@ class PermisoController extends Controller
         foreach (self::MODULOS as $codigo => $etiqueta) {
             $fila = ['modulo' => $codigo, 'etiqueta' => $etiqueta];
             foreach (self::ACCIONES as $accion) {
-                $fila[$accion] = in_array("$codigo.$accion", $activos, true);
+                // null = la accion no existe en ese modulo (la tabla muestra "—").
+                $fila[$accion] = in_array("$codigo.$accion", self::SIN_ACCION, true)
+                    ? null
+                    : in_array("$codigo.$accion", $activos, true);
             }
             $modulos[] = $fila;
         }
@@ -83,7 +90,7 @@ class PermisoController extends Controller
         $marcados = array_values(array_filter($data['permisos'], function ($codigo) use ($enTabla) {
             [$modulo, $accion] = explode('.', $codigo, 2);
 
-            return in_array($modulo, $enTabla, true) && $accion !== 'ver';
+            return in_array($modulo, $enTabla, true) && $accion !== 'ver' && ! in_array($codigo, self::SIN_ACCION, true);
         }));
         $fuera = $rol->permisos()->pluck('codigo')->filter(
             fn ($codigo) => ! in_array(explode('.', $codigo, 2)[0], $enTabla, true)

@@ -14,7 +14,6 @@ import ExamenesList from './pages/Examenes/ExamenesList';
 import HabilitarEstudiantes from './pages/Habilitaciones/HabilitarEstudiantes';
 import InscribirEstudiantes from './pages/Habilitaciones/InscribirEstudiantes';
 import ControlIngreso from './pages/ControlIngreso/ControlIngreso';
-import GestionIngreso from './pages/ControlIngreso/GestionIngreso';
 import UsuarioForm from './pages/Usuarios/UsuarioForm';
 import UsuariosList from './pages/Usuarios/UsuariosList';
 import RolesPermisos from './pages/Roles/RolesPermisos';
@@ -85,8 +84,6 @@ export default function App() {
         {/* Control de ingreso: Registrar ingreso, Editar ingreso y Eliminar ingreso */}
         <Route path="control-ingreso" element={<EntrarModulo base="/control-ingreso" />} />
         <Route path="control-ingreso/registrar" element={con('control_ingreso.registrar', <ControlIngreso />)} />
-        <Route path="control-ingreso/editar" element={con('control_ingreso.editar', <GestionIngreso key="editar" modo="editar" />)} />
-        <Route path="control-ingreso/eliminar" element={con('control_ingreso.eliminar', <GestionIngreso key="eliminar" modo="eliminar" />)} />
 
         {/* Usuarios */}
         <Route path="usuarios" element={<EntrarModulo base="/usuarios" />} />

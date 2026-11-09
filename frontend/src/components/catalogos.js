@@ -166,29 +166,6 @@ export function useCamposUsuarios() {
   ];
 }
 
-// ---------------- Ingresos (Editar / Eliminar ingreso) ----------------
-export function camposIngresos(ingresos) {
-  const sel = (f) => distintos(ingresos.map(f)).sort();
-  return [
-    { id: 'ambiente', etiqueta: 'Ambiente', tipo: 'select', opciones: sel((i) => i.ambiente).map((a) => opcion(a, a)) },
-    { id: 'carrera', etiqueta: 'Carrera', tipo: 'select', todos: 'Todas', opciones: sel((i) => i.carrera).map((c) => opcion(c, c)) },
-    { id: 'anio', etiqueta: 'Código (primeros 4 dígitos)', tipo: 'select', opciones: sel((i) => anioIngreso(i.codigo)).reverse().map((a) => opcion(a, `${a}…`)) },
-    { id: 'registrado_por', etiqueta: 'Registrado por', tipo: 'select', opciones: sel((i) => i.registrado_por).map((u) => opcion(u, u)) },
-  ];
-}
-
-export function filtrarIngresos(lista, buscar = '', f = {}) {
-  const t = buscar.trim().toLowerCase();
-  return lista.filter(
-    (i) =>
-      (!t || [i.codigo, i.documento, i.nombre].some((v) => String(v ?? '').toLowerCase().includes(t))) &&
-      (!f.ambiente || i.ambiente === f.ambiente) &&
-      (!f.carrera || i.carrera === f.carrera) &&
-      (!f.anio || anioIngreso(i.codigo) === f.anio) &&
-      (!f.registrado_por || i.registrado_por === f.registrado_por)
-  );
-}
-
 // ---------------- Filtros que se aplican en el navegador ----------------
 const incluye = (v, t) => String(v ?? '').toLowerCase().includes(t);
 

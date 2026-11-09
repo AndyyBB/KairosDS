@@ -72,8 +72,7 @@ export const MODULOS = [
     descripcion: 'Verificación de identidad y registro de ingresos.',
     items: [
       { to: '/control-ingreso/registrar', label: 'Registrar ingreso', permiso: 'control_ingreso.registrar', hu: 'HU-10' },
-      { to: '/control-ingreso/editar', label: 'Editar ingreso', permiso: 'control_ingreso.editar', hu: 'HU-10' },
-      { to: '/control-ingreso/eliminar', label: 'Eliminar ingreso', permiso: 'control_ingreso.eliminar', hu: 'HU-10' },
+      // Sprint 4 (observaciones 19 y 20): los ingresos no se editan ni se eliminan.
     ],
   },
   {

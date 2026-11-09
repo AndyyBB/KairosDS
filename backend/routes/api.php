@@ -71,17 +71,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/examenes', [ControlIngresoController::class, 'examenes'])->middleware('permiso:control_ingreso.ver');
         Route::get('/examenes/{examen}/ingresos', [ControlIngresoController::class, 'ingresos'])->middleware('permiso:control_ingreso.ver');
         Route::get('/examenes/{examen}/intentos', [ControlIngresoController::class, 'intentos'])->middleware('permiso:control_ingreso.ver');
-        // Pantallas "Editar ingreso" y "Eliminar ingreso": todos los ingresos del examen.
-        Route::get('/examenes/{examen}/ingresos/todos', [ControlIngresoController::class, 'todosLosIngresos'])->middleware('permiso:control_ingreso.editar,control_ingreso.eliminar');
         Route::post('/verificar', [ControlIngresoController::class, 'verificar'])->middleware('permiso:control_ingreso.registrar');
         Route::post('/ingresos', [ControlIngresoController::class, 'registrarIngreso'])->middleware('permiso:control_ingreso.registrar');
 
-        // HU-12 (9): modificar o eliminar un ingreso requiere el permiso Editar / Eliminar de
-        // Control de ingreso (el administrador los tiene siempre; los demas roles solo si el
-        // administrador se los otorga en Roles y permisos).
+        // Ambientes (ambiente de destino en "Registrar situación excepcional").
         Route::get('/ambientes', [ControlIngresoController::class, 'ambientes'])->middleware('permiso:control_ingreso.ver');
-        Route::match(['put', 'patch'], '/ingresos/{ingreso}', [ControlIngresoController::class, 'actualizarIngreso'])->middleware('permiso:control_ingreso.editar');
-        Route::delete('/ingresos/{ingreso}', [ControlIngresoController::class, 'eliminarIngreso'])->middleware('permiso:control_ingreso.eliminar');
+
+        // Sprint 4 (observaciones 19 y 20): los ingresos registrados no se modifican ni se eliminan.
+        Route::match(['put', 'patch', 'delete'], '/ingresos/{ingreso}', [ControlIngresoController::class, 'ingresoInmutable']);
 
         // HU-26 (9): los intentos registrados no se pueden modificar ni eliminar.
         Route::match(['put', 'patch', 'delete'], '/intentos/{intento}', [ControlIngresoController::class, 'intentoInmutable']);

@@ -146,6 +146,10 @@ export default function RolesPermisos() {
                     <td className="px-3 py-3 text-gray-800 font-medium align-top">{m.etiqueta}</td>
                     {ACCIONES.map((a) => (
                       <td key={a.id} className="px-3 py-3 text-center align-top">
+                        {/* null: la accion no existe en el modulo (por ejemplo, los ingresos no se editan ni se eliminan). */}
+                        {m[a.id] === null ? (
+                          <span className="text-gray-300" title="Esta acción no existe en el módulo">—</span>
+                        ) : (
                         <input
                           type="checkbox"
                           aria-label={`${a.etiqueta} ${m.etiqueta}`}
@@ -154,7 +158,8 @@ export default function RolesPermisos() {
                           disabled={bloqueado}
                           onChange={() => alternar(m.modulo, a.id)}
                         />
-                        {pantalla(m.modulo, a.id) && (
+                        )}
+                        {m[a.id] !== null && pantalla(m.modulo, a.id) && (
                           <span className={`mt-1 block text-xs ${m[a.id] ? 'text-kairos-700' : 'text-gray-400'}`}>
                             {pantalla(m.modulo, a.id)}
                           </span>

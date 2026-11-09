@@ -46,8 +46,10 @@ function limpiarValor(metodo, texto) {
   return texto.slice(0, 200);
 }
 
-// HU-10: Control de ingreso (pantalla "Registrar ingreso"). Editar y eliminar un ingreso
-// son pantallas independientes del menu (GestionIngreso.jsx).
+// HU-10: Control de ingreso (pantalla "Registrar ingreso"). Sprint 4 (observaciones 19 y
+// 20): los ingresos registrados no se editan ni se eliminan. Observacion 8: si el estudiante
+// ya esta rindiendo otro examen, no se registra su ingreso, salvo que se registre su salida
+// de ese examen con una observacion obligatoria.
 export default function ControlIngreso() {
   const { tiene } = useAuth();
   const puedeRegistrar = tiene('control_ingreso.registrar');
@@ -68,6 +70,10 @@ export default function ControlIngreso() {
   const [resumen, setResumen] = useState(null);
   const [intentos, setIntentos] = useState([]);
   const [paginaIntentos, setPaginaIntentos] = useState(1);
+  // Sprint 4 (observacion 8): salida del otro examen que el estudiante esta rindiendo.
+  const [conSalida, setConSalida] = useState(false);
+  const [observacion, setObservacion] = useState('');
+  const [errorObservacion, setErrorObservacion] = useState('');
   const examenActual = useRef('');
 
   // HU-10 (1): examenes programados para la fecha actual. La lista se vuelve a
@@ -126,6 +132,9 @@ export default function ControlIngreso() {
   }, [examenId, cargarListas]);
 
   function limpiarResultados() {
+    setConSalida(false);
+    setObservacion('');
+    setErrorObservacion('');
     setResultado(null);
     setBanners([]);
     setErrores({});
@@ -184,6 +193,11 @@ export default function ControlIngreso() {
       if (d.ingreso_previo) lista.push({ tipo: 'aviso', texto: d.ingreso_previo.mensaje });
       // HU-26 (7): intento de ingreso no correspondiente registrado.
       if (d.mensaje_intento) lista.push({ tipo: 'aviso', texto: d.mensaje_intento });
+      // Sprint 4 (observacion 8): ya esta rindiendo otro examen.
+      if (d.otro_examen) lista.push({ tipo: 'aviso', texto: d.otro_examen.mensaje });
+      setConSalida(false);
+      setObservacion('');
+      setErrorObservacion('');
       setBanners(lista);
 
       if (d.intento_registrado) cargarListas(examenId);
@@ -231,16 +245,24 @@ export default function ControlIngreso() {
   // HU-12: registrar el ingreso del estudiante habilitado.
   async function registrarIngreso() {
     if (!resultado || registrando) return;
+    const salida = Boolean(resultado.otro_examen) && conSalida;
+    if (salida && !observacion.trim()) {
+      setErrorObservacion('La observación es obligatoria para registrar la salida del otro examen.');
+      return;
+    }
+    setErrorObservacion('');
     setRegistrando(true);
     try {
       const res = await api.post('/control-ingreso/ingresos', {
         examen_id: Number(examenId),
         estudiante_id: resultado.estudiante.id,
         metodo: resultado.metodoUsado,
+        ...(salida ? { registrar_salida: true, observacion: observacion.trim() } : {}),
       });
       setResultado((r) => ({
         ...r,
         registrado: true,
+        otro_examen: null,
         ingreso_previo: {
           hora: res.data.ingreso.hora,
           registrado_por: res.data.ingreso.registrado_por,
@@ -251,7 +273,11 @@ export default function ControlIngreso() {
       cargarListas(examenId);
     } catch (err) {
       const estado = err.response?.status;
-      if (estado === 409) {
+      if (estado === 409 && err.response.data.otro_examen) {
+        // Sprint 4: el estudiante esta rindiendo otro examen.
+        setResultado((r) => ({ ...r, otro_examen: err.response.data.otro_examen }));
+        setBanners([{ tipo: 'aviso', texto: err.response.data.message }]);
+      } else if (estado === 409) {
         // HU-13: ya tenia un ingreso registrado (por ejemplo, registrado por otro usuario a la vez).
         const previo = err.response.data.ingreso_previo;
         setResultado((r) => ({ ...r, ingreso_previo: previo }));
@@ -274,7 +300,8 @@ export default function ControlIngreso() {
 
   const habilitado = resultado?.estado === 'habilitado';
   const yaIngreso = !!resultado?.ingreso_previo;
-  const botonActivo = habilitado && !yaIngreso && !registrando;
+  const enOtroExamen = Boolean(resultado?.otro_examen) && !resultado?.registrado;
+  const botonActivo = habilitado && !yaIngreso && !registrando && (!enOtroExamen || conSalida);
 
   return (
     <div>
@@ -379,7 +406,11 @@ export default function ControlIngreso() {
         <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
           <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
             <h2 className="text-lg font-semibold text-gray-800">Resultado de la validación</h2>
-            {habilitado ? (
+            {habilitado && enOtroExamen ? (
+              <span className="rounded-full border border-amber-300 bg-amber-50 text-amber-800 font-bold text-sm tracking-wide px-4 py-1">
+                EN OTRO EXAMEN
+              </span>
+            ) : habilitado ? (
               <span className="rounded-full border border-green-300 bg-green-50 text-green-700 font-bold text-sm tracking-wide px-4 py-1">
                 HABILITADO
               </span>
@@ -414,6 +445,55 @@ export default function ControlIngreso() {
             Examen: {resultado.examen.asignatura} · {resultado.examen.fecha} · {resultado.examen.hora} · {resultado.examen.ambiente}
           </p>
 
+          {/* Sprint 4 (observacion 8): el estudiante ya esta rindiendo otro examen */}
+          {enOtroExamen && (
+            <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="font-semibold">El estudiante ya está rindiendo otro examen</p>
+              <p className="mt-1">
+                {resultado.otro_examen.asignatura} · {resultado.otro_examen.fecha} · {resultado.otro_examen.hora}
+                {resultado.otro_examen.ambiente ? ` · ${resultado.otro_examen.ambiente}` : ''} — ingresó a las{' '}
+                {resultado.otro_examen.hora_ingreso}.
+              </p>
+              <p className="mt-1">
+                No puede ingresar a dos exámenes a la vez. Si sale de ese examen para rendir este, registra su salida con una
+                observación.
+              </p>
+              <label className="mt-3 flex items-center gap-2 font-medium">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-amber-600"
+                  checked={conSalida}
+                  onChange={(e) => {
+                    setConSalida(e.target.checked);
+                    setErrorObservacion('');
+                  }}
+                />
+                Registrar su salida del otro examen y permitir el ingreso
+              </label>
+              {conSalida && (
+                <div className="mt-2">
+                  <label htmlFor="observacion-salida" className="block text-xs font-medium text-amber-900 mb-1">
+                    Observación (obligatoria)
+                  </label>
+                  <textarea
+                    id="observacion-salida"
+                    className="input bg-white"
+                    rows={2}
+                    maxLength={300}
+                    placeholder="Ej.: El estudiante entregó el examen de Cálculo y sale para rendir este examen."
+                    value={observacion}
+                    onChange={(e) => {
+                      setObservacion(e.target.value);
+                      setErrorObservacion('');
+                    }}
+                  />
+                  <p className="text-xs text-amber-800 mt-1">{observacion.length}/300 · La hora de salida se toma del servidor.</p>
+                  {errorObservacion && <p className="text-xs text-red-600 mt-1">{errorObservacion}</p>}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* HU-13 (4): usuario que registro el primer ingreso */}
           {resultado.ingreso_previo && (
             <p className="mt-1 text-sm text-gray-500">
@@ -430,7 +510,7 @@ export default function ControlIngreso() {
                 botonActivo ? 'bg-kairos-gradient text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
               }`}
             >
-              Registrar ingreso
+              {enOtroExamen && conSalida ? 'Registrar salida e ingreso' : 'Registrar ingreso'}
             </button>
           </div>
         </div>
