@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreUsuarioRequest;
 use App\Http\Requests\UpdateUsuarioRequest;
+use App\Mail\CuentaCreada;
 use App\Models\Role;
 use App\Models\Usuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class UsuarioController extends Controller
 {
@@ -30,13 +33,31 @@ class UsuarioController extends Controller
         $data = $request->validated();
 
         $usuario = Usuario::create([
-            'nombre_completo' => $data['nombre_completo'],
+            'nombres' => trim($data['nombres']),
+            'apellidos' => trim($data['apellidos']),
             'correo_electronico' => $data['correo_electronico'],
             'contrasena_hash' => Hash::make($data['password']),
             'rol_id' => $data['rol_id'],
         ]);
+        $usuario->load('rol');
 
-        return response()->json($usuario->load('rol'), 201);
+        // Sprint 4 (observacion 4): se avisa al usuario por correo que se creo su cuenta.
+        // Si el correo no se puede enviar, la cuenta igual queda creada y se informa.
+        $correoEnviado = true;
+        try {
+            Mail::to($usuario->correo_electronico)->send(new CuentaCreada($usuario, $request->user()?->nombre_completo));
+        } catch (\Throwable $e) {
+            $correoEnviado = false;
+            Log::warning('No se pudo enviar el correo de cuenta creada a '.$usuario->correo_electronico.': '.$e->getMessage());
+        }
+
+        return response()->json([
+            ...$usuario->toArray(),
+            'correo_enviado' => $correoEnviado,
+            'message' => $correoEnviado
+                ? 'Usuario registrado con éxito. Se envió un correo a '.$usuario->correo_electronico.' para avisarle que se creó su cuenta.'
+                : 'Usuario registrado con éxito, pero no se pudo enviar el correo de aviso. Revisa la configuración de correo del servidor.',
+        ], 201);
     }
 
     public function show(Usuario $usuario)

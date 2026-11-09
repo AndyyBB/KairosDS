@@ -17,7 +17,9 @@ class StoreUsuarioRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nombre_completo' => ['bail', 'required', 'string', 'max:100'],
+            // Sprint 4 (observacion 4): Nombres y Apellidos por separado.
+            'nombres' => ['bail', 'required', 'string', 'max:60', 'regex:/^[\pL\s.]+$/u'],
+            'apellidos' => ['bail', 'required', 'string', 'max:60', 'regex:/^[\pL\s.]+$/u'],
             'correo_electronico' => ['bail', 'required', 'string', 'email', 'max:100', 'unique:usuarios,correo_electronico'],
             'password' => ['bail', 'required', 'string', 'min:8'],
             'rol_id' => ['bail', 'required', 'integer', 'exists:roles,id'],

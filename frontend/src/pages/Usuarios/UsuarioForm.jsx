@@ -19,6 +19,8 @@ import {
 } from '../../components/Iconos';
 
 const FORM_INICIAL = {
+  nombres: '',
+  apellidos: '',
   nombre_completo: '',
   correo_electronico: '',
   password: '',
@@ -78,6 +80,8 @@ export default function UsuarioForm({ modo = 'registrar' }) {
         const usuarioRes = await api.get(`/usuarios/${id}`);
         const u = usuarioRes.data;
         const datos = {
+          nombres: u.nombres ?? '',
+          apellidos: u.apellidos ?? '',
           nombre_completo: u.nombre_completo,
           correo_electronico: u.correo_electronico,
           password: '',
@@ -127,30 +131,33 @@ export default function UsuarioForm({ modo = 'registrar' }) {
     try {
       if (editando) {
         const payload = {
-          nombre_completo: form.nombre_completo,
+          nombres: form.nombres,
+          apellidos: form.apellidos,
           rol_id: form.rol_id,
           activo: form.activo,
         };
         if (form.password) payload.password = form.password;
         await api.put(`/usuarios/${id}`, payload);
         // Vuelve a mostrar los datos (ya guardados) sin poder modificarlos.
-        const guardado = { ...form, password: '' };
+        const guardado = { ...form, password: '', nombre_completo: `${form.nombres.trim()} ${form.apellidos.trim()}`.trim() };
         setForm(guardado);
         setOriginal(guardado);
         setVerPassword(false);
         setMensaje('Usuario actualizado con éxito.');
         return;
       }
-      await api.post('/usuarios', {
-        nombre_completo: form.nombre_completo,
+      const res = await api.post('/usuarios', {
+        nombres: form.nombres,
+        apellidos: form.apellidos,
         correo_electronico: form.correo_electronico,
         password: form.password,
         rol_id: form.rol_id,
       });
       // HU-15 (10): el sistema muestra el mensaje y deja el formulario listo para otro registro.
+      // Sprint 4: el mensaje indica si se envio el correo de aviso al usuario.
       setForm(FORM_INICIAL);
       setVerPassword(false);
-      setMensaje('Usuario registrado con éxito.');
+      setMensaje(res.data?.message || 'Usuario registrado con éxito.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       const campos = erroresCampos(err);
@@ -191,14 +198,28 @@ export default function UsuarioForm({ modo = 'registrar' }) {
 
       <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-6 space-y-4">
         <fieldset disabled={soloLectura} className="space-y-4">
-        <div>
-          <Etiqueta icon={<UserIcon />}>Nombre completo</Etiqueta>
-          <input
-            className="input"
-            value={form.nombre_completo}
-            onChange={(e) => setForm({ ...form, nombre_completo: e.target.value })}
-          />
-          {errores.nombre_completo && <p className="text-xs text-red-600 mt-1">{errores.nombre_completo[0]}</p>}
+        {/* Sprint 4 (observacion 4): Nombres y Apellidos por separado. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Etiqueta icon={<UserIcon />}>Nombres</Etiqueta>
+            <input
+              className="input"
+              maxLength={60}
+              value={form.nombres}
+              onChange={(e) => setForm({ ...form, nombres: e.target.value })}
+            />
+            {errores.nombres && <p className="text-xs text-red-600 mt-1">{errores.nombres[0]}</p>}
+          </div>
+          <div>
+            <Etiqueta icon={<UserIcon />}>Apellidos</Etiqueta>
+            <input
+              className="input"
+              maxLength={60}
+              value={form.apellidos}
+              onChange={(e) => setForm({ ...form, apellidos: e.target.value })}
+            />
+            {errores.apellidos && <p className="text-xs text-red-600 mt-1">{errores.apellidos[0]}</p>}
+          </div>
         </div>
 
         <div>
@@ -278,6 +299,12 @@ export default function UsuarioForm({ modo = 'registrar' }) {
 
 
         {error && <p className="text-sm text-red-600">{error}</p>}
+
+        {modo === 'registrar' && (
+          <p className="text-xs text-gray-500">
+            Al guardar, el sistema envía un correo al usuario para avisarle que se creó su cuenta (por seguridad, sin la contraseña).
+          </p>
+        )}
 
         <BotonesFormulario
           modo={modo}

@@ -17,7 +17,8 @@ class UpdateUsuarioRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nombre_completo' => ['sometimes', 'bail', 'required', 'string', 'max:100'],
+            'nombres' => ['sometimes', 'bail', 'required', 'string', 'max:60', 'regex:/^[\pL\s.]+$/u'],
+            'apellidos' => ['sometimes', 'bail', 'required', 'string', 'max:60', 'regex:/^[\pL\s.]+$/u'],
             'rol_id' => ['sometimes', 'bail', 'required', 'integer', 'exists:roles,id'],
             'activo' => ['sometimes', 'boolean'],
             'password' => ['sometimes', 'nullable', 'string', 'min:8'],

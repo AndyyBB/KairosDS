@@ -15,6 +15,8 @@ class Usuario extends Authenticatable
     protected $table = 'usuarios';
 
     protected $fillable = [
+        'nombres',
+        'apellidos',
         'nombre_completo',
         'correo_electronico',
         'contrasena_hash',
@@ -32,6 +34,16 @@ class Usuario extends Authenticatable
         'ultimo_acceso' => 'datetime',
         'activo' => 'boolean',
     ];
+
+    // Sprint 4 (observacion 4): nombre_completo se arma solo con "Nombres Apellidos".
+    protected static function booted(): void
+    {
+        static::saving(function (Usuario $u) {
+            if ($u->isDirty(['nombres', 'apellidos']) && ($u->nombres || $u->apellidos)) {
+                $u->nombre_completo = trim(preg_replace('/\s+/', ' ', trim($u->nombres.' '.$u->apellidos)));
+            }
+        });
+    }
 
     // Laravel espera el campo "password" para Auth; lo mapeamos a contrasena_hash.
     public function getAuthPassword()

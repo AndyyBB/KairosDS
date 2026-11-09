@@ -8,6 +8,14 @@ trait MensajesUsuario
     public function messages(): array
     {
         return [
+            'nombres.required' => 'El campo Nombres es obligatorio.',
+            'nombres.string' => 'El campo Nombres es obligatorio.',
+            'nombres.max' => 'El campo Nombres tiene un límite de 60 caracteres.',
+            'nombres.regex' => 'Los nombres solo contienen letras.',
+            'apellidos.required' => 'El campo Apellidos es obligatorio.',
+            'apellidos.string' => 'El campo Apellidos es obligatorio.',
+            'apellidos.max' => 'El campo Apellidos tiene un límite de 60 caracteres.',
+            'apellidos.regex' => 'Los apellidos solo contienen letras.',
             'nombre_completo.required' => 'El campo Nombre completo es obligatorio.',
             'nombre_completo.string' => 'El campo Nombre completo es obligatorio.',
             'nombre_completo.max' => 'El campo Nombre completo tiene un límite de 100 caracteres.',
