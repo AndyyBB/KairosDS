@@ -80,6 +80,16 @@ export function UserPlusIcon({ size = 18 }) {
   );
 }
 
+export function UserMinusIcon({ size = 18 }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M15 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="8.5" cy="7" r="4" />
+      <path d="M23 11h-6" />
+    </svg>
+  );
+}
+
 export function CheckBadgeIcon({ size = 18 }) {
   return (
     <svg {...base(size)}>

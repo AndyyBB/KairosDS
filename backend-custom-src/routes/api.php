@@ -62,6 +62,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/examenes/{examen}/inscripciones', [InscripcionController::class, 'index'])->middleware('permiso:habilitaciones.ver');
     Route::post('/examenes/{examen}/inscripciones', [InscripcionController::class, 'store'])->middleware('permiso:habilitaciones.registrar');
     Route::delete('/examenes/{examen}/inscripciones/{estudiante}', [InscripcionController::class, 'destroy'])->middleware('permiso:habilitaciones.editar');
+    // Sprint 4: pantalla "Desinscribir estudiantes" (varios estudiantes a la vez).
+    Route::post('/examenes/{examen}/inscripciones/quitar', [InscripcionController::class, 'quitar'])->middleware('permiso:habilitaciones.editar');
 
     Route::get('/motivos-inhabilitacion', [MotivoInhabilitacionController::class, 'index'])->middleware('permiso:habilitaciones.ver');
     Route::post('/motivos-inhabilitacion', [MotivoInhabilitacionController::class, 'store'])->middleware('permiso:habilitaciones.registrar');

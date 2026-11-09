@@ -18,7 +18,7 @@ const ACCIONES = [
 // en una sola pantalla.
 const PANTALLAS_EXTRA = {
   'habilitaciones.registrar': 'Inscribir estudiantes, Habilitar estudiantes',
-  'habilitaciones.editar': 'Quitar inscripciones y cambiar habilitaciones',
+  'habilitaciones.editar': 'Desinscribir estudiantes y cambiar habilitaciones',
 };
 
 function pantalla(modulo, accion) {

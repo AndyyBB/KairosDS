@@ -8,6 +8,7 @@ use App\Models\Examen;
 use App\Models\Habilitacion;
 use App\Models\Ingreso;
 use App\Models\InscripcionExamen;
+use App\Support\Historial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -26,6 +27,10 @@ class InscripcionController extends Controller
         if ($request->boolean('solo_inscritos')) {
             $consulta->whereIn('id', $this->inscritosIds($examen));
         }
+        // Sprint 4: "Inscribir estudiantes" muestra por defecto solo a los que faltan inscribir.
+        if ($request->boolean('solo_no_inscritos')) {
+            $consulta->whereNotIn('id', $this->inscritosIds($examen));
+        }
 
         $pagina = $consulta
             ->orderBy('nombre_completo')
@@ -36,8 +41,12 @@ class InscripcionController extends Controller
             ->pluck('estudiante_id')
             ->all();
 
-        $pagina->getCollection()->transform(function (Estudiante $e) use ($inscritos) {
+        // Estudiantes de la pagina que ya registraron su ingreso (no se pueden desinscribir).
+        $conIngreso = $this->conIngresoIds($examen, $pagina->pluck('id')->all());
+
+        $pagina->getCollection()->transform(function (Estudiante $e) use ($inscritos, $conIngreso) {
             $e->setAttribute('inscrito', in_array($e->id, $inscritos, true));
+            $e->setAttribute('con_ingreso', in_array($e->id, $conIngreso, true));
 
             return $e;
         });
@@ -108,6 +117,73 @@ class InscripcionController extends Controller
         ], 201);
     }
 
+    // Sprint 4 (observacion 3): pantalla "Desinscribir estudiantes". Quita la inscripcion (y la
+    // habilitacion) de los estudiantes seleccionados. Los que ya registraron su ingreso no se
+    // desinscriben y se informan en el mensaje.
+    public function quitar(Request $request, Examen $examen)
+    {
+        if (in_array($examen->estado_actual, ['finalizado', 'cancelado'], true)) {
+            return response()->json([
+                'message' => 'No se puede modificar la inscripción de un examen '.$examen->estado_actual.'.',
+            ], 422);
+        }
+
+        $data = $request->validate([
+            'estudiante_ids' => ['required', 'array', 'min:1'],
+            'estudiante_ids.*' => ['integer'],
+        ], [
+            'estudiante_ids.required' => 'Selecciona al menos un estudiante.',
+            'estudiante_ids.min' => 'Selecciona al menos un estudiante.',
+        ]);
+
+        $inscritos = InscripcionExamen::where('examen_id', $examen->id)
+            ->whereIn('estudiante_id', $data['estudiante_ids'])
+            ->pluck('estudiante_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $conIngreso = $this->conIngresoIds($examen, $inscritos);
+        $quitar = array_values(array_diff($inscritos, $conIngreso));
+
+        if (! $quitar) {
+            return response()->json([
+                'message' => $conIngreso
+                    ? 'No se puede desinscribir: los estudiantes seleccionados ya registraron su ingreso a este examen.'
+                    : 'Los estudiantes seleccionados no están inscritos en este examen.',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($examen, $quitar) {
+            InscripcionExamen::where('examen_id', $examen->id)->whereIn('estudiante_id', $quitar)->delete();
+            // Sin inscripcion no tiene sentido conservar su habilitacion en este examen.
+            Habilitacion::where('examen_id', $examen->id)->whereIn('estudiante_id', $quitar)->delete();
+        });
+
+        // HU-27: queda en el historial de operaciones.
+        $codigos = Estudiante::whereIn('id', $quitar)->orderBy('codigo_universitario')->pluck('codigo_universitario')->all();
+        $examen->loadMissing('materia');
+        Historial::registrar(
+            'Desinscribir',
+            'Habilitaciones',
+            'Desinscripción de '.count($quitar).' estudiante(s) del examen '.($examen->materia?->nombre ?? $examen->id)
+                .' del '.$examen->fecha?->format('d/m/Y').': '.implode(', ', $codigos),
+            $examen
+        );
+
+        $n = count($quitar);
+        $mensaje = $n === 1 ? '1 estudiante desinscrito con éxito.' : "$n estudiantes desinscritos con éxito.";
+        if ($conIngreso) {
+            $mensaje .= count($conIngreso) === 1
+                ? ' 1 estudiante no se desinscribió porque ya registró su ingreso.'
+                : ' '.count($conIngreso).' estudiantes no se desinscribieron porque ya registraron su ingreso.';
+        }
+
+        return response()->json([
+            'message' => $mensaje,
+            'desinscritos' => $n,
+            'total_inscritos' => $this->totalInscritos($examen),
+        ]);
+    }
+
     // Quita la inscripcion de un estudiante en el examen.
     public function destroy(Examen $examen, Estudiante $estudiante)
     {
@@ -144,6 +220,20 @@ class InscripcionController extends Controller
     }
 
     // ---------------------------------------------------------------------
+
+    private function conIngresoIds(Examen $examen, array $estudianteIds): array
+    {
+        if (! $estudianteIds) {
+            return [];
+        }
+
+        return Habilitacion::where('examen_id', $examen->id)
+            ->whereIn('estudiante_id', $estudianteIds)
+            ->whereHas('ingreso')
+            ->pluck('estudiante_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
 
     private function inscritosIds(Examen $examen)
     {

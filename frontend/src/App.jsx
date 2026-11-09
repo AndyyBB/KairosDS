@@ -76,8 +76,10 @@ export default function App() {
         <Route path="examenes/editar/:id" element={con('examenes.editar', <ProgramarExamen key="editar" modo="editar" />)} />
         <Route path="examenes/eliminar" element={con('examenes.eliminar', <ProgramarExamen key="eliminar" modo="eliminar" />)} />
         <Route path="examenes/eliminar/:id" element={con('examenes.eliminar', <ProgramarExamen key="eliminar" modo="eliminar" />)} />
-        <Route path="examenes/inscribir" element={con(['habilitaciones.registrar', 'habilitaciones.editar'], <InscribirEstudiantes />)} />
-        <Route path="examenes/inscribir/:examenId" element={con(['habilitaciones.registrar', 'habilitaciones.editar'], <InscribirEstudiantes />)} />
+        <Route path="examenes/inscribir" element={con('habilitaciones.registrar', <InscribirEstudiantes key="inscribir" modo="inscribir" />)} />
+        <Route path="examenes/inscribir/:examenId" element={con('habilitaciones.registrar', <InscribirEstudiantes key="inscribir" modo="inscribir" />)} />
+        <Route path="examenes/desinscribir" element={con('habilitaciones.editar', <InscribirEstudiantes key="desinscribir" modo="desinscribir" />)} />
+        <Route path="examenes/desinscribir/:examenId" element={con('habilitaciones.editar', <InscribirEstudiantes key="desinscribir" modo="desinscribir" />)} />
         <Route path="examenes/habilitar" element={con('habilitaciones.ver', <HabilitarEstudiantes />)} />
         <Route path="examenes/habilitar/:examenId" element={con('habilitaciones.ver', <HabilitarEstudiantes />)} />
 
