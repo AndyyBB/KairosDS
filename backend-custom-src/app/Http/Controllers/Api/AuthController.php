@@ -11,29 +11,37 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    // HU-16: Autenticacion de usuarios
+    // HU-16: Autenticacion de usuarios.
+    // Por seguridad, ante cualquier fallo (correo inexistente, usuario inactivo, contrasena
+    // incorrecta o cuenta bloqueada temporalmente) se responde SIEMPRE el mismo mensaje y el
+    // mismo codigo: asi no se revela si el correo existe ni cual de los datos esta mal.
+    public const MENSAJE_FALLO = 'Correo o contraseña incorrectos.';
+
+    // Hash de relleno para comparar la contrasena aunque el correo no exista: el tiempo de
+    // respuesta es el mismo en ambos casos y no permite adivinar que correos estan registrados.
+    private const HASH_RELLENO = '$2y$10$x/6KnM4i81Jv3xyXruxML.BTo6GMQO1/PF37ybD6qpxNVuFqpGAA.';
+
     public function login(LoginRequest $request)
     {
         $data = $request->validated();
 
-        $usuario = Usuario::where('correo_electronico', $data['correo_electronico'])->first();
+        $usuario = Usuario::where('correo_electronico', trim($data['correo_electronico']))->first();
 
-        if (! $usuario || ! $usuario->activo) {
-            return response()->json(['message' => 'Correo o contraseña incorrectos.'], 401);
-        }
+        $passwordCorrecta = Hash::check($data['password'], $usuario?->contrasena_hash ?? self::HASH_RELLENO);
 
-        if ($usuario->bloqueado_hasta && $usuario->bloqueado_hasta->isFuture()) {
-            return response()->json(['message' => 'Cuenta bloqueada temporalmente. Intente más tarde.'], 423);
-        }
+        $bloqueado = $usuario?->bloqueado_hasta && $usuario->bloqueado_hasta->isFuture();
 
-        if (! Hash::check($data['password'], $usuario->contrasena_hash)) {
-            $usuario->increment('intentos_fallidos');
-
-            if ($usuario->intentos_fallidos >= 5) {
-                $usuario->update(['bloqueado_hasta' => now()->addMinutes(15)]);
+        if (! $usuario || ! $usuario->activo || $bloqueado || ! $passwordCorrecta) {
+            // Tras 5 intentos fallidos seguidos la cuenta se bloquea 15 minutos (sin avisarlo
+            // en el mensaje, para no confirmar que la cuenta existe).
+            if ($usuario && $usuario->activo && ! $bloqueado && ! $passwordCorrecta) {
+                $usuario->increment('intentos_fallidos');
+                if ($usuario->intentos_fallidos >= 5) {
+                    $usuario->update(['bloqueado_hasta' => now()->addMinutes(15), 'intentos_fallidos' => 0]);
+                }
             }
 
-            return response()->json(['message' => 'Correo o contraseña incorrectos.'], 401);
+            return response()->json(['message' => self::MENSAJE_FALLO], 401);
         }
 
         $usuario->update([

@@ -22,7 +22,15 @@ export default function Login() {
       await login(correo, password);
       navigate('/');
     } catch (err) {
-      setError(primerError(err, 'Correo o contraseña incorrectos.'));
+      // HU-16: por seguridad nunca se indica cual dato esta mal. Las respuestas 401 y 422
+      // ya traen un mensaje general; cualquier otro problema (servidor apagado, base de
+      // datos sin conexion) se muestra con un mensaje general sin detalles tecnicos.
+      const estado = err?.response?.status;
+      setError(
+        estado === 401 || estado === 422
+          ? primerError(err, 'Correo o contraseña incorrectos.')
+          : 'No se pudo iniciar sesión. Intente nuevamente en unos minutos.'
+      );
     } finally {
       setCargando(false);
     }
