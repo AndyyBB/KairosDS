@@ -43,7 +43,7 @@ const FORM_INICIAL = {
 const TEXTOS = {
   registrar: { titulo: 'Programar examen', descripcion: 'Indica la asignatura, la fecha, la hora, la duración, los ambientes y las normas del examen.' },
   datos: { titulo: 'Datos del examen', descripcion: 'Información registrada del examen.' },
-  editar: { titulo: 'Editar examen', descripcion: 'Selecciona el examen, modifica sus datos y presiona "Guardar".' },
+  editar: { titulo: 'Editar examen', descripcion: 'Selecciona el examen, modifica sus aulas, su duración o sus normas y presiona "Guardar".' },
   eliminar: { titulo: 'Eliminar examen', descripcion: 'Selecciona el examen, revisa sus datos y presiona "Eliminar".' },
 };
 
@@ -71,6 +71,8 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
   const [formOriginal, setFormOriginal] = useState(null);
   // Sprint 4 (observaciones 2 y 8): examen ya registrado con la misma asignatura, fecha y hora.
   const [duplicado, setDuplicado] = useState(null);
+  // Sprint 4 (observacion 14): registros que impiden eliminar el examen.
+  const [bloqueoEliminar, setBloqueoEliminar] = useState(null); // null = sin consultar; [] = se puede
 
   // Aviso anticipado: al completar asignatura, fecha y hora se consulta si ya existe un
   // examen igual, para sugerir editarlo (por ejemplo, agregarle aulas) en lugar de duplicarlo.
@@ -156,9 +158,20 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
       .catch((err) => setError(primerError(err, 'No se pudo cargar el examen.')));
   }, [id, editando]);
 
-  // HU-09: en la pantalla "Eliminar examen" se elimina definitivamente.
+  // Sprint 4 (observacion 14): un examen solo se elimina si no tiene inscritos,
+  // habilitaciones, ingresos, intentos, expulsiones ni incidencias.
+  useEffect(() => {
+    setBloqueoEliminar(null);
+    if (modo !== 'eliminar' || !editando) return;
+    api
+      .get(`/examenes/${id}/eliminable`)
+      .then((res) => setBloqueoEliminar(res.data.registros ?? []))
+      .catch(() => setBloqueoEliminar([]));
+  }, [modo, id, editando]);
+
+  // HU-09: en la pantalla "Eliminar examen" se elimina (solo si no tiene registros asociados).
   async function eliminarExamen() {
-    if (!confirm('¿Eliminar este examen? Se borrará definitivamente junto con sus inscripciones, habilitaciones e ingresos.')) return;
+    if (!confirm('¿Eliminar este examen? Se borrará definitivamente junto con sus normas y aulas asignadas.')) return;
     setCancelando(true);
     setError('');
     try {
@@ -172,6 +185,8 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
 
   const cerrado = ['finalizado', 'cancelado'].includes(estadoExamen);
   const soloLectura = modo === 'datos' || modo === 'eliminar' || (modo === 'editar' && cerrado);
+  // Sprint 4 (observacion 13): al editar solo se cambian las aulas, la duracion y las normas.
+  const datosFijos = soloLectura || modo === 'editar';
 
   useEffect(() => {
     api.get('/materias').then((res) => setMaterias(res.data));
@@ -209,7 +224,7 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
     // No se permite una fecha pasada, ni una hora pasada o igual a la actual
     // (al editar, solo si se cambio la fecha o la hora).
     const hoy = fechaHoy();
-    const sinCambioHorario = editando && original && form.fecha === original.fecha && form.hora_inicio === original.hora;
+    const sinCambioHorario = editando;
     if (!sinCambioHorario && form.fecha && form.fecha < hoy) {
       setErrores({ fecha: ['La fecha del examen no puede ser anterior a la fecha actual.'] });
       return;
@@ -234,7 +249,12 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
 
     try {
       if (editando) {
-        await api.put(`/examenes/${id}`, payload);
+        // Solo se envian los datos que se pueden modificar (aulas, duracion y normas).
+        await api.put(`/examenes/${id}`, {
+          ambientes: payload.ambientes,
+          duracion_min: payload.duracion_min,
+          normas: payload.normas,
+        });
         // Vuelve a mostrar los datos (ya guardados) sin poder modificarlos.
         setFormOriginal(form);
         setOriginal({ fecha: form.fecha, hora: form.hora_inicio });
@@ -314,16 +334,30 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
 
       {(modo === 'registrar' || editando) && (
         <>
-          {modo === 'eliminar' && (
+          {modo === 'eliminar' && bloqueoEliminar?.length > 0 && (
+            <p role="alert" className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+              <span className="font-semibold">No se puede eliminar este examen</span> porque tiene registros asociados:{' '}
+              {bloqueoEliminar.join(', ')}. Solo se elimina un examen sin estudiantes inscritos, habilitaciones, ingresos,
+              intentos de ingreso ni incidencias.
+            </p>
+          )}
+          {modo === 'eliminar' && bloqueoEliminar?.length === 0 && (
             <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              Revisa los datos antes de eliminar. El examen se borrará definitivamente junto con sus normas, inscripciones, habilitaciones e ingresos.
+              Revisa los datos antes de eliminar. El examen no tiene estudiantes inscritos ni otros registros: se borrará
+              definitivamente junto con sus normas y aulas asignadas.
+            </p>
+          )}
+          {modo === 'editar' && !cerrado && (
+            <p className="mb-4 rounded-lg border border-kairos-200 bg-kairos-50 px-4 py-3 text-sm text-kairos-800">
+              Solo se pueden modificar las aulas (ambientes), la duración y las normas del examen. La asignatura, la fecha y la
+              hora de inicio no se modifican.
             </p>
           )}
 
       <form onSubmit={handleSubmit} noValidate className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-6 space-y-5">
         <fieldset disabled={soloLectura} className="space-y-5">
         <Campo label="Asignatura" icon={<BookIcon />} error={errores.materia_id}>
-          <select className="input" value={form.materia_id} onChange={(e) => set('materia_id', e.target.value)}>
+          <select className="input" value={form.materia_id} disabled={datosFijos} onChange={(e) => set('materia_id', e.target.value)}>
             <option value="">Seleccione una asignatura</option>
             {/* Ing. de Sistemas por semestre (A = 1er semestre); las demás carreras al final */}
             {Object.entries(
@@ -348,6 +382,7 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
           <Campo label="Fecha" icon={<CalendarIcon small />} error={errores.fecha}>
             <input
               type="date"
+              disabled={datosFijos}
               className="input"
               min={fechaHoy()}
               value={form.fecha}
@@ -356,7 +391,7 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
           </Campo>
 
           <Campo label="Hora de inicio" icon={<ClockIcon />} error={errores.hora_inicio}>
-            <input type="time" className="input" value={form.hora_inicio} onChange={(e) => set('hora_inicio', e.target.value)} />
+            <input type="time" className="input" value={form.hora_inicio} disabled={datosFijos} onChange={(e) => set('hora_inicio', e.target.value)} />
           </Campo>
         </div>
 
@@ -428,7 +463,7 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
         <BotonesFormulario
           modo={modo}
           puedeGuardar={!cerrado}
-          puedeEliminar={tiene('examenes.eliminar')}
+          puedeEliminar={tiene('examenes.eliminar') && bloqueoEliminar?.length === 0}
           guardando={guardando}
           eliminando={cancelando}
           onCancelar={cancelar}

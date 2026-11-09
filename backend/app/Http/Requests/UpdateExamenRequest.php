@@ -15,18 +15,18 @@ class UpdateExamenRequest extends FormRequest
         return true;
     }
 
+    // HU-08 (Sprint 4, observacion 13 de la licenciada): al editar un examen solo se pueden
+    // cambiar los ambientes (aulas), la duracion y las normas. La asignatura, la fecha y la
+    // hora de inicio no se modifican: si llegan en la peticion se ignoran (no estan en estas
+    // reglas). Para otra fecha u hora se elimina el examen (si no tiene registros) y se
+    // programa uno nuevo.
     public function rules(): array
     {
         return [
-            'materia_id' => ['bail', 'sometimes', 'required', 'integer', 'exists:materias,id'],
-            'ambiente_id' => ['bail', 'sometimes', 'required', 'integer', 'exists:ambientes,id'],
             'ambientes' => ['bail', 'sometimes', 'required', 'array', 'min:1'],
             'ambientes.*' => ['bail', 'required', 'integer', 'distinct', 'exists:ambientes,id'],
-            'fecha' => ['bail', 'sometimes', 'required', 'date_format:Y-m-d'],
-            'hora_inicio' => ['bail', 'sometimes', 'required', 'date_format:H:i'],
             'duracion_min' => ['bail', 'sometimes', 'required', 'integer', 'between:5,300'],
-            'estado' => ['sometimes', 'required', 'in:programado,en curso,finalizado,cancelado'],
-            // HU-08: las normas generales del examen se pueden reemplazar al editar.
+            // Las normas generales del examen se pueden reemplazar al editar.
             'normas' => ['sometimes', 'nullable', 'array'],
             'normas.*.tipo' => ['required_with:normas', 'in:general,particular'],
             'normas.*.estudiante_id' => ['nullable', 'integer', 'exists:estudiantes,id'],
@@ -43,11 +43,10 @@ class UpdateExamenRequest extends FormRequest
                     $validator,
                     $this->has('ambientes')
                         ? (array) $this->input('ambientes')
-                        : ($this->has('ambiente_id')
-                            ? (int) $this->input('ambiente_id')
-                            : ($examen?->ambientes()->pluck('ambientes.id')->all() ?: $examen?->ambiente_id)),
-                    $this->input('fecha', $examen?->fecha?->toDateString()),
-                    $this->input('hora_inicio', $examen?->hora_inicio),
+                        : ($examen?->ambientes()->pluck('ambientes.id')->all() ?: $examen?->ambiente_id),
+                    // La fecha y la hora son siempre las del examen (no se editan).
+                    $examen?->fecha?->toDateString(),
+                    $examen?->hora_inicio,
                     $this->input('duracion_min', $examen?->duracion_min),
                     $examen?->id,
                 );

@@ -48,6 +48,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // HU-02, HU-08, HU-09
     // Sprint 4: aviso de examen duplicado en "Programar examen" (antes de guardar).
     Route::get('/examenes-duplicado', [ExamenController::class, 'duplicado'])->middleware('permiso:examenes.registrar');
+    // Sprint 4: indica si el examen se puede eliminar (sin inscritos, ingresos ni incidencias).
+    Route::get('/examenes/{examen}/eliminable', [ExamenController::class, 'eliminable'])->middleware('permiso:examenes.eliminar');
     $recurso('examenes', ExamenController::class, 'examenes', 'examen');
 
     // HU-04, HU-05

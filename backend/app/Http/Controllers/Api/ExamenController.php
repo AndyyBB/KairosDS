@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreExamenRequest;
 use App\Http\Requests\UpdateExamenRequest;
 use App\Models\Examen;
-use App\Support\BorradoDefinitivo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -104,9 +103,16 @@ class ExamenController extends Controller
         return $examen->load(['materia', 'ambiente', 'ambientes', 'normas', 'habilitaciones.estudiante']);
     }
 
-    // HU-08: Edicion de examenes
+    // HU-08: Edicion de examenes (Sprint 4, observacion 13): solo ambientes, duracion y
+    // normas. Un examen finalizado o cancelado ya no se edita.
     public function update(UpdateExamenRequest $request, Examen $examen)
     {
+        if (in_array($examen->estado_actual ?? $examen->estado, ['finalizado', 'cancelado'], true)) {
+            return response()->json([
+                'message' => 'Este examen está '.($examen->estado_actual ?? $examen->estado).': ya no se puede editar.',
+            ], 422);
+        }
+
         $data = $request->validated();
         $ambientes = isset($data['ambientes']) ? array_values($data['ambientes']) : null;
         $tieneNormas = array_key_exists('normas', $data);
@@ -137,23 +143,65 @@ class ExamenController extends Controller
         return $examen->load(['materia', 'ambiente', 'ambientes', 'normas']);
     }
 
-    // HU-09: Eliminacion de examenes. El examen se elimina definitivamente de la base de
-    // datos junto con sus normas, ambientes, inscripciones, habilitaciones, ingresos e intentos.
+    // HU-09: Eliminacion de examenes (Sprint 4, observacion 14 de la licenciada).
+    // Un examen solo se puede eliminar si NO tiene registros asociados: estudiantes inscritos,
+    // habilitaciones, ingresos, intentos de ingreso, expulsiones ni incidencias. Si no tiene
+    // ninguno, se elimina aunque su fecha ya haya pasado (se borran sus normas y aulas).
     public function destroy(Examen $examen)
     {
+        $registros = $this->registrosDelExamen($examen);
+        if ($registros) {
+            return response()->json([
+                'message' => 'No se puede eliminar el examen porque tiene registros asociados: '.implode(', ', $registros).'.',
+                'registros' => $registros,
+            ], 409);
+        }
+
         DB::transaction(function () use ($examen) {
-            BorradoDefinitivo::permitirBorrarIntentos();
-
-            $habilitaciones = DB::table('habilitaciones')->where('examen_id', $examen->id)->pluck('id');
-            BorradoDefinitivo::borrarIngresosDeHabilitaciones($habilitaciones);
-            DB::table('intentos_ingreso')->where('examen_id', $examen->id)->delete();
-
-            // normas, habilitaciones, incidencias, examen_ambiente e inscripciones_examen
-            // se borran en cascada.
+            // normas y examen_ambiente se borran en cascada.
             $examen->delete();
         });
 
         return response()->json(['message' => 'Examen eliminado con éxito.']);
+    }
+
+    // Sprint 4: indica si el examen se puede eliminar (pantalla "Eliminar examen").
+    public function eliminable(Examen $examen)
+    {
+        $registros = $this->registrosDelExamen($examen);
+
+        return response()->json(['eliminable' => ! $registros, 'registros' => $registros]);
+    }
+
+    // Registros que impiden eliminar el examen, por ejemplo ["3 estudiantes inscritos", "1 ingreso"].
+    private function registrosDelExamen(Examen $examen): array
+    {
+        $contar = fn (string $tabla) => DB::table($tabla)->where('examen_id', $examen->id)->count();
+        $ingresosDelExamen = DB::table('ingresos')
+            ->join('habilitaciones', 'habilitaciones.id', '=', 'ingresos.habilitacion_id')
+            ->where('habilitaciones.examen_id', $examen->id);
+        $ingresos = (clone $ingresosDelExamen)->count();
+        $expulsiones = DB::table('expulsiones')
+            ->whereIn('ingreso_id', (clone $ingresosDelExamen)->select('ingresos.id'))
+            ->count();
+
+        $conteos = [
+            ['estudiante inscrito', 'estudiantes inscritos', $contar('inscripciones_examen')],
+            ['habilitación', 'habilitaciones', $contar('habilitaciones')],
+            ['ingreso', 'ingresos', $ingresos],
+            ['intento de ingreso', 'intentos de ingreso', $contar('intentos_ingreso')],
+            ['expulsión', 'expulsiones', $expulsiones],
+            ['incidencia', 'incidencias', $contar('incidencias')],
+        ];
+
+        $partes = [];
+        foreach ($conteos as [$singular, $plural, $n]) {
+            if ($n > 0) {
+                $partes[] = $n.' '.($n === 1 ? $singular : $plural);
+            }
+        }
+
+        return $partes;
     }
 
     // Examen no cancelado de la misma asignatura, el mismo dia, cuyo horario se cruza con el
