@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
 import { useAuth } from '../../api/AuthContext';
 import { primerError } from '../../api/errores';
@@ -45,7 +45,6 @@ const TEXTOS = {
 export default function InscribirEstudiantes({ modo = 'inscribir' }) {
   const { examenId } = useParams();
   const navigate = useNavigate();
-  const { tiene } = useAuth();
   const [examenes, setExamenes] = useState([]);
   const [examen, setExamen] = useState(null);
   const [error, setError] = useState('');
@@ -129,23 +128,6 @@ export default function InscribirEstudiantes({ modo = 'inscribir' }) {
           ) : (
             <PanelDesinscribir key={examenId} examenId={examenId} cerrado={cerrado} />
           )}
-          <div className="flex flex-wrap justify-end gap-3 mt-4">
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg px-4 py-2 text-sm font-medium"
-            >
-              Volver al inicio
-            </button>
-            {tiene('habilitaciones.ver') && (
-              <Link
-                to={`/examenes/habilitar/${examenId}`}
-                className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-5 py-2 shadow-glow"
-              >
-                Ir a Habilitar/Deshabilitar estudiantes
-              </Link>
-            )}
-          </div>
         </>
       )}
     </div>
