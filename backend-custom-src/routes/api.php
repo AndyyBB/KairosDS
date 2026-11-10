@@ -73,6 +73,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/examenes', [ControlIngresoController::class, 'examenes'])->middleware('permiso:control_ingreso.ver');
         Route::get('/examenes/{examen}/ingresos', [ControlIngresoController::class, 'ingresos'])->middleware('permiso:control_ingreso.ver');
         Route::get('/examenes/{examen}/intentos', [ControlIngresoController::class, 'intentos'])->middleware('permiso:control_ingreso.ver');
+        // Sprint 4 (observacion 9): central de riesgos del examen e incidencia de un intento.
+        Route::get('/examenes/{examen}/riesgos', [ControlIngresoController::class, 'riesgos'])->middleware('permiso:control_ingreso.ver');
+        Route::post('/riesgos/{intento}/incidencia', [ControlIngresoController::class, 'registrarIncidenciaRiesgo'])->middleware('permiso:control_ingreso.registrar');
         Route::post('/verificar', [ControlIngresoController::class, 'verificar'])->middleware('permiso:control_ingreso.registrar');
         Route::post('/ingresos', [ControlIngresoController::class, 'registrarIngreso'])->middleware('permiso:control_ingreso.registrar');
 

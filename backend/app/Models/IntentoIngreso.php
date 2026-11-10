@@ -20,6 +20,12 @@ class IntentoIngreso extends Model
 
     protected $casts = ['fecha_hora' => 'datetime'];
 
+    // Sprint 4: incidencia registrada desde la central de riesgos para este intento.
+    public function incidencia(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Incidencia::class, 'intento_id');
+    }
+
     public function examen(): BelongsTo
     {
         return $this->belongsTo(Examen::class, 'examen_id');

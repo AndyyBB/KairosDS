@@ -9,6 +9,8 @@ use App\Models\Ambiente;
 use App\Models\Estudiante;
 use App\Models\Examen;
 use App\Models\Habilitacion;
+use App\Models\Incidencia;
+use App\Models\TipoIncidencia;
 use App\Models\Ingreso;
 use App\Models\InscripcionExamen;
 use App\Models\IntentoIngreso;
@@ -72,8 +74,20 @@ class ControlIngresoController extends Controller
         $estudiante = $this->buscarEstudiante($metodo, $data['valor']);
 
         if (! $estudiante) {
+            // Sprint 4 (observacion 9): el intento con un codigo o documento que no pertenece a
+            // ningun estudiante (o con un QR no valido) queda en la central de riesgos.
+            $intento = $this->registrarIntento(
+                $request,
+                $examen,
+                null,
+                $metodo === 'qr' ? 'Código QR no válido' : 'No registrado en el sistema',
+                $data['valor']
+            );
+
             return response()->json([
                 'message' => $metodo === 'qr' ? 'Código QR no válido.' : 'Estudiante no encontrado.',
+                'riesgo' => $this->datosRiesgo($intento),
+                'mensaje_riesgo' => 'Intento registrado en la central de riesgos.',
             ], 404);
         }
 
@@ -92,8 +106,9 @@ class ControlIngresoController extends Controller
 
         // HU-26: intento de ingreso a un examen que no le corresponde.
         $intentoRegistrado = false;
+        $intento = null;
         if ($estado !== 'habilitado') {
-            $this->registrarIntento(
+            $intento = $this->registrarIntento(
                 $request,
                 $examen,
                 $estudiante,
@@ -117,6 +132,11 @@ class ControlIngresoController extends Controller
         if ($estado === 'habilitado' && ! $ingresoPrevio) {
             $otro = $this->ingresoEnOtroExamen($examen, $estudiante);
             $otroExamen = $otro ? $this->datosOtroExamen($otro) : null;
+            // Sprint 4 (observacion 9): tambien queda en la central de riesgos.
+            if ($otroExamen) {
+                $intento = $this->registrarIntento($request, $examen, $estudiante, 'Ya está rindiendo otro examen');
+                $intentoRegistrado = true;
+            }
         }
 
         return response()->json([
@@ -129,7 +149,8 @@ class ControlIngresoController extends Controller
             'ingreso_previo' => $ingresoPrevio,
             'otro_examen' => $otroExamen,
             'intento_registrado' => $intentoRegistrado,
-            'mensaje_intento' => $intentoRegistrado ? 'Intento de ingreso no correspondiente registrado.' : null,
+            'mensaje_intento' => $intentoRegistrado ? 'Intento de ingreso no correspondiente registrado en la central de riesgos.' : null,
+            'riesgo' => $intento ? $this->datosRiesgo($intento) : null,
         ]);
     }
 
@@ -279,6 +300,112 @@ class ControlIngresoController extends Controller
         return response()->json(['message' => 'Los ingresos registrados no se pueden modificar ni eliminar.'], 403);
     }
 
+    // ---------------- Sprint 4 (observacion 9): CENTRAL DE RIESGOS ----------------
+
+    // Tipos de incidencia que se pueden registrar desde la central de riesgos.
+    private const TIPOS_RIESGO = [
+        'INTENTO_INDEBIDO' => 'Intento de ingreso indebido',
+        'SUPLANTACION' => 'Sospecha de suplantación de identidad',
+        'IDENTIFICACION' => 'Problema de identificación',
+        'NO_HABILITADO' => 'Estudiante no habilitado',
+        'OTRA' => 'Otra situación',
+    ];
+
+    // Intentos de ingreso indebido del examen (central de riesgos), del mas reciente al mas antiguo.
+    public function riesgos(Examen $examen)
+    {
+        $intentos = IntentoIngreso::with(['estudiante', 'usuario', 'incidencia.tipoIncidencia'])
+            ->where('examen_id', $examen->id)
+            ->orderByDesc('fecha_hora')
+            ->orderByDesc('id')
+            ->limit(500)
+            ->get();
+
+        // Antecedentes: cuantas veces se registro el mismo codigo o documento (en cualquier examen).
+        $antecedentes = IntentoIngreso::whereIn('codigo_ingresado', $intentos->pluck('codigo_ingresado')->unique())
+            ->selectRaw('codigo_ingresado, count(*) AS total')
+            ->groupBy('codigo_ingresado')
+            ->pluck('total', 'codigo_ingresado');
+
+        return response()->json([
+            'riesgos' => $intentos->map(fn (IntentoIngreso $i) => $this->datosRiesgo($i, (int) ($antecedentes[$i->codigo_ingresado] ?? 1)))->values(),
+            'tipos' => $this->tiposRiesgo(),
+        ]);
+    }
+
+    public function tiposRiesgo(): array
+    {
+        $tipos = TipoIncidencia::whereIn('codigo', array_keys(self::TIPOS_RIESGO))->get()->keyBy('codigo');
+
+        return collect(self::TIPOS_RIESGO)
+            ->filter(fn ($_, $codigo) => $tipos->has($codigo))
+            ->map(fn ($nombre, $codigo) => ['id' => $tipos[$codigo]->id, 'codigo' => $codigo, 'nombre' => $nombre])
+            ->values()
+            ->all();
+    }
+
+    // Registra, en ese mismo momento, la incidencia de un intento de la central de riesgos.
+    public function registrarIncidenciaRiesgo(Request $request, IntentoIngreso $intento)
+    {
+        $tiposValidos = collect($this->tiposRiesgo())->pluck('id')->all();
+        $data = $request->validate([
+            'tipo_incidencia_id' => ['required', 'integer', \Illuminate\Validation\Rule::in($tiposValidos)],
+            'descripcion' => ['bail', 'required', 'string', 'max:500'],
+        ], [
+            'tipo_incidencia_id.required' => 'El campo Tipo de incidencia es obligatorio.',
+            'tipo_incidencia_id.in' => 'El campo Tipo de incidencia es obligatorio.',
+            'descripcion.required' => 'El campo Descripción es obligatorio.',
+            'descripcion.max' => 'La descripción tiene un límite de 500 caracteres.',
+        ]);
+
+        if (Incidencia::where('intento_id', $intento->id)->exists()) {
+            return response()->json(['message' => 'Este intento ya tiene una incidencia registrada.'], 409);
+        }
+
+        $incidencia = Incidencia::create([
+            'examen_id' => $intento->examen_id,
+            'estudiante_id' => $intento->estudiante_id,
+            'tipo_incidencia_id' => $data['tipo_incidencia_id'],
+            'descripcion' => trim($data['descripcion']).' (Intento: '.$intento->codigo_ingresado.' — '.$intento->motivo_rechazo.')',
+            'fecha_hora' => Carbon::now(),
+            'usuario_id' => $request->user()->id,
+            'intento_id' => $intento->id,
+        ]);
+
+        $hora = $this->hora($incidencia->fecha_hora);
+
+        return response()->json([
+            'message' => "Incidencia registrada con éxito a las {$hora}.",
+            'riesgo' => $this->datosRiesgo($intento->fresh(['estudiante', 'usuario', 'incidencia.tipoIncidencia'])),
+        ], 201);
+    }
+
+    private function datosRiesgo(IntentoIngreso $i, ?int $antecedentes = null): array
+    {
+        $i->loadMissing(['estudiante', 'usuario', 'incidencia.tipoIncidencia']);
+        $fecha = Carbon::parse($i->fecha_hora)->setTimezone(self::TZ);
+        $alto = in_array($i->motivo_rechazo, ['No registrado en el sistema', 'Código QR no válido', 'no encontrado'], true);
+        $antecedentes ??= IntentoIngreso::where('codigo_ingresado', $i->codigo_ingresado)->count();
+
+        return [
+            'id' => $i->id,
+            'fecha' => $fecha->format('d/m/Y'),
+            'hora' => $fecha->format('H:i:s'),
+            'codigo' => $i->codigo_ingresado,
+            'nombre' => $i->estudiante?->nombre_completo,
+            'registrado' => (bool) $i->estudiante_id,
+            'motivo' => $i->motivo_rechazo,
+            'nivel' => $alto ? 'Alto' : 'Medio',
+            'antecedentes' => $antecedentes,
+            'registrado_por' => $i->usuario?->nombre_completo,
+            'incidencia' => $i->incidencia ? [
+                'id' => $i->incidencia->id,
+                'tipo' => self::TIPOS_RIESGO[$i->incidencia->tipoIncidencia?->codigo] ?? $i->incidencia->tipoIncidencia?->descripcion,
+                'hora' => $this->hora($i->incidencia->fecha_hora),
+            ] : null,
+        ];
+    }
+
     // HU-26 (9): los intentos registrados no se pueden modificar ni eliminar.
     public function intentoInmutable()
     {
@@ -335,24 +462,30 @@ class ControlIngresoController extends Controller
         return ['no_habilitado', $habilitacion];
     }
 
-    private function registrarIntento(Request $request, Examen $examen, Estudiante $estudiante, string $motivo): void
+    // HU-26 + Sprint 4 (central de riesgos): registra el intento de ingreso indebido. El
+    // estudiante puede no existir (codigo o documento no registrado, QR no valido): se guarda
+    // lo que se ingreso. Devuelve el intento (o el mismo intento si se repite en pocos segundos).
+    private function registrarIntento(Request $request, Examen $examen, ?Estudiante $estudiante, string $motivo, ?string $valor = null): IntentoIngreso
     {
+        $codigo = mb_substr(trim($estudiante?->codigo_universitario ?? (string) $valor), 0, 30);
+
         // Evita duplicar el intento si se repite la misma verificacion en pocos segundos.
         $reciente = IntentoIngreso::where('examen_id', $examen->id)
-            ->where('estudiante_id', $estudiante->id)
+            ->where('codigo_ingresado', $codigo)
             ->where('usuario_id', $request->user()->id)
             ->where('motivo_rechazo', $motivo)
             ->where('fecha_hora', '>=', Carbon::now()->subSeconds(5))
-            ->exists();
+            ->latest('id')
+            ->first();
 
         if ($reciente) {
-            return;
+            return $reciente;
         }
 
-        IntentoIngreso::create([
+        return IntentoIngreso::create([
             'examen_id' => $examen->id,
-            'estudiante_id' => $estudiante->id,
-            'codigo_ingresado' => $estudiante->codigo_universitario,
+            'estudiante_id' => $estudiante?->id,
+            'codigo_ingresado' => $codigo,
             'motivo_rechazo' => $motivo,
             'fecha_hora' => Carbon::now(),
             'usuario_id' => $request->user()->id,

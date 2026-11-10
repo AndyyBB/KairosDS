@@ -17,6 +17,8 @@ class Incidencia extends Model
         'descripcion',
         'fecha_hora',
         'usuario_id',
+        // Sprint 4: intento de ingreso (central de riesgos) que origino la incidencia.
+        'intento_id',
     ];
 
     protected $casts = ['fecha_hora' => 'datetime'];

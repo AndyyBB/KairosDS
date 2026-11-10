@@ -68,8 +68,12 @@ export default function ControlIngreso() {
   const [banners, setBanners] = useState([]);
   const [errorExamenes, setErrorExamenes] = useState('');
   const [resumen, setResumen] = useState(null);
+  // Sprint 4 (observacion 9): central de riesgos del examen (intentos de ingreso indebido).
   const [intentos, setIntentos] = useState([]);
+  const [tiposRiesgo, setTiposRiesgo] = useState([]);
   const [paginaIntentos, setPaginaIntentos] = useState(1);
+  const [riesgoActual, setRiesgoActual] = useState(null); // intento para registrar su incidencia
+  const formIncidencia = useRef(null);
   // Sprint 4 (observacion 8): salida del otro examen que el estudiante esta rindiendo.
   const [conSalida, setConSalida] = useState(false);
   const [observacion, setObservacion] = useState('');
@@ -111,11 +115,12 @@ export default function ControlIngreso() {
     try {
       const [ing, int] = await Promise.all([
         api.get(`/control-ingreso/examenes/${id}/ingresos`),
-        api.get(`/control-ingreso/examenes/${id}/intentos`),
+        api.get(`/control-ingreso/examenes/${id}/riesgos`),
       ]);
       if (examenActual.current === id) {
         setResumen(ing.data);
-        setIntentos(int.data);
+        setIntentos(int.data.riesgos ?? []);
+        setTiposRiesgo(int.data.tipos ?? []);
       }
     } catch {
       // Se reintenta en la siguiente actualizacion.
@@ -132,6 +137,7 @@ export default function ControlIngreso() {
   }, [examenId, cargarListas]);
 
   function limpiarResultados() {
+    setRiesgoActual(null);
     setConSalida(false);
     setObservacion('');
     setErrorObservacion('');
@@ -199,11 +205,27 @@ export default function ControlIngreso() {
       setObservacion('');
       setErrorObservacion('');
       setBanners(lista);
+      setRiesgoActual(d.riesgo ?? null);
 
       if (d.intento_registrado) cargarListas(examenId);
     } catch (err) {
       setResultado(null);
       setBanners([]);
+      setRiesgoActual(null);
+      // Sprint 4 (observacion 9): estudiante no encontrado o QR no valido: el intento queda en la
+      // central de riesgos y se puede registrar la incidencia en ese momento.
+      const riesgo = err?.response?.data?.riesgo;
+      if (riesgo) {
+        setBanners([
+          { tipo: 'error', texto: err.response.data.message },
+          { tipo: 'aviso', texto: err.response.data.mensaje_riesgo },
+        ]);
+        setRiesgoActual(riesgo);
+        if (metodoUsado === 'qr') setEscaneando(false);
+        setErrores({});
+        cargarListas(examenId);
+        return;
+      }
       const mensaje = primerError(err, 'No se pudo verificar la identidad. Intente nuevamente.');
       if (metodoUsado === 'qr') {
         setErrorQr(mensaje);
@@ -401,6 +423,23 @@ export default function ControlIngreso() {
         <Banner key={i} tipo={b.tipo} texto={b.texto} />
       ))}
 
+      {/* Sprint 4 (observacion 9): incidencia del intento, registrada en ese mismo momento. */}
+      {riesgoActual && (
+        <div ref={formIncidencia}>
+          <IncidenciaDeRiesgo
+            key={riesgoActual.id}
+            riesgo={riesgoActual}
+            tipos={tiposRiesgo}
+            onRegistrada={(r, texto) => {
+              setRiesgoActual(r);
+              setBanners((b) => [...b, { tipo: 'exito', texto }]);
+              cargarListas(examenId);
+            }}
+            onCerrar={() => setRiesgoActual(null)}
+          />
+        </div>
+      )}
+
       {/* HU-11: resultado de la validacion */}
       {resultado && (
         <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
@@ -565,43 +604,82 @@ export default function ControlIngreso() {
         </div>
       )}
 
-      {/* HU-26: intentos de ingreso no correspondiente */}
+      {/* HU-26 + Sprint 4 (observacion 9): CENTRAL DE RIESGOS del examen */}
       {examenId && (
         <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <h2 className="text-lg font-semibold text-gray-800">Intentos de ingreso no correspondiente</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+            <h2 className="text-lg font-semibold text-gray-800">Central de riesgos del examen</h2>
             <span className="text-sm text-gray-500">{intentos.length} registrados</span>
           </div>
+          <p className="text-xs text-gray-500 mb-3">
+            Intentos de ingreso que no corresponden: personas no registradas, QR no válidos, estudiantes no inscritos, no
+            habilitados o que ya están rindiendo otro examen. Los registros no se pueden modificar ni eliminar.
+          </p>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full min-w-[900px] text-sm">
               <thead className="bg-kairos-50/80 text-kairos-800 text-left">
                 <tr>
-                  <th className="px-3 py-2">Fecha</th>
                   <th className="px-3 py-2">Hora</th>
-                  <th className="px-3 py-2">Código</th>
-                  <th className="px-3 py-2">Nombre</th>
-                  <th className="px-3 py-2">Motivo del rechazo</th>
+                  <th className="px-3 py-2">Código / documento</th>
+                  <th className="px-3 py-2">Estudiante</th>
+                  <th className="px-3 py-2">Motivo</th>
+                  <th className="px-3 py-2">Riesgo</th>
+                  <th className="px-3 py-2">Antecedentes</th>
                   <th className="px-3 py-2">Verificado por</th>
+                  <th className="px-3 py-2">Incidencia</th>
                 </tr>
               </thead>
               <tbody>
                 {intentosVisibles.map((i) => (
-                  <tr key={i.id} className="border-t border-gray-100">
-                    <td className="px-3 py-2">{i.fecha}</td>
-                    <td className="px-3 py-2">{i.hora}</td>
+                  <tr key={i.id} className={`border-t border-gray-100 ${riesgoActual?.id === i.id ? 'bg-amber-50/70' : ''}`}>
+                    <td className="px-3 py-2 whitespace-nowrap">{i.hora}</td>
                     <td className="px-3 py-2">{i.codigo}</td>
-                    <td className="px-3 py-2">{i.nombre}</td>
+                    <td className="px-3 py-2">{i.nombre ?? <span className="text-red-700 font-medium">Persona no registrada</span>}</td>
                     <td className="px-3 py-2">
-                      <span className="rounded-full bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 text-xs">
+                      <span className="rounded-full bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 text-xs whitespace-nowrap">
                         {i.motivo}
                       </span>
                     </td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          i.nivel === 'Alto' ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {i.nivel}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      {i.antecedentes > 1 ? (
+                        <span className="font-semibold text-red-700">{i.antecedentes} intentos (reincidente)</span>
+                      ) : (
+                        <span className="text-gray-500">Primer intento</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2">{i.registrado_por}</td>
+                    <td className="px-3 py-2">
+                      {i.incidencia ? (
+                        <span className="text-xs text-green-700">Registrada: {i.incidencia.tipo} ({i.incidencia.hora})</span>
+                      ) : puedeRegistrar ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRiesgoActual(i);
+                            setTimeout(() => formIncidencia.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+                          }}
+                          className="rounded-lg border border-amber-500 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-50 whitespace-nowrap"
+                        >
+                          Registrar incidencia
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
                 {intentos.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-3 py-4 text-center text-gray-400">
+                    <td colSpan={8} className="px-3 py-4 text-center text-gray-400">
                       No hay intentos registrados en este examen.
                     </td>
                   </tr>
@@ -618,5 +696,97 @@ export default function ControlIngreso() {
         </div>
       )}
     </div>
+  );
+}
+
+// Sprint 4 (observacion 9): formulario para registrar la incidencia de un intento de la
+// central de riesgos en el mismo momento en que ocurre.
+function IncidenciaDeRiesgo({ riesgo, tipos, onRegistrada, onCerrar }) {
+  const sugerido =
+    tipos.find((t) => t.codigo === (riesgo.registrado ? 'INTENTO_INDEBIDO' : 'SUPLANTACION')) ?? tipos[0];
+  const [tipoId, setTipoId] = useState(sugerido ? String(sugerido.id) : '');
+  const [descripcion, setDescripcion] = useState('');
+  const [errores, setErrores] = useState({});
+  const [guardando, setGuardando] = useState(false);
+
+  if (riesgo.incidencia) {
+    return (
+      <div className="mb-4 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800">
+        Incidencia registrada para este intento: {riesgo.incidencia.tipo} ({riesgo.incidencia.hora}).
+      </div>
+    );
+  }
+
+  async function registrar(e) {
+    e.preventDefault();
+    const nuevos = {};
+    if (!tipoId) nuevos.tipo = 'El campo Tipo de incidencia es obligatorio.';
+    if (!descripcion.trim()) nuevos.descripcion = 'El campo Descripción es obligatorio.';
+    setErrores(nuevos);
+    if (Object.keys(nuevos).length) return;
+    setGuardando(true);
+    try {
+      const res = await api.post(`/control-ingreso/riesgos/${riesgo.id}/incidencia`, {
+        tipo_incidencia_id: Number(tipoId),
+        descripcion: descripcion.trim(),
+      });
+      onRegistrada(res.data.riesgo, res.data.message);
+    } catch (err) {
+      setErrores({ general: primerError(err, 'No se pudo registrar la incidencia. Intente nuevamente.') });
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <form onSubmit={registrar} noValidate className="mb-5 rounded-xl border border-amber-300 bg-amber-50/70 p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="text-base font-semibold text-amber-900">Registrar incidencia ahora</h2>
+          <p className="text-xs text-amber-800">
+            Intento {riesgo.hora} · {riesgo.codigo} · {riesgo.nombre ?? 'Persona no registrada'} · {riesgo.motivo} · Riesgo{' '}
+            {riesgo.nivel}
+          </p>
+        </div>
+        <button type="button" onClick={onCerrar} className="text-sm text-amber-900 hover:underline">
+          Ahora no
+        </button>
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <div>
+          <label htmlFor="tipo-riesgo" className="block text-xs font-medium text-amber-900 mb-1">Tipo de incidencia</label>
+          <select id="tipo-riesgo" className="input bg-white" value={tipoId} onChange={(e) => setTipoId(e.target.value)}>
+            <option value="">Seleccione un tipo</option>
+            {tipos.map((t) => (
+              <option key={t.id} value={t.id}>{t.nombre}</option>
+            ))}
+          </select>
+          {errores.tipo && <p className="text-xs text-red-600 mt-1">{errores.tipo}</p>}
+        </div>
+        <div className="sm:col-span-2">
+          <label htmlFor="descripcion-riesgo" className="block text-xs font-medium text-amber-900 mb-1">Descripción</label>
+          <textarea
+            id="descripcion-riesgo"
+            className="input bg-white"
+            rows={2}
+            maxLength={500}
+            placeholder="Describe lo que ocurrió y qué se hizo (ej.: presentó un carnet que no corresponde)."
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+          />
+          {errores.descripcion && <p className="text-xs text-red-600 mt-1">{errores.descripcion}</p>}
+        </div>
+      </div>
+      {errores.general && <p className="text-sm text-red-600 mt-2">{errores.general}</p>}
+      <div className="flex justify-end mt-3">
+        <button
+          type="submit"
+          disabled={guardando}
+          className="bg-amber-600 text-white text-sm font-medium rounded-lg px-5 py-2 hover:bg-amber-700 disabled:opacity-60"
+        >
+          {guardando ? 'Registrando...' : 'Registrar incidencia'}
+        </button>
+      </div>
+    </form>
   );
 }
