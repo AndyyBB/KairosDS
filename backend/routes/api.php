@@ -96,6 +96,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('rol:administrador')->group(function () {
         Route::get('/roles/{rol}/permisos', [PermisoController::class, 'show']);
         Route::put('/roles/{rol}/permisos', [PermisoController::class, 'update']);
+        // Sprint 4: historial de permisos del rol por periodos de vigencia.
+        Route::get('/roles/{rol}/permisos/historial', [PermisoController::class, 'historial']);
     });
 
     // HU-15
