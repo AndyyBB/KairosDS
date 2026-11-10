@@ -4,7 +4,6 @@ namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\MensajesAmbiente;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdateAmbienteRequest extends FormRequest
 {
@@ -15,15 +14,13 @@ class UpdateAmbienteRequest extends FormRequest
         return true;
     }
 
+    // HU-30 (Sprint 4, observacion 15 de la licenciada): de un ambiente solo se puede editar
+    // la capacidad maxima. El nombre es su identificador y, junto con la ubicacion, queda
+    // fijo: si llegan en la peticion se ignoran (no estan en estas reglas).
     public function rules(): array
     {
-        $id = $this->route('ambiente')?->id;
-
         return [
-            'nombre' => ['sometimes', 'bail', 'required', 'string', 'max:50', Rule::unique('ambientes', 'nombre')->ignore($id)],
-            'capacidad_maxima' => ['sometimes', 'bail', 'required', 'integer', 'min:1'],
-            'ubicacion' => ['sometimes', 'bail', 'required', 'string', 'max:100'],
-            'activo' => ['sometimes', 'boolean'],
+            'capacidad_maxima' => ['bail', 'required', 'integer', 'min:1', 'max:1000'],
         ];
     }
 }

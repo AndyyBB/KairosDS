@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\ValidaExamen;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class StoreExamenRequest extends FormRequest
@@ -22,7 +23,8 @@ class StoreExamenRequest extends FormRequest
         return [
             'materia_id' => ['bail', 'required', 'integer', 'exists:materias,id'],
             'ambientes' => ['bail', 'required', 'array', 'min:1'],
-            'ambientes.*' => ['bail', 'required', 'integer', 'distinct', 'exists:ambientes,id'],
+            // Sprint 4 (observacion 16): un ambiente eliminado (NO ACTIVO) ya no se usa.
+            'ambientes.*' => ['bail', 'required', 'integer', 'distinct', Rule::exists('ambientes', 'id')->where('activo', true)],
             'fecha' => ['bail', 'required', 'date_format:Y-m-d', 'after_or_equal:'.$hoy],
             'hora_inicio' => ['bail', 'required', 'date_format:H:i'],
             'duracion_min' => ['bail', 'required', 'integer', 'between:5,300'],

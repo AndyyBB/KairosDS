@@ -42,7 +42,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/estudiantes-anios', [EstudianteController::class, 'anios'])->middleware('permiso:estudiantes.ver');
     $recurso('estudiantes', EstudianteController::class, 'estudiantes', 'estudiante');
 
-    // HU-03
+    // HU-03, HU-30, HU-31
+    Route::get('/ambientes/{ambiente}/eliminable', [AmbienteController::class, 'eliminable'])->middleware('permiso:ambientes.eliminar');
     $recurso('ambientes', AmbienteController::class, 'ambientes', 'ambiente');
 
     // HU-02, HU-08, HU-09

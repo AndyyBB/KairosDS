@@ -33,7 +33,7 @@ export default function AmbientesList() {
   async function cargar() {
     setCargando(true);
     try {
-      const res = await api.get('/ambientes', { params: { solo_activos: 0 } });
+      const res = await api.get('/ambientes');
       setAmbientes(res.data);
     } catch (err) {
       setError(primerError(err, 'No se pudo cargar la lista de ambientes.'));

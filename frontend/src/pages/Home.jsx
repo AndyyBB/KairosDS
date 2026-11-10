@@ -23,7 +23,7 @@ const RESUMENES = {
   },
   '/ambientes': {
     texto: 'ambientes registrados',
-    cargar: async () => (await api.get('/ambientes', { params: { solo_activos: 0 } })).data.length,
+    cargar: async () => (await api.get('/ambientes')).data.length,
   },
   '/examenes': {
     texto: 'exámenes programados',

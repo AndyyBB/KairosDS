@@ -15,13 +15,16 @@ const initial = { nombre: '', capacidad_maxima: '', ubicacion: '' };
 const TEXTOS = {
   registrar: { titulo: 'Registrar ambiente', descripcion: 'Agrega un aula o laboratorio disponible para programar exámenes.' },
   datos: { titulo: 'Datos del ambiente', descripcion: 'Información registrada del ambiente.' },
-  editar: { titulo: 'Editar ambiente', descripcion: 'Selecciona el ambiente, modifica sus datos y presiona "Guardar".' },
+  editar: { titulo: 'Editar ambiente', descripcion: 'Selecciona el ambiente, cambia su capacidad máxima y presiona "Guardar".' },
   eliminar: { titulo: 'Eliminar ambiente', descripcion: 'Selecciona el ambiente, revisa sus datos y presiona "Eliminar".' },
 };
 
 // HU-03 Registrar ambiente, HU-30 Editar ambiente y HU-31 Eliminar ambiente: cada accion
 // es una pantalla independiente del menu Ambientes. "Datos del ambiente" se abre desde la
 // Lista de ambientes (clic en el nombre) y solo muestra los datos.
+// Sprint 4 (observaciones 15 y 16 de la licenciada): al editar solo se cambia la capacidad
+// maxima (el nombre es el identificador del ambiente) y la eliminacion es logica: el
+// ambiente queda NO ACTIVO y no se puede eliminar si esta asignado a un examen pendiente.
 export default function RegistrarAmbiente({ modo = 'registrar' }) {
   const { id } = useParams();
   const editando = Boolean(id); // hay un ambiente cargado (datos, editar o eliminar)
@@ -35,6 +38,10 @@ export default function RegistrarAmbiente({ modo = 'registrar' }) {
   const [guardando, setGuardando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const soloLectura = modo === 'datos' || modo === 'eliminar';
+  // En "Editar ambiente" el nombre y la ubicacion quedan fijos: solo se edita la capacidad.
+  const datosFijos = soloLectura || modo === 'editar';
+  // En "Eliminar ambiente" se revisa antes si el ambiente esta en examenes pendientes.
+  const [bloqueo, setBloqueo] = useState(null);
 
   useEffect(() => {
     if (!editando) return;
@@ -52,6 +59,15 @@ export default function RegistrarAmbiente({ modo = 'registrar' }) {
       })
       .catch((err) => setError(primerError(err, 'No se pudo cargar el ambiente.')));
   }, [id, editando]);
+
+  useEffect(() => {
+    setBloqueo(null);
+    if (modo !== 'eliminar' || !id) return;
+    api
+      .get(`/ambientes/${id}/eliminable`)
+      .then((res) => setBloqueo(res.data.eliminable ? null : res.data.examenes ?? []))
+      .catch(() => setBloqueo(null));
+  }, [id, modo]);
 
   // Al elegir otro registro se limpian los mensajes y errores anteriores.
   useEffect(() => {
@@ -78,7 +94,7 @@ export default function RegistrarAmbiente({ modo = 'registrar' }) {
 
 
   async function eliminar() {
-    if (!confirm(`¿Eliminar el ambiente "${form.nombre}"? Se borrará definitivamente.`)) return;
+    if (!confirm(`¿Eliminar el ambiente "${form.nombre}"? Quedará como NO ACTIVO y ya no se podrá usar para programar exámenes.`)) return;
     setEliminando(true);
     setError('');
     try {
@@ -97,7 +113,8 @@ export default function RegistrarAmbiente({ modo = 'registrar' }) {
     setGuardando(true);
     try {
       if (editando) {
-        await api.put(`/ambientes/${id}`, form);
+        // Solo se envia la capacidad: el nombre y la ubicacion no se modifican.
+        await api.put(`/ambientes/${id}`, { capacidad_maxima: form.capacidad_maxima });
         setOriginal(form);
         setMensaje('Ambiente actualizado con éxito.');
         return;
@@ -132,10 +149,25 @@ export default function RegistrarAmbiente({ modo = 'registrar' }) {
 
       {(modo === 'registrar' || editando) && (
         <>
-          {modo === 'eliminar' && (
-            <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              Revisa los datos antes de eliminar. El ambiente se borrará definitivamente (no se puede eliminar si está asignado a un examen).
+          {modo === 'editar' && (
+            <p className="mb-4 rounded-lg border border-kairos-100 bg-kairos-50/60 px-4 py-3 text-sm text-kairos-800">
+              Solo se puede modificar la capacidad máxima. El nombre identifica al ambiente y, junto con la ubicación, no se edita.
             </p>
+          )}
+          {modo === 'eliminar' && !bloqueo && (
+            <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              Revisa los datos antes de eliminar. El ambiente no se borra de la base de datos: queda como NO ACTIVO, ya no
+              aparecerá para programar exámenes y se conservan los exámenes e ingresos donde se usó.
+            </p>
+          )}
+          {modo === 'eliminar' && bloqueo && (
+            <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <p className="font-semibold">No se puede eliminar este ambiente.</p>
+              <p className="mt-1">
+                Está asignado a exámenes que todavía no terminan: {bloqueo.join(', ')}. Primero cámbiale el aula a esos exámenes en
+                "Editar examen".
+              </p>
+            </div>
           )}
 
       <form
@@ -148,6 +180,7 @@ export default function RegistrarAmbiente({ modo = 'registrar' }) {
             <input
               className="input"
               placeholder="Ej. Laboratorio 3"
+              disabled={datosFijos}
               value={form.nombre}
               onChange={(e) => setForm({ ...form, nombre: e.target.value })}
             />
@@ -167,6 +200,7 @@ export default function RegistrarAmbiente({ modo = 'registrar' }) {
             <input
               className="input"
               placeholder="Ej. Edificio central, 2.º piso"
+              disabled={datosFijos}
               value={form.ubicacion}
               onChange={(e) => setForm({ ...form, ubicacion: e.target.value })}
             />
@@ -176,7 +210,7 @@ export default function RegistrarAmbiente({ modo = 'registrar' }) {
         <BotonesFormulario
           modo={modo}
           puedeGuardar={true}
-          puedeEliminar={tiene('ambientes.eliminar')}
+          puedeEliminar={tiene('ambientes.eliminar') && !bloqueo}
           guardando={guardando}
           eliminando={eliminando}
           onCancelar={cancelar}

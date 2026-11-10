@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\ValidaExamen;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class UpdateExamenRequest extends FormRequest
@@ -24,7 +25,11 @@ class UpdateExamenRequest extends FormRequest
     {
         return [
             'ambientes' => ['bail', 'sometimes', 'required', 'array', 'min:1'],
-            'ambientes.*' => ['bail', 'required', 'integer', 'distinct', 'exists:ambientes,id'],
+            // Sprint 4 (observacion 16): se pueden agregar solo ambientes activos; los que el
+            // examen ya tenia se conservan aunque despues se hayan eliminado.
+            'ambientes.*' => ['bail', 'required', 'integer', 'distinct', Rule::exists('ambientes', 'id')->where(
+                fn ($q) => $q->where('activo', true)->orWhereIn('id', $this->ambientesActuales())
+            )],
             'duracion_min' => ['bail', 'sometimes', 'required', 'integer', 'between:5,300'],
             // Las normas generales del examen se pueden reemplazar al editar.
             'normas' => ['sometimes', 'nullable', 'array'],
@@ -52,5 +57,15 @@ class UpdateExamenRequest extends FormRequest
                 );
             },
         ];
+    }
+
+    private function ambientesActuales(): array
+    {
+        $examen = $this->route('examen');
+        if (! $examen) {
+            return [];
+        }
+
+        return array_values(array_filter([...$examen->ambientes()->pluck('ambientes.id')->all(), $examen->ambiente_id]));
     }
 }

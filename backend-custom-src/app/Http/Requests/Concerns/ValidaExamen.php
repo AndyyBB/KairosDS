@@ -36,7 +36,7 @@ trait ValidaExamen
             'ambientes.min' => 'El campo Ambiente es obligatorio.',
             'ambientes.*.required' => 'El campo Ambiente es obligatorio.',
             'ambientes.*.integer' => 'El campo Ambiente es obligatorio.',
-            'ambientes.*.exists' => 'El campo Ambiente es obligatorio.',
+            'ambientes.*.exists' => 'El ambiente elegido no existe o fue eliminado.',
             'ambientes.*.distinct' => 'No se puede seleccionar dos veces el mismo ambiente.',
 
             'normas.array' => 'El campo Normas del examen tiene un límite de 500 caracteres.',

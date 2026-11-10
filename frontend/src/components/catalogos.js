@@ -120,7 +120,7 @@ export function useCamposAmbientes() {
   const [ubicaciones, setUbicaciones] = useState([]);
   useEffect(() => {
     api
-      .get('/ambientes', { params: { solo_activos: 0 } })
+      .get('/ambientes')
       .then((res) => setUbicaciones(distintos(res.data.map((a) => a.ubicacion)).sort()))
       .catch(() => setUbicaciones([]));
   }, []);

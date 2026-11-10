@@ -252,7 +252,7 @@ export function SelectorAmbiente({ modo, seleccionado }) {
         { titulo: 'Ubicación', celda: (a) => a.ubicacion, clase: 'text-gray-500' },
       ]}
       cargar={async ({ buscar, filtros, pagina }) => {
-        if (!ambientes.current) ambientes.current = (await api.get('/ambientes', { params: { solo_activos: 0 } })).data;
+        if (!ambientes.current) ambientes.current = (await api.get('/ambientes')).data;
         return paginarLocal(filtrarAmbientes(ambientes.current, buscar, filtros), pagina);
       }}
       seleccionado={seleccionado}
