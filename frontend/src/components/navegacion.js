@@ -13,9 +13,10 @@ import {
 } from './Iconos';
 
 // Menu del sistema. Cada accion es una pantalla independiente del menu de su modulo:
-// "Lista de ...", "Registrar ...", "Editar ..." y "Eliminar ...". En la lista no hay botones
-// de editar ni eliminar: al hacer clic en el nombre de un registro se abre "Datos de ...",
-// que solo muestra la informacion. Al entrar al modulo, el sistema redirige a su primera
+// "Buscar ...", "Registrar ...", "Editar ..." y "Eliminar ...". Sprint 4 (observacion 21 de
+// la licenciada): ya no hay "Lista de ..."; en "Buscar ..." los registros aparecen solo
+// despues de buscar y al hacer clic en uno se abre "Datos de ...", que solo muestra la
+// informacion. Al entrar al modulo, el sistema redirige a su primera
 // pantalla permitida.
 // HU-17 (10): solo se muestran las pantallas que el rol tiene permitidas en "Roles y
 // permisos" (Registrar, Editar y Eliminar de cada modulo; la lista se ve con cualquiera).
@@ -29,7 +30,7 @@ export const MODULOS = [
     descripcion: 'Datos personales y académicos de los estudiantes.',
     items: [
       // "tambien": la pantalla "Datos de ..." se abre desde la lista (clic en el nombre).
-      { to: '/estudiantes/lista', label: 'Lista de estudiantes', permiso: 'estudiantes.ver', tambien: ['/estudiantes/datos'] },
+      { to: '/estudiantes/buscar', label: 'Buscar estudiante', permiso: 'estudiantes.ver', tambien: ['/estudiantes/datos'] },
       { to: '/estudiantes/registrar', label: 'Registrar estudiante', permiso: 'estudiantes.registrar', hu: 'HU-01' },
       { to: '/estudiantes/editar', label: 'Editar estudiante', permiso: 'estudiantes.editar', hu: 'HU-06' },
       { to: '/estudiantes/eliminar', label: 'Eliminar estudiante', permiso: 'estudiantes.eliminar', hu: 'HU-07' },
@@ -42,7 +43,7 @@ export const MODULOS = [
     icon: BuildingIcon,
     descripcion: 'Aulas y laboratorios disponibles para los exámenes.',
     items: [
-      { to: '/ambientes/lista', label: 'Lista de ambientes', permiso: 'ambientes.ver', tambien: ['/ambientes/datos'] },
+      { to: '/ambientes/buscar', label: 'Buscar ambiente', permiso: 'ambientes.ver', tambien: ['/ambientes/datos'] },
       { to: '/ambientes/registrar', label: 'Registrar ambiente', permiso: 'ambientes.registrar', hu: 'HU-03' },
       { to: '/ambientes/editar', label: 'Editar ambiente', permiso: 'ambientes.editar', hu: 'HU-30' },
       { to: '/ambientes/eliminar', label: 'Eliminar ambiente', permiso: 'ambientes.eliminar', hu: 'HU-31' },
@@ -55,7 +56,7 @@ export const MODULOS = [
     icon: ExamIcon,
     descripcion: 'Programación de exámenes y habilitación de estudiantes.',
     items: [
-      { to: '/examenes/lista', label: 'Lista de exámenes', permiso: 'examenes.ver', tambien: ['/examenes/datos'] },
+      { to: '/examenes/buscar', label: 'Buscar examen', permiso: 'examenes.ver', tambien: ['/examenes/datos'] },
       { to: '/examenes/programar', label: 'Programar examen', permiso: 'examenes.registrar', hu: 'HU-02' },
       { to: '/examenes/editar', label: 'Editar examen', permiso: 'examenes.editar', hu: 'HU-08' },
       { to: '/examenes/eliminar', label: 'Eliminar examen', permiso: 'examenes.eliminar', hu: 'HU-09' },
@@ -84,7 +85,7 @@ export const MODULOS = [
     icon: UsersIcon,
     descripcion: 'Cuentas de docentes y personal de control de ingreso.',
     items: [
-      { to: '/usuarios/lista', label: 'Lista de usuarios', permiso: 'usuarios.ver', tambien: ['/usuarios/datos'] },
+      { to: '/usuarios/buscar', label: 'Buscar usuario', permiso: 'usuarios.ver', tambien: ['/usuarios/datos'] },
       { to: '/usuarios/registrar', label: 'Registrar usuario', permiso: 'usuarios.registrar', hu: 'HU-15' },
       { to: '/usuarios/editar', label: 'Editar usuario', permiso: 'usuarios.editar', hu: 'HU-32' },
       { to: '/usuarios/eliminar', label: 'Eliminar usuario', permiso: 'usuarios.eliminar', hu: 'HU-33' },

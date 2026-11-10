@@ -18,9 +18,11 @@ class EstudianteController extends Controller
         return Estudiante::with('carrera', 'carreras')
             ->when($request->query('buscar'), function ($q, $buscar) {
                 $q->where(function ($qq) use ($buscar) {
+                    // El nombre se busca sin distinguir mayusculas ni tildes.
+                    $sinTildes = strtr(mb_strtolower($buscar), ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n']);
                     $qq->where('codigo_universitario', 'ilike', "%{$buscar}%")
                         ->orWhere('documento_identidad', 'ilike', "%{$buscar}%")
-                        ->orWhere('nombre_completo', 'ilike', "%{$buscar}%");
+                        ->orWhereRaw("translate(lower(nombre_completo), 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunaeiouun') LIKE ?", ["%{$sinTildes}%"]);
                 });
             })
             ->when($request->boolean('solo_activos', true), fn ($q) => $q->where('activo', true))

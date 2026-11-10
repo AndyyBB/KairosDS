@@ -37,8 +37,8 @@ const TEXTOS = {
 };
 
 // HU-15 Registrar usuario, HU-32 Editar usuario y HU-33 Eliminar usuario: cada accion es una
-// pantalla independiente del menu Usuarios. "Datos del usuario" se abre desde la Lista de
-// usuarios (clic en el nombre) y solo muestra los datos.
+// pantalla independiente del menu Usuarios. "Datos del usuario" se abre desde "Buscar usuario"
+// (clic en el usuario encontrado) y solo muestra los datos.
 // Sprint 4 (observaciones 17 y 18 de la licenciada): al editar solo se cambian el rol (que se
 // guarda por periodos), el estado y la contrasena; la eliminacion es logica (la cuenta queda
 // NO ACTIVA y se conserva todo lo que el usuario registro).
@@ -360,7 +360,7 @@ export default function UsuarioForm({ modo = 'registrar' }) {
           guardando={guardando}
           eliminando={eliminando}
           onCancelar={cancelar}
-          onSalir={() => navigate('/usuarios/lista')}
+          onSalir={() => navigate('/usuarios/buscar')}
           onEliminar={eliminar}
         />
       </form>

@@ -11,6 +11,14 @@ use Illuminate\Support\Facades\DB;
 
 class ExamenController extends Controller
 {
+    // Busqueda sin tildes (Sprint 4: los registros se encuentran buscando).
+    private const SIN_TILDES_SQL = "translate(lower(nombre), 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunaeiouun')";
+
+    private static function sinTildes(string $texto): string
+    {
+        return strtr(mb_strtolower($texto), ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n']);
+    }
+
     public function index(Request $request)
     {
         return Examen::with([
@@ -23,9 +31,10 @@ class ExamenController extends Controller
             ->when($request->query('fecha'), fn ($q, $v) => $q->whereDate('fecha', $v))
             ->when($request->query('materia_id'), fn ($q, $v) => $q->where('materia_id', $v))
             // Filtros (boton "Filtros"): asignatura por nombre, rango de fechas y estado.
+            // La busqueda no distingue mayusculas ni tildes ("algebra" encuentra "Álgebra").
             ->when($request->query('buscar'), fn ($q, $v) => $q->whereHas(
                 'materia',
-                fn ($qq) => $qq->where('nombre', 'ilike', "%{$v}%")
+                fn ($qq) => $qq->whereRaw(self::SIN_TILDES_SQL.' LIKE ?', ['%'.self::sinTildes($v).'%'])
             ))
             ->when($request->query('ambiente_id'), fn ($q, $v) => $q->where(
                 fn ($qq) => $qq->where('ambiente_id', $v)->orWhereHas('ambientes', fn ($a) => $a->where('ambientes.id', $v))

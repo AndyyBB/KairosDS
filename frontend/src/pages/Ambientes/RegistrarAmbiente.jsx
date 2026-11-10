@@ -21,7 +21,7 @@ const TEXTOS = {
 
 // HU-03 Registrar ambiente, HU-30 Editar ambiente y HU-31 Eliminar ambiente: cada accion
 // es una pantalla independiente del menu Ambientes. "Datos del ambiente" se abre desde la
-// Lista de ambientes (clic en el nombre) y solo muestra los datos.
+// pantalla "Buscar ..." (clic en el nombre) y solo muestra los datos.
 // Sprint 4 (observaciones 15 y 16 de la licenciada): al editar solo se cambia la capacidad
 // maxima (el nombre es el identificador del ambiente) y la eliminacion es logica: el
 // ambiente queda NO ACTIVO y no se puede eliminar si esta asignado a un examen pendiente.
@@ -214,7 +214,7 @@ export default function RegistrarAmbiente({ modo = 'registrar' }) {
           guardando={guardando}
           eliminando={eliminando}
           onCancelar={cancelar}
-          onSalir={() => navigate('/ambientes/lista')}
+          onSalir={() => navigate('/ambientes/buscar')}
           onEliminar={eliminar}
         />
       </form>
