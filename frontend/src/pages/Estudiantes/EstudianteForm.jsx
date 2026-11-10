@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
 import { erroresCampos, primerError } from '../../api/errores';
+import { fechaDMA } from '../../api/formato';
 import { useAuth } from '../../api/AuthContext';
 import BotonesFormulario from '../../components/BotonesFormulario';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
@@ -30,7 +31,7 @@ const initial = {
 const TEXTOS = {
   registrar: { titulo: 'Registrar estudiante', descripcion: 'Ingresa los datos personales y académicos del estudiante.' },
   datos: { titulo: 'Datos del estudiante', descripcion: 'Información registrada del estudiante.' },
-  editar: { titulo: 'Editar estudiante', descripcion: 'Selecciona al estudiante, modifica sus datos y presiona "Guardar".' },
+  editar: { titulo: 'Editar estudiante', descripcion: 'Selecciona al estudiante, modifica su correo o sus carreras y presiona "Guardar".' },
   eliminar: { titulo: 'Eliminar estudiante', descripcion: 'Selecciona al estudiante, revisa sus datos y presiona "Eliminar".' },
 };
 
@@ -51,8 +52,12 @@ export default function EstudianteForm({ modo = 'registrar' }) {
   const [verQr, setVerQr] = useState(false);
   const [error, setError] = useState('');
   const [eliminando, setEliminando] = useState(false);
+  const [historial, setHistorial] = useState([]); // periodos de cada carrera (Sprint 4)
   const { tiene } = useAuth();
   const soloLectura = modo === 'datos' || modo === 'eliminar';
+  // Sprint 4 (observacion 11): al editar solo se modifican el correo institucional y las
+  // carreras. El codigo universitario (identificador), el documento y el nombre quedan fijos.
+  const datosFijos = soloLectura || modo === 'editar';
 
   useEffect(() => {
     api.get('/carreras').then((res) => setCarreras(res.data));
@@ -71,6 +76,7 @@ export default function EstudianteForm({ modo = 'registrar' }) {
           };
           setForm(datos);
           setOriginal(datos);
+          setHistorial(res.data.historial_carreras ?? []);
           setRegistrado({ nombre_completo: datos.nombre_completo, codigo_universitario: datos.codigo_universitario });
         })
         .catch((err) => setError(primerError(err, 'No se pudo cargar al estudiante.')));
@@ -100,9 +106,10 @@ export default function EstudianteForm({ modo = 'registrar' }) {
     navigate('/');
   }
 
-  // HU-07: en la pantalla "Eliminar estudiante" se elimina definitivamente.
+  // HU-07 (Sprint 4, observacion 12): la eliminacion es logica. El estudiante queda como
+  // NO ACTIVO y deja de aparecer, pero su historial (ingresos, intentos, incidencias) se conserva.
   async function eliminar() {
-    if (!confirm(`¿Eliminar a ${form.nombre_completo}? Se borrará definitivamente junto con sus inscripciones, habilitaciones e ingresos.`)) return;
+    if (!confirm(`¿Eliminar a ${form.nombre_completo}? Quedará como NO ACTIVO: ya no aparecerá en el sistema ni podrá registrar su ingreso, pero se conservará su historial.`)) return;
     setEliminando(true);
     setError('');
     try {
@@ -153,16 +160,22 @@ export default function EstudianteForm({ modo = 'registrar' }) {
     setGuardando(true);
     setErrores({});
     setMensaje('');
+    const carrerasElegidas = form.carreras.filter(Boolean).map(Number);
     const payload = {
       codigo_universitario: form.codigo_universitario,
       documento_identidad: form.documento_identidad,
       nombre_completo: form.nombre_completo,
       correo_institucional: form.correo_institucional,
-      carreras: form.carreras.filter(Boolean).map(Number),
+      carreras: carrerasElegidas,
     };
     try {
       if (editando) {
-        await api.put(`/estudiantes/${id}`, payload);
+        // Solo se envian los datos que se pueden modificar.
+        const res = await api.put(`/estudiantes/${id}`, {
+          correo_institucional: form.correo_institucional,
+          carreras: carrerasElegidas,
+        });
+        setHistorial(res.data?.historial_carreras ?? historial);
         // Vuelve a mostrar los datos (ya guardados) sin poder modificarlos.
         setOriginal(form);
         setRegistrado({ nombre_completo: form.nombre_completo, codigo_universitario: form.codigo_universitario });
@@ -228,7 +241,14 @@ export default function EstudianteForm({ modo = 'registrar' }) {
         <>
           {modo === 'eliminar' && (
             <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              Revisa los datos antes de eliminar. El estudiante se borrará definitivamente junto con sus carreras, inscripciones, habilitaciones e ingresos.
+              Revisa los datos antes de eliminar. El estudiante quedará como NO ACTIVO: ya no aparecerá en el sistema ni podrá registrar su
+              ingreso, y se quitarán sus inscripciones a exámenes que aún no se realizaron. Su historial (ingresos, intentos e incidencias) se conserva.
+            </p>
+          )}
+          {modo === 'editar' && (
+            <p className="mb-4 rounded-lg border border-kairos-200 bg-kairos-50 px-4 py-3 text-sm text-kairos-800">
+              Solo se pueden modificar el correo institucional y las carreras. El código universitario, el documento de identidad y el
+              nombre no se modifican.
             </p>
           )}
 
@@ -238,6 +258,7 @@ export default function EstudianteForm({ modo = 'registrar' }) {
           <input
             className="input"
             value={form.codigo_universitario}
+            disabled={datosFijos}
             inputMode="numeric"
             onChange={(e) => cambiarCodigo(e.target.value)}
           />
@@ -247,6 +268,7 @@ export default function EstudianteForm({ modo = 'registrar' }) {
           <input
             className="input"
             value={form.documento_identidad}
+            disabled={datosFijos}
             onChange={(e) => set('documento_identidad', e.target.value)}
           />
         </Campo>
@@ -255,6 +277,7 @@ export default function EstudianteForm({ modo = 'registrar' }) {
           <input
             className="input"
             value={form.nombre_completo}
+            disabled={datosFijos}
             onChange={(e) => set('nombre_completo', e.target.value)}
           />
         </Campo>
@@ -307,9 +330,41 @@ export default function EstudianteForm({ modo = 'registrar' }) {
             </button>
           )}
           {!soloLectura && (
-            <p className="text-xs text-gray-400 mt-1">Un estudiante puede pertenecer a más de una carrera.</p>
+            <p className="text-xs text-gray-400 mt-1">
+              Un estudiante puede pertenecer a más de una carrera.
+              {modo === 'editar' && ' Al quitar una carrera se cierra su periodo con la fecha de hoy; una carrera nueva queda vigente desde hoy.'}
+            </p>
           )}
         </Campo>
+
+        {/* Sprint 4: historial de carreras con su periodo de vigencia */}
+        {editando && historial.length > 0 && (
+          <div>
+            <p className="text-sm font-medium text-gray-600 mb-1">Historial de carreras</p>
+            <div className="overflow-x-auto rounded-lg border border-gray-100">
+              <table className="w-full text-sm">
+                <thead className="bg-kairos-50/80 text-kairos-800 text-left">
+                  <tr>
+                    <th className="px-3 py-2">Carrera</th>
+                    <th className="px-3 py-2">Desde</th>
+                    <th className="px-3 py-2">Hasta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historial.map((c) => (
+                    <tr key={c.pivot?.id ?? `${c.id}-${c.pivot?.fecha_inicio}`} className="border-t border-gray-100">
+                      <td className="px-3 py-2">{c.nombre}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{fechaDMA(c.pivot?.fecha_inicio)}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {c.pivot?.fecha_fin ? fechaDMA(c.pivot.fecha_fin) : <span className="text-kairos-700 font-medium">Vigente</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
         </fieldset>
 
         <BotonesFormulario

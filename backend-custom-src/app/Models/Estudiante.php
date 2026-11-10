@@ -28,10 +28,22 @@ class Estudiante extends Model
     }
 
     // Un estudiante puede estar en mas de una carrera. `carrera_id` guarda la
-    // carrera principal (la primera) y la tabla estudiante_carrera todas.
+    // carrera principal (la primera) y la tabla estudiante_carrera todas, con su periodo
+    // de vigencia. `carreras` son solo las VIGENTES (sin fecha_fin).
     public function carreras(): BelongsToMany
     {
         return $this->belongsToMany(Carrera::class, 'estudiante_carrera', 'estudiante_id', 'carrera_id')
+            ->wherePivotNull('fecha_fin')
+            ->withPivot('fecha_inicio')
+            ->orderBy('carreras.nombre');
+    }
+
+    // Sprint 4: historial completo de carreras (vigentes y terminadas) con su periodo.
+    public function historialCarreras(): BelongsToMany
+    {
+        return $this->belongsToMany(Carrera::class, 'estudiante_carrera', 'estudiante_id', 'carrera_id')
+            ->withPivot('id', 'fecha_inicio', 'fecha_fin')
+            ->orderByPivot('fecha_inicio')
             ->orderBy('carreras.nombre');
     }
 

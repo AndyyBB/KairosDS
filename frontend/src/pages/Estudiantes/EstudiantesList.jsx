@@ -34,7 +34,7 @@ export default function EstudiantesList() {
   async function cargar(p = 1, f = filtros) {
     setCargando(true);
     try {
-      const res = await api.get('/estudiantes', { params: parametros({ buscar, page: p, solo_activos: 0, ...f }) });
+      const res = await api.get('/estudiantes', { params: parametros({ buscar, page: p, ...f }) });
       if (p > 1 && (res.data.data ?? []).length === 0) return cargar(p - 1, f);
       setEstudiantes(res.data.data ?? res.data);
       setMeta({ last_page: res.data.last_page ?? 1, total: res.data.total ?? 0 });

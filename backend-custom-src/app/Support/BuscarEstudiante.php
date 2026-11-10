@@ -16,7 +16,8 @@ class BuscarEstudiante
             return null;
         }
 
-        $base = Estudiante::query()->with(['carreras', 'carrera']);
+        // Sprint 4: los estudiantes eliminados (NO ACTIVOS) no se encuentran.
+        $base = Estudiante::query()->where('activo', true)->with(['carreras', 'carrera']);
 
         $porCodigo = (clone $base)->whereRaw('upper(codigo_universitario) = ?', [strtoupper($valor)])->first();
         if ($porCodigo) {

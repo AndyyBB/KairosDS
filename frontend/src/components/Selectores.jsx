@@ -190,7 +190,7 @@ export function SelectorEstudiante({ modo, seleccionado }) {
       ]}
       cargar={async ({ buscar, filtros, pagina }) => {
         const res = await api.get('/estudiantes', {
-          params: parametros({ buscar, page: pagina, per_page: POR_PAGINA, solo_activos: 0, ...filtros }),
+          params: parametros({ buscar, page: pagina, per_page: POR_PAGINA, ...filtros }),
         });
         return { items: res.data.data ?? [], ultima: res.data.last_page ?? 1, total: res.data.total ?? 0 };
       }}

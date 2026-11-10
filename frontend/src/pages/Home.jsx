@@ -19,7 +19,7 @@ function Flecha() {
 const RESUMENES = {
   '/estudiantes': {
     texto: 'estudiantes registrados',
-    cargar: async () => (await api.get('/estudiantes', { params: { per_page: 1, solo_activos: 0 } })).data.total ?? 0,
+    cargar: async () => (await api.get('/estudiantes', { params: { per_page: 1 } })).data.total ?? 0,
   },
   '/ambientes': {
     texto: 'ambientes registrados',
