@@ -22,7 +22,11 @@ function carrerasDe(estudiante) {
   return lista.map((c) => c.nombre).join(', ') || '-';
 }
 
-// HU-04: Asociación de estudiantes habilitados a un examen
+// HU-04: Habilitar/Deshabilitar estudiantes en un examen.
+// La pantalla se llama "Habilitar/Deshabilitar" porque permite marcar a cada estudiante
+// inscrito como Habilitado o No habilitado. La barra con el contador, "Habilitar a todos",
+// "Cancelar" y "Guardar habilitaciones" esta arriba de la tabla y se mantiene visible al
+// bajar por la lista (no hace falta ir al final de la pagina para guardar).
 export default function HabilitarEstudiantes() {
   const { examenId } = useParams();
   const { tiene } = useAuth();
@@ -175,8 +179,8 @@ export default function HabilitarEstudiantes() {
     <div className="max-w-6xl">
       <Encabezado
         icono={<CheckBadgeIcon size={22} />}
-        titulo="Habilitar estudiantes"
-        descripcion="Selecciona un examen y marca a cada estudiante inscrito como habilitado o no habilitado."
+        titulo="Habilitar/Deshabilitar estudiantes"
+        descripcion='Selecciona un examen, marca a cada estudiante inscrito como Habilitado o No habilitado y presiona "Guardar habilitaciones".'
       />
 
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
@@ -224,22 +228,48 @@ export default function HabilitarEstudiantes() {
 
       {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={habilitarATodos}
-            disabled={cerrado || inscritos.length === 0}
-            className="inline-flex items-center gap-2 bg-white border border-kairos-600 text-kairos-700 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-kairos-50 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
-          >
-            <CheckAllIcon size={16} />
-            Habilitar a todos
-          </button>
+      {/* Barra de acciones fija arriba: siempre visible al bajar por la lista. */}
+      <div className="sticky top-[64px] lg:top-0 z-20 -mx-1 mb-3 px-1 py-2 bg-[#f3f8f8]/95 backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-kairos-100/70 bg-white px-4 py-3 shadow-md">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={habilitarATodos}
+              disabled={cerrado || inscritos.length === 0}
+              className="inline-flex items-center gap-2 bg-white border border-kairos-600 text-kairos-700 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-kairos-50 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+            >
+              <CheckAllIcon size={16} />
+              Habilitar a todos
+            </button>
+            <p className="text-sm text-gray-600">
+              <span className="font-semibold text-kairos-700">{totalHabilitados}</span> habilitados /{' '}
+              <span className="font-semibold text-red-600">{totalNoHabilitados}</span> no habilitados
+              {totalSinDecidir > 0 && (
+                <>
+                  {' '}/ <span className="font-semibold text-gray-700">{totalSinDecidir}</span> sin decidir
+                </>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="border border-gray-300 text-gray-700 rounded-lg px-4 py-2 text-sm font-medium hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={guardar}
+              disabled={guardando || totalHabilitados + totalNoHabilitados === 0 || cerrado}
+              className="inline-flex items-center gap-2 bg-kairos-gradient text-white text-sm font-medium rounded-lg px-5 py-2 shadow-glow transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none"
+            >
+              <CheckIcon size={16} />
+              {guardando ? 'Guardando...' : 'Guardar habilitaciones'}
+            </button>
+          </div>
         </div>
-        <p className="text-sm text-gray-500">
-          {totalHabilitados} habilitados / {totalNoHabilitados} no habilitados
-          {totalSinDecidir > 0 && ` / ${totalSinDecidir} sin decidir`}
-        </p>
       </div>
 
       <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
@@ -337,25 +367,6 @@ export default function HabilitarEstudiantes() {
       </div>
 
       <Paginacion pagina={pagina} ultima={ultimaPagina} total={inscritos.length} onCambiar={setPagina} />
-
-      <div className="flex justify-end gap-3 mt-4">
-        <button
-          type="button"
-          onClick={() => navigate('/')}
-          className="border border-gray-300 text-gray-700 rounded-lg px-4 py-2 text-sm font-medium"
-        >
-          Cancelar
-        </button>
-        <button
-          type="button"
-          onClick={guardar}
-          disabled={guardando || totalHabilitados + totalNoHabilitados === 0 || cerrado}
-          className="inline-flex items-center gap-2 bg-kairos-gradient text-white text-sm font-medium rounded-lg px-5 py-2 shadow-glow transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none"
-        >
-          <CheckIcon size={16} />
-          {guardando ? 'Guardando...' : 'Guardar habilitaciones'}
-        </button>
-      </div>
 
       </>
       )}

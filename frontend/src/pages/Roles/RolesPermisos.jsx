@@ -17,7 +17,7 @@ const ACCIONES = [
 // ("Registrar ...", "Editar ...", "Eliminar ..."); la habilitacion de estudiantes se hace
 // en una sola pantalla.
 const PANTALLAS_EXTRA = {
-  'habilitaciones.registrar': 'Inscribir estudiantes, Habilitar estudiantes',
+  'habilitaciones.registrar': 'Inscribir estudiantes, Habilitar/Deshabilitar estudiantes',
   'habilitaciones.editar': 'Desinscribir estudiantes y cambiar habilitaciones',
 };
 

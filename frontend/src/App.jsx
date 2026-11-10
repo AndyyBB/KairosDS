@@ -67,7 +67,7 @@ export default function App() {
         <Route path="ambientes/eliminar" element={con('ambientes.eliminar', <RegistrarAmbiente key="eliminar" modo="eliminar" />)} />
         <Route path="ambientes/eliminar/:id" element={con('ambientes.eliminar', <RegistrarAmbiente key="eliminar" modo="eliminar" />)} />
 
-        {/* Examenes: Lista, Programar, Editar, Eliminar y Habilitar estudiantes */}
+        {/* Examenes: Lista, Programar, Editar, Eliminar, Inscribir y Habilitar/Deshabilitar estudiantes */}
         <Route path="examenes" element={<EntrarModulo base="/examenes" />} />
         <Route path="examenes/lista" element={con('examenes.ver', <ExamenesList />)} />
         <Route path="examenes/programar" element={con('examenes.registrar', <ProgramarExamen key="registrar" modo="registrar" />)} />

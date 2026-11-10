@@ -14,14 +14,14 @@ import { UserMinusIcon, UserPlusIcon } from '../../components/Iconos';
 // - "Inscribir estudiantes": solo inscribe (ya no tiene botones "Quitar").
 // - "Desinscribir estudiantes": solo quita inscripciones (estudiantes seleccionados).
 // Despues de inscribir, cada estudiante se marca como Habilitado o No habilitado en la
-// pantalla "Habilitar estudiantes"; el Control de ingreso solo deja entrar a inscritos habilitados.
+// pantalla "Habilitar/Deshabilitar estudiantes"; el Control de ingreso solo deja entrar a inscritos habilitados.
 const TEXTOS = {
   inscribir: {
     titulo: 'Inscribir estudiantes',
     descripcion: 'Elige un examen y registra a los estudiantes que lo van a rendir.',
     ayuda: [
       'Inscribir es registrar qué estudiantes van a rendir el examen.',
-      'Solo los estudiantes inscritos aparecen en "Habilitar estudiantes", donde se decide si pueden ingresar, y solo ellos pueden registrar su ingreso el día del examen.',
+      'Solo los estudiantes inscritos aparecen en "Habilitar/Deshabilitar estudiantes", donde se decide si pueden ingresar, y solo ellos pueden registrar su ingreso el día del examen.',
       'Para quitar a un estudiante de un examen usa la pantalla "Desinscribir estudiantes".',
     ],
     vacio: 'Se mostrarán los estudiantes para inscribirlos en ese examen.',
@@ -142,7 +142,7 @@ export default function InscribirEstudiantes({ modo = 'inscribir' }) {
                 to={`/examenes/habilitar/${examenId}`}
                 className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-5 py-2 shadow-glow"
               >
-                Ir a Habilitar estudiantes
+                Ir a Habilitar/Deshabilitar estudiantes
               </Link>
             )}
           </div>
