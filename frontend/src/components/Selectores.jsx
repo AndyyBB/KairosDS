@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { primerError } from '../api/errores';
 import { fechaDMA, horaHM } from '../api/formato';
-import Buscador, { filtrosActivos } from './Buscador';
+import Buscador from './Buscador';
 import Paginacion from './Paginacion';
 import {
   useCamposAmbientes,
@@ -15,12 +15,11 @@ import {
   parametros,
 } from './catalogos';
 
-// Busqueda y seleccion del registro en las pantallas "Buscar ...", "Editar ..." y "Eliminar ...".
-// Sprint 4 (observacion 21 de la licenciada): ya no hay listas de registros. La pantalla abre
-// con el buscador vacio y SIN registros; los resultados aparecen solo despues de buscar (texto
-// o filtros) y sirven unicamente para seleccionar uno. Al hacer clic en una fila se selecciona
-// el registro, la tabla se oculta y aparece su formulario: en solo lectura (Buscar), con los
-// campos habilitados para editar, o en solo lectura con el boton "Eliminar".
+// Seleccion del registro en las pantallas "Editar ..." y "Eliminar ...".
+// La pantalla abre con la tabla de registros (busqueda, filtros y paginas). Al hacer clic
+// en una fila se selecciona el registro, la tabla se oculta y aparece su formulario: con los campos habilitados
+// para editar, o en solo lectura con el boton "Eliminar". La tabla no tiene botones de
+// editar ni eliminar: solo sirve para elegir el registro de esta pantalla.
 
 const tarjeta = 'bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5';
 const POR_PAGINA = 10;
@@ -42,23 +41,14 @@ export function TablaSeleccion({
   const [filtros, setFiltros] = useState({});
   const [pagina, setPagina] = useState(1);
   const [datos, setDatos] = useState({ items: [], ultima: 1, total: 0 });
-  const [cargando, setCargando] = useState(false);
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
-  // false hasta que se busca algo: sin busqueda no se muestra ningun registro.
-  const [buscado, setBuscado] = useState(false);
   const ultima = useRef(0);
 
   async function consultar(p = 1, f = filtros, b = buscar) {
     const n = ++ultima.current;
-    setError('');
-    if (!b.trim() && filtrosActivos(f).length === 0) {
-      setBuscado(false);
-      setDatos({ items: [], ultima: 1, total: 0 });
-      setCargando(false);
-      return;
-    }
-    setBuscado(true);
     setCargando(true);
+    setError('');
     try {
       const res = await cargar({ buscar: b.trim(), filtros: f, pagina: p });
       if (n !== ultima.current) return;
@@ -71,10 +61,8 @@ export function TablaSeleccion({
     }
   }
 
-  // Al volver a la busqueda (despues de ver, editar o eliminar un registro) se repite la
-  // ultima busqueda para mostrar los datos actualizados.
   useEffect(() => {
-    if (!seleccionado && buscado) consultar(pagina);
+    if (!seleccionado) consultar(pagina);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Boolean(seleccionado)]);
 
@@ -85,7 +73,7 @@ export function TablaSeleccion({
   return (
     <div className={tarjeta}>
       <h2 className="text-base font-semibold text-gray-800">{titulo}</h2>
-      <p className="text-xs text-gray-500 mb-3">Busca el registro y haz clic en su fila para seleccionarlo.</p>
+      <p className="text-xs text-gray-500 mb-3">Haz clic en una fila para seleccionarla.</p>
 
       <Buscador
         valor={buscar}
@@ -102,14 +90,6 @@ export function TablaSeleccion({
 
       {error && <p className="text-sm text-red-600 mb-2">{error}</p>}
 
-      {!buscado && (
-        <p className="rounded-lg border border-dashed border-kairos-200 bg-kairos-50/40 px-4 py-6 text-center text-sm text-gray-500">
-          Escribe en el buscador o usa "Filtros" y presiona "Buscar" para ver los resultados.
-        </p>
-      )}
-
-      {buscado && (
-      <>
       <div className="overflow-x-auto rounded-lg border border-gray-100">
         <table className="w-full min-w-[620px] text-sm">
           <thead className="bg-kairos-50/80 text-kairos-800 text-left">
@@ -151,8 +131,6 @@ export function TablaSeleccion({
       </div>
 
       <Paginacion pagina={pagina} ultima={datos.ultima} total={datos.total} onCambiar={(p) => consultar(p)} />
-      </>
-      )}
     </div>
   );
 }
@@ -191,7 +169,7 @@ export function SelectorLista({ etiqueta, placeholder, opciones, valor, onElegir
   );
 }
 
-const VERBO = { datos: 'consultar', editar: 'editar', eliminar: 'eliminar' };
+const VERBO = { editar: 'editar', eliminar: 'eliminar' };
 
 // ---------------- Tablas de seleccion de cada modulo ----------------
 
@@ -201,7 +179,7 @@ export function SelectorEstudiante({ modo, seleccionado }) {
   return (
     <TablaSeleccion
       etiqueta="Estudiante"
-      titulo={`Busca y selecciona el estudiante que quieres ${VERBO[modo]}`}
+      titulo={`Selecciona el estudiante que quieres ${VERBO[modo]}`}
       placeholder="Buscar por código, documento o nombre..."
       campos={campos}
       columnas={[
@@ -234,7 +212,7 @@ export function SelectorUsuario({ modo, seleccionado }) {
   return (
     <TablaSeleccion
       etiqueta="Usuario"
-      titulo={`Busca y selecciona el usuario que quieres ${VERBO[modo]}`}
+      titulo={`Selecciona el usuario que quieres ${VERBO[modo]}`}
       placeholder="Buscar por nombre o correo electrónico..."
       campos={campos}
       columnas={[
@@ -265,7 +243,7 @@ export function SelectorAmbiente({ modo, seleccionado }) {
   return (
     <TablaSeleccion
       etiqueta="Ambiente"
-      titulo={`Busca y selecciona el ambiente que quieres ${VERBO[modo]}`}
+      titulo={`Selecciona el ambiente que quieres ${VERBO[modo]}`}
       placeholder="Buscar por nombre o ubicación..."
       campos={campos}
       columnas={[
@@ -304,8 +282,8 @@ export function SelectorExamen({ modo, seleccionado }) {
       etiqueta="Examen"
       titulo={
         modo === 'editar'
-          ? 'Busca y selecciona el examen que quieres editar (solo los que todavía no finalizaron)'
-          : `Busca y selecciona el examen que quieres ${VERBO[modo]}`
+          ? 'Selecciona el examen que quieres editar (solo los que todavía no finalizaron)'
+          : 'Selecciona el examen que quieres eliminar'
       }
       placeholder="Buscar por asignatura..."
       campos={campos}

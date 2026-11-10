@@ -91,7 +91,7 @@ export default function Layout() {
   }, [menuAbierto]);
 
   // Clic en un modulo: si no se esta en el, el sistema redirige a su primera pantalla
-  // (Buscar ...); si ya se esta en el, solo se pliega o despliega el submenu.
+  // (Lista de ...); si ya se esta en el, solo se pliega o despliega el submenu.
   // Con el menu oculto, el clic en el icono de un modulo vuelve a mostrar el menu.
   function clicModulo(modulo) {
     if (compacto) {

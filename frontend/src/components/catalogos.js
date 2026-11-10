@@ -167,9 +167,7 @@ export function useCamposUsuarios() {
 }
 
 // ---------------- Filtros que se aplican en el navegador ----------------
-// La busqueda no distingue mayusculas ni tildes ("algebra" encuentra "Álgebra").
-const sinTildes = (v) => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-const incluye = (v, t) => sinTildes(v).includes(sinTildes(t));
+const incluye = (v, t) => String(v ?? '').toLowerCase().includes(t);
 
 export function filtrarAmbientes(lista, buscar = '', f = {}) {
   const t = buscar.trim().toLowerCase();

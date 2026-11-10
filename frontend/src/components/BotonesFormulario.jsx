@@ -3,7 +3,7 @@
 // - registrar: Cancelar y Guardar.
 // - editar: Cancelar y Guardar (Guardar se oculta si el registro ya no se puede editar).
 // - eliminar: Cancelar y Eliminar (con confirmacion).
-// - datos (se abre desde "Buscar ...", solo para ver): Volver a la búsqueda.
+// - datos (se abre desde la lista, solo para ver): Volver a la lista.
 // Cada boton lleva su propia "key" para que un boton no se convierta en otro (submit)
 // en el mismo clic.
 const claseSecundario = 'border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg px-4 py-2 text-sm font-medium';
@@ -27,7 +27,7 @@ export default function BotonesFormulario({
     return (
       <div className="flex justify-end pt-2">
         <button key="salir" type="button" onClick={onSalir} className={claseSecundario}>
-          Volver a la búsqueda
+          Volver a la lista
         </button>
       </div>
     );

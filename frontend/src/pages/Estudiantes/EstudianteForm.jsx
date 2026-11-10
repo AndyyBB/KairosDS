@@ -39,7 +39,7 @@ const TEXTOS = {
 
 // HU-01 Registrar estudiante, HU-06 Editar estudiante y HU-07 Eliminar estudiante: cada
 // accion es una pantalla independiente del menu Estudiantes. "Datos del estudiante" se abre
-// desde la pantalla "Buscar ..." (clic en el nombre) y solo muestra los datos.
+// desde la Lista de estudiantes (clic en el nombre) y solo muestra los datos.
 export default function EstudianteForm({ modo = 'registrar' }) {
   const { id } = useParams();
   const editando = Boolean(id); // hay un estudiante cargado (datos, editar o eliminar)
@@ -393,7 +393,7 @@ export default function EstudianteForm({ modo = 'registrar' }) {
           guardando={guardando}
           eliminando={eliminando}
           onCancelar={cancelar}
-          onSalir={() => navigate('/estudiantes/buscar')}
+          onSalir={() => navigate('/estudiantes/lista')}
           onEliminar={eliminar}
         />
       </form>

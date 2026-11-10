@@ -49,8 +49,7 @@ export default function App() {
 
         {/* Estudiantes: Lista (clic en el nombre -> Datos, solo lectura), Registrar, Editar y Eliminar */}
         <Route path="estudiantes" element={<EntrarModulo base="/estudiantes" />} />
-        <Route path="estudiantes/buscar" element={con('estudiantes.ver', <EstudiantesList />)} />
-        <Route path="estudiantes/lista" element={<Navigate to="/estudiantes/buscar" replace />} />
+        <Route path="estudiantes/lista" element={con('estudiantes.ver', <EstudiantesList />)} />
         <Route path="estudiantes/registrar" element={con('estudiantes.registrar', <EstudianteForm key="registrar" modo="registrar" />)} />
         <Route path="estudiantes/datos/:id" element={con('estudiantes.ver', <EstudianteForm key="datos" modo="datos" />)} />
         <Route path="estudiantes/editar" element={con('estudiantes.editar', <EstudianteForm key="editar" modo="editar" />)} />
@@ -60,8 +59,7 @@ export default function App() {
 
         {/* Ambientes */}
         <Route path="ambientes" element={<EntrarModulo base="/ambientes" />} />
-        <Route path="ambientes/buscar" element={con('ambientes.ver', <AmbientesList />)} />
-        <Route path="ambientes/lista" element={<Navigate to="/ambientes/buscar" replace />} />
+        <Route path="ambientes/lista" element={con('ambientes.ver', <AmbientesList />)} />
         <Route path="ambientes/registrar" element={con('ambientes.registrar', <RegistrarAmbiente key="registrar" modo="registrar" />)} />
         <Route path="ambientes/datos/:id" element={con('ambientes.ver', <RegistrarAmbiente key="datos" modo="datos" />)} />
         <Route path="ambientes/editar" element={con('ambientes.editar', <RegistrarAmbiente key="editar" modo="editar" />)} />
@@ -69,10 +67,9 @@ export default function App() {
         <Route path="ambientes/eliminar" element={con('ambientes.eliminar', <RegistrarAmbiente key="eliminar" modo="eliminar" />)} />
         <Route path="ambientes/eliminar/:id" element={con('ambientes.eliminar', <RegistrarAmbiente key="eliminar" modo="eliminar" />)} />
 
-        {/* Examenes: Buscar, Programar, Editar, Eliminar, Inscribir y Habilitar/Deshabilitar estudiantes */}
+        {/* Examenes: Lista, Programar, Editar, Eliminar, Inscribir y Habilitar/Deshabilitar estudiantes */}
         <Route path="examenes" element={<EntrarModulo base="/examenes" />} />
-        <Route path="examenes/buscar" element={con('examenes.ver', <ExamenesList />)} />
-        <Route path="examenes/lista" element={<Navigate to="/examenes/buscar" replace />} />
+        <Route path="examenes/lista" element={con('examenes.ver', <ExamenesList />)} />
         <Route path="examenes/programar" element={con('examenes.registrar', <ProgramarExamen key="registrar" modo="registrar" />)} />
         <Route path="examenes/datos/:id" element={con('examenes.ver', <ProgramarExamen key="datos" modo="datos" />)} />
         <Route path="examenes/editar" element={con('examenes.editar', <ProgramarExamen key="editar" modo="editar" />)} />
@@ -92,8 +89,7 @@ export default function App() {
 
         {/* Usuarios */}
         <Route path="usuarios" element={<EntrarModulo base="/usuarios" />} />
-        <Route path="usuarios/buscar" element={con('usuarios.ver', <UsuariosList />)} />
-        <Route path="usuarios/lista" element={<Navigate to="/usuarios/buscar" replace />} />
+        <Route path="usuarios/lista" element={con('usuarios.ver', <UsuariosList />)} />
         <Route path="usuarios/registrar" element={con('usuarios.registrar', <UsuarioForm key="registrar" modo="registrar" />)} />
         <Route path="usuarios/datos/:id" element={con('usuarios.ver', <UsuarioForm key="datos" modo="datos" />)} />
         <Route path="usuarios/editar" element={con('usuarios.editar', <UsuarioForm key="editar" modo="editar" />)} />

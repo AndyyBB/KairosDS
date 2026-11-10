@@ -49,8 +49,8 @@ const TEXTOS = {
 
 // HU-02 Programar examen, HU-08 Editar examen y HU-09 Eliminar examen: cada accion es una
 // pantalla independiente del menu Examenes. Campos: Asignatura, Fecha, Hora de inicio,
-// Duracion, Ambientes y Normas del examen. "Datos del examen" se abre desde "Buscar examen"
-// (clic en el examen encontrado) y solo muestra los datos.
+// Duracion, Ambientes y Normas del examen. "Datos del examen" se abre desde la Lista de
+// examenes (clic en la asignatura) y solo muestra los datos.
 export default function ProgramarExamen({ modo = 'registrar' }) {
   const { id } = useParams();
   const editando = Boolean(id);
@@ -467,7 +467,7 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
           guardando={guardando}
           eliminando={cancelando}
           onCancelar={cancelar}
-          onSalir={() => navigate('/examenes/buscar')}
+          onSalir={() => navigate('/examenes/lista')}
           onEliminar={eliminarExamen}
         />
       </form>
