@@ -19,7 +19,9 @@ class StoreEstudianteRequest extends FormRequest
         return [
             'codigo_universitario' => ['bail', 'required', 'string', 'max:15', 'regex:/^[0-9]+$/', 'unique:estudiantes,codigo_universitario'],
             'documento_identidad' => ['bail', 'required', 'string', 'max:20', 'unique:estudiantes,documento_identidad'],
-            'nombre_completo' => ['bail', 'required', 'string', 'max:100', 'regex:/^[\pL\s]+$/u'],
+            // Sprint 4 (observacion 1): Nombres y Apellidos son dos campos separados.
+            'nombres' => ['bail', 'required', 'string', 'max:50', 'regex:/^[\pL\s]+$/u'],
+            'apellidos' => ['bail', 'required', 'string', 'max:50', 'regex:/^[\pL\s]+$/u'],
             'correo_institucional' => ['bail', 'required', 'string', 'max:100', 'regex:/^[0-9]+@est\.umss\.edu$/i', 'unique:estudiantes,correo_institucional'],
             'carreras' => ['bail', 'required', 'array', 'min:1'],
             'carreras.*' => ['bail', 'required', 'integer', 'distinct', 'exists:carreras,id'],

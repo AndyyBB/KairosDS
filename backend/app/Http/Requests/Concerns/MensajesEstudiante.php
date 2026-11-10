@@ -20,10 +20,14 @@ trait MensajesEstudiante
             'documento_identidad.max' => 'El campo Documento de identidad tiene un límite de 20 caracteres.',
             'documento_identidad.unique' => 'El documento de identidad ya está registrado.',
 
-            'nombre_completo.required' => 'El campo Nombre completo es obligatorio.',
-            'nombre_completo.string' => 'El nombre solo contiene letras.',
-            'nombre_completo.max' => 'El campo Nombre completo tiene un límite de 100 caracteres.',
-            'nombre_completo.regex' => 'El nombre solo contiene letras.',
+            'nombres.required' => 'El campo Nombres es obligatorio.',
+            'nombres.string' => 'Los nombres solo contienen letras.',
+            'nombres.max' => 'El campo Nombres tiene un límite de 50 caracteres.',
+            'nombres.regex' => 'Los nombres solo contienen letras.',
+            'apellidos.required' => 'El campo Apellidos es obligatorio.',
+            'apellidos.string' => 'Los apellidos solo contienen letras.',
+            'apellidos.max' => 'El campo Apellidos tiene un límite de 50 caracteres.',
+            'apellidos.regex' => 'Los apellidos solo contienen letras.',
 
             'correo_institucional.required' => 'El campo Correo institucional es obligatorio.',
             'correo_institucional.string' => 'El correo electrónico no es válido.',

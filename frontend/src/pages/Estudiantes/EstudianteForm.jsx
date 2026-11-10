@@ -22,7 +22,9 @@ import {
 const initial = {
   codigo_universitario: '',
   documento_identidad: '',
-  nombre_completo: '',
+  // Sprint 4 (observacion 1 de la licenciada): Nombres y Apellidos son campos separados.
+  nombres: '',
+  apellidos: '',
   correo_institucional: '',
   carreras: [''],
 };
@@ -70,6 +72,8 @@ export default function EstudianteForm({ modo = 'registrar' }) {
           const datos = {
             codigo_universitario: res.data.codigo_universitario ?? '',
             documento_identidad: res.data.documento_identidad ?? '',
+            nombres: res.data.nombres ?? res.data.nombre_completo ?? '',
+            apellidos: res.data.apellidos ?? '',
             nombre_completo: res.data.nombre_completo ?? '',
             correo_institucional: res.data.correo_institucional ?? '',
             carreras: ids,
@@ -164,10 +168,12 @@ export default function EstudianteForm({ modo = 'registrar' }) {
     const payload = {
       codigo_universitario: form.codigo_universitario,
       documento_identidad: form.documento_identidad,
-      nombre_completo: form.nombre_completo,
+      nombres: form.nombres.trim(),
+      apellidos: form.apellidos.trim(),
       correo_institucional: form.correo_institucional,
       carreras: carrerasElegidas,
     };
+    const nombreCompleto = `${payload.nombres} ${payload.apellidos}`.trim();
     try {
       if (editando) {
         // Solo se envian los datos que se pueden modificar.
@@ -185,7 +191,7 @@ export default function EstudianteForm({ modo = 'registrar' }) {
       const res = await api.post('/estudiantes', payload);
       // HU-01 (14): el sistema muestra el mensaje y deja el formulario listo para otro registro.
       setRegistrado({
-        nombre_completo: res.data?.nombre_completo ?? payload.nombre_completo,
+        nombre_completo: res.data?.nombre_completo ?? nombreCompleto,
         codigo_universitario: res.data?.codigo_universitario ?? payload.codigo_universitario,
       });
       setForm(initial);
@@ -273,14 +279,27 @@ export default function EstudianteForm({ modo = 'registrar' }) {
           />
         </Campo>
 
-        <Campo label="Nombre completo" icon={<UserIcon />} error={errores.nombre_completo}>
-          <input
-            className="input"
-            value={form.nombre_completo}
-            disabled={datosFijos}
-            onChange={(e) => set('nombre_completo', e.target.value)}
-          />
-        </Campo>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Campo label="Nombres" icon={<UserIcon />} error={errores.nombres}>
+            <input
+              className="input"
+              placeholder="Ej. Ana María"
+              value={form.nombres}
+              disabled={datosFijos}
+              onChange={(e) => set('nombres', e.target.value)}
+            />
+          </Campo>
+
+          <Campo label="Apellidos" icon={<UserIcon />} error={errores.apellidos}>
+            <input
+              className="input"
+              placeholder="Ej. Rivero Claros"
+              value={form.apellidos}
+              disabled={datosFijos}
+              onChange={(e) => set('apellidos', e.target.value)}
+            />
+          </Campo>
+        </div>
 
         <Campo label="Correo institucional" icon={<MailIcon />} error={errores.correo_institucional}>
           <input

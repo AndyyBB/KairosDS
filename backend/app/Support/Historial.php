@@ -126,7 +126,7 @@ class Historial
     {
         return match (true) {
             $m instanceof Estudiante => ['Estudiantes', "Estudiante {$m->codigo_universitario} ({$m->nombre_completo})", [
-                'codigo_universitario' => 'Código', 'documento_identidad' => 'Documento', 'nombre_completo' => 'Nombre',
+                'codigo_universitario' => 'Código', 'documento_identidad' => 'Documento', 'nombres' => 'Nombres', 'apellidos' => 'Apellidos',
                 'correo_institucional' => 'Correo', 'carrera_id' => 'Carrera', 'activo' => 'Activo',
             ]],
             $m instanceof Ambiente => ['Ambientes', "Ambiente {$m->nombre}", [

@@ -14,6 +14,8 @@ class Estudiante extends Model
     protected $fillable = [
         'codigo_universitario',
         'documento_identidad',
+        'nombres',
+        'apellidos',
         'nombre_completo',
         'correo_institucional',
         'carrera_id',
@@ -21,6 +23,19 @@ class Estudiante extends Model
     ];
 
     protected $casts = ['activo' => 'boolean'];
+
+    // Sprint 4 (observacion 1): el nombre se registra en Nombres y Apellidos; nombre_completo
+    // ("Nombres Apellidos") se arma solo y es el que muestran las listas y los reportes.
+    protected static function booted(): void
+    {
+        static::saving(function (Estudiante $e) {
+            if ($e->isDirty(['nombres', 'apellidos']) && ($e->nombres || $e->apellidos)) {
+                $e->nombres = trim(preg_replace('/\s+/', ' ', (string) $e->nombres));
+                $e->apellidos = trim(preg_replace('/\s+/', ' ', (string) $e->apellidos));
+                $e->nombre_completo = mb_substr(trim(preg_replace('/\s+/', ' ', trim($e->nombres.' '.$e->apellidos))), 0, 100);
+            }
+        });
+    }
 
     public function carrera(): BelongsTo
     {
