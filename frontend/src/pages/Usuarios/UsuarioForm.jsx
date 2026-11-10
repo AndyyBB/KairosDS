@@ -32,19 +32,25 @@ const FORM_INICIAL = {
 const TEXTOS = {
   registrar: { titulo: 'Registrar usuario', descripcion: 'Crea la cuenta de un docente o del personal de control de ingreso.' },
   datos: { titulo: 'Datos del usuario', descripcion: 'Información registrada del usuario.' },
-  editar: { titulo: 'Editar usuario', descripcion: 'Selecciona al usuario, modifica sus datos y presiona "Guardar".' },
+  editar: { titulo: 'Editar usuario', descripcion: 'Selecciona al usuario, cambia su rol, su estado o su contraseña y presiona "Guardar".' },
   eliminar: { titulo: 'Eliminar usuario', descripcion: 'Selecciona al usuario, revisa sus datos y presiona "Eliminar".' },
 };
 
 // HU-15 Registrar usuario, HU-32 Editar usuario y HU-33 Eliminar usuario: cada accion es una
 // pantalla independiente del menu Usuarios. "Datos del usuario" se abre desde la Lista de
 // usuarios (clic en el nombre) y solo muestra los datos.
+// Sprint 4 (observaciones 17 y 18 de la licenciada): al editar solo se cambian el rol (que se
+// guarda por periodos), el estado y la contrasena; la eliminacion es logica (la cuenta queda
+// NO ACTIVA y se conserva todo lo que el usuario registro).
 export default function UsuarioForm({ modo = 'registrar' }) {
   const { id } = useParams();
   const editando = Boolean(id); // hay un usuario cargado (datos, editar o eliminar)
   const modoEdicion = modo === 'editar';
   const [original, setOriginal] = useState(null);
   const soloLectura = modo === 'datos' || modo === 'eliminar';
+  // Nombres y apellidos solo se escriben al registrar; despues quedan fijos.
+  const datosFijos = soloLectura || modoEdicion;
+  const [historialRoles, setHistorialRoles] = useState([]);
   const navigate = useNavigate();
 
   const [roles, setRoles] = useState([]);
@@ -58,7 +64,7 @@ export default function UsuarioForm({ modo = 'registrar' }) {
   const { tiene } = useAuth();
 
   async function eliminar() {
-    if (!confirm(`¿Eliminar a ${form.nombre_completo}? Su cuenta se borrará definitivamente.`)) return;
+    if (!confirm(`¿Eliminar a ${form.nombre_completo}? Su cuenta quedará como NO ACTIVA y ya no podrá iniciar sesión.`)) return;
     setEliminando(true);
     setError(null);
     try {
@@ -90,6 +96,7 @@ export default function UsuarioForm({ modo = 'registrar' }) {
         };
         setForm(datos);
         setOriginal(datos);
+        setHistorialRoles(u.historial_roles ?? []);
       }
     }
     cargar();
@@ -130,18 +137,18 @@ export default function UsuarioForm({ modo = 'registrar' }) {
     setGuardando(true);
     try {
       if (editando) {
+        // Solo se envian los datos que se pueden modificar.
         const payload = {
-          nombres: form.nombres,
-          apellidos: form.apellidos,
           rol_id: form.rol_id,
           activo: form.activo,
         };
         if (form.password) payload.password = form.password;
-        await api.put(`/usuarios/${id}`, payload);
+        const res = await api.put(`/usuarios/${id}`, payload);
         // Vuelve a mostrar los datos (ya guardados) sin poder modificarlos.
-        const guardado = { ...form, password: '', nombre_completo: `${form.nombres.trim()} ${form.apellidos.trim()}`.trim() };
+        const guardado = { ...form, password: '' };
         setForm(guardado);
         setOriginal(guardado);
+        setHistorialRoles(res.data?.historial_roles ?? historialRoles);
         setVerPassword(false);
         setMensaje('Usuario actualizado con éxito.');
         return;
@@ -190,9 +197,16 @@ export default function UsuarioForm({ modo = 'registrar' }) {
 
       {(modo === 'registrar' || editando) && (
         <>
+          {modo === 'editar' && (
+            <p className="mb-4 rounded-lg border border-kairos-100 bg-kairos-50/60 px-4 py-3 text-sm text-kairos-800">
+              Solo se pueden modificar el rol, el estado y la contraseña. Los nombres, los apellidos y el correo (con el que
+              inicia sesión) no se editan. Cada cambio de rol queda guardado con su fecha en el historial de roles.
+            </p>
+          )}
           {modo === 'eliminar' && (
             <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              Revisa los datos antes de eliminar. La cuenta se borrará definitivamente y el usuario ya no podrá ingresar al sistema.
+              Revisa los datos antes de eliminar. La cuenta no se borra de la base de datos: queda como NO ACTIVA, el usuario
+              ya no podrá ingresar al sistema y se conserva todo lo que registró (exámenes, habilitaciones, ingresos e incidencias).
             </p>
           )}
 
@@ -206,6 +220,7 @@ export default function UsuarioForm({ modo = 'registrar' }) {
               className="input"
               maxLength={60}
               value={form.nombres}
+              disabled={datosFijos}
               onChange={(e) => setForm({ ...form, nombres: e.target.value })}
             />
             {errores.nombres && <p className="text-xs text-red-600 mt-1">{errores.nombres[0]}</p>}
@@ -216,6 +231,7 @@ export default function UsuarioForm({ modo = 'registrar' }) {
               className="input"
               maxLength={60}
               value={form.apellidos}
+              disabled={datosFijos}
               onChange={(e) => setForm({ ...form, apellidos: e.target.value })}
             />
             {errores.apellidos && <p className="text-xs text-red-600 mt-1">{errores.apellidos[0]}</p>}
@@ -294,6 +310,37 @@ export default function UsuarioForm({ modo = 'registrar' }) {
           )}
           {errores.activo && <p className="text-xs text-red-600 mt-1">{errores.activo[0]}</p>}
         </div>
+        )}
+
+        {/* Sprint 4: historial del rol con su periodo de vigencia */}
+        {editando && historialRoles.length > 0 && (
+          <div>
+            <p className="text-sm font-medium text-gray-600 mb-1">Historial de roles</p>
+            <div className="overflow-x-auto rounded-lg border border-gray-100">
+              <table className="w-full text-sm">
+                <thead className="bg-kairos-50/80 text-kairos-800 text-left">
+                  <tr>
+                    <th className="px-3 py-2">Rol</th>
+                    <th className="px-3 py-2">Desde</th>
+                    <th className="px-3 py-2">Hasta</th>
+                    <th className="px-3 py-2">Asignado por</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historialRoles.map((r) => (
+                    <tr key={r.id} className="border-t border-gray-100">
+                      <td className="px-3 py-2">{r.rol.charAt(0).toUpperCase() + r.rol.slice(1)}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.desde}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {r.hasta ?? <span className="text-kairos-700 font-medium">Vigente</span>}
+                      </td>
+                      <td className="px-3 py-2 text-gray-500">{r.asignado_por ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
         </fieldset>
 

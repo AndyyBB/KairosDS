@@ -8,6 +8,8 @@ use App\Http\Requests\UpdateUsuarioRequest;
 use App\Mail\CuentaCreada;
 use App\Models\Role;
 use App\Models\Usuario;
+use App\Support\Historial;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -16,9 +18,10 @@ use Illuminate\Support\Facades\Mail;
 
 class UsuarioController extends Controller
 {
+    // Los usuarios eliminados (baja logica, Sprint 4) ya no aparecen.
     public function index()
     {
-        return Usuario::with('rol')->orderBy('nombre_completo')->get();
+        return Usuario::with('rol')->whereNull('eliminado_en')->orderBy('nombre_completo')->get();
     }
 
     // Catalogo de roles disponibles, usado por el formulario de HU-15.
@@ -40,6 +43,8 @@ class UsuarioController extends Controller
             'rol_id' => $data['rol_id'],
         ]);
         $usuario->load('rol');
+        // Sprint 4 (observacion 17): el rol queda vigente desde ahora.
+        $this->abrirPeriodoRol($usuario, (int) $usuario->rol_id, $request->user()?->id);
 
         // Sprint 4 (observacion 4): se avisa al usuario por correo que se creo su cuenta.
         // Si el correo no se puede enviar, la cuenta igual queda creada y se informa.
@@ -62,31 +67,35 @@ class UsuarioController extends Controller
 
     public function show(Usuario $usuario)
     {
-        return $usuario->load('rol');
+        return [...$usuario->load('rol')->toArray(), 'historial_roles' => $this->historialRoles($usuario)];
     }
 
+    // HU-32 (Sprint 4, observacion 17): solo se cambian el rol, el estado y la contrasena
+    // (ver UpdateUsuarioRequest). El cambio de rol se guarda por periodos (desde / hasta).
     public function update(UpdateUsuarioRequest $request, Usuario $usuario)
     {
-        $data = $request->validated();
+        if ($usuario->eliminado_en) {
+            return response()->json(['message' => 'El usuario fue eliminado y ya no se puede editar.'], 422);
+        }
 
-        // HU-32: al desactivar una cuenta se protege la propia cuenta y al ultimo administrador activo.
+        $data = $request->validated();
+        $yo = $request->user();
+        $cambiaRol = array_key_exists('rol_id', $data) && (int) $data['rol_id'] !== (int) $usuario->rol_id;
+
+        if ($cambiaRol && $yo?->id === $usuario->id) {
+            return $this->errorCampo('rol_id', 'No puedes cambiar tu propio rol.');
+        }
+        if ($cambiaRol && $usuario->esAdministrador() && $this->adminsActivos() <= 1) {
+            return $this->errorCampo('rol_id', 'No se puede quitar el rol de administrador al único administrador activo.');
+        }
+
+        // Al desactivar una cuenta se protege la propia cuenta y al ultimo administrador activo.
         if (array_key_exists('activo', $data) && ! $data['activo'] && $usuario->activo) {
-            if ($request->user()?->id === $usuario->id) {
-                return response()->json([
-                    'message' => 'No puedes desactivar tu propia cuenta.',
-                    'errors' => ['activo' => ['No puedes desactivar tu propia cuenta.']],
-                ], 422);
+            if ($yo?->id === $usuario->id) {
+                return $this->errorCampo('activo', 'No puedes desactivar tu propia cuenta.');
             }
-            if ($usuario->esAdministrador()) {
-                $adminsActivos = Usuario::where('activo', true)
-                    ->whereHas('rol', fn ($q) => $q->where('nombre', 'administrador'))
-                    ->count();
-                if ($adminsActivos <= 1) {
-                    return response()->json([
-                        'message' => 'No se puede desactivar al único administrador activo.',
-                        'errors' => ['activo' => ['No se puede desactivar al único administrador activo.']],
-                    ], 422);
-                }
+            if ($usuario->esAdministrador() && $this->adminsActivos() <= 1) {
+                return $this->errorCampo('activo', 'No se puede desactivar al único administrador activo.');
             }
         }
 
@@ -95,54 +104,113 @@ class UsuarioController extends Controller
         }
         unset($data['password']);
 
-        $usuario->update($data);
+        DB::transaction(function () use ($usuario, $data, $cambiaRol, $yo) {
+            if ($cambiaRol) {
+                $this->cerrarPeriodoRol($usuario);
+                $this->abrirPeriodoRol($usuario, (int) $data['rol_id'], $yo?->id);
+            }
+            $usuario->update($data);
+        });
 
-        // Un usuario desactivado pierde sus sesiones abiertas y ya no puede ingresar.
-        if (array_key_exists('activo', $data) && ! $data['activo']) {
+        // Un usuario desactivado o con otro rol vuelve a iniciar sesion (sus permisos cambiaron).
+        if ((array_key_exists('activo', $data) && ! $data['activo']) || $cambiaRol) {
             $usuario->tokens()->delete();
         }
 
-        return $usuario->load('rol');
+        return [...$usuario->load('rol')->toArray(), 'historial_roles' => $this->historialRoles($usuario)];
     }
 
-    // El usuario se elimina definitivamente de la base de datos. No se puede eliminar la
-    // propia cuenta, ni al ultimo administrador, ni a un usuario que registro examenes,
-    // habilitaciones o ingresos (esos registros quedarian sin responsable).
+    // HU-33 (Sprint 4, observacion 18): la eliminacion es LOGICA. El usuario no se borra de la
+    // base de datos: queda marcado como eliminado y NO ACTIVO, ya no puede iniciar sesion ni
+    // aparece en el sistema, y se conservan los examenes, habilitaciones, ingresos e
+    // incidencias que registro (y su nombre en el historial). No se puede eliminar la propia
+    // cuenta ni al ultimo administrador activo.
     public function destroy(Request $request, Usuario $usuario)
     {
+        if ($usuario->eliminado_en) {
+            return response()->json(['message' => 'El usuario ya fue eliminado.'], 422);
+        }
         if ($request->user()?->id === $usuario->id) {
             return response()->json(['message' => 'No puedes eliminar tu propia cuenta.'], 409);
         }
-
-        if ($usuario->esAdministrador()) {
-            $admins = Usuario::whereHas('rol', fn ($q) => $q->where('nombre', 'administrador'))->count();
-            if ($admins <= 1) {
-                return response()->json(['message' => 'No se puede eliminar al único administrador.'], 409);
-            }
+        if ($usuario->esAdministrador() && $usuario->activo && $this->adminsActivos() <= 1) {
+            return response()->json(['message' => 'No se puede eliminar al único administrador activo.'], 409);
         }
 
-        $registros = [
-            'exámenes' => DB::table('examenes')->where('creado_por', $usuario->id)->exists(),
-            'habilitaciones' => DB::table('habilitaciones')->where('registrado_por', $usuario->id)->exists(),
-            'ingresos' => DB::table('ingresos')->where('usuario_id', $usuario->id)->exists()
-                || DB::table('expulsiones')->where('usuario_id', $usuario->id)->exists(),
-            'intentos de ingreso' => DB::table('intentos_ingreso')->where('usuario_id', $usuario->id)->exists(),
-            'incidencias' => DB::table('incidencias')->where('usuario_id', $usuario->id)->exists(),
-        ];
-        $conRegistros = array_keys(array_filter($registros));
-        if ($conRegistros) {
-            return response()->json([
-                'message' => 'No se puede eliminar el usuario porque registró '.implode(', ', $conRegistros).' en el sistema.',
-            ], 409);
-        }
-
-        DB::transaction(function () use ($usuario) {
-            DB::table('respaldos')->where('usuario_id', $usuario->id)->update(['usuario_id' => null]);
-            DB::table('inscripciones_examen')->where('registrado_por', $usuario->id)->update(['registrado_por' => null]);
+        DB::transaction(function () use ($request, $usuario) {
+            $this->cerrarPeriodoRol($usuario);
+            $usuario->forceFill([
+                'activo' => false,
+                'eliminado_en' => now(),
+                'eliminado_por' => $request->user()?->id,
+            ])->saveQuietly();
             $usuario->tokens()->delete();
-            $usuario->delete();
+
+            // HU-27: queda en el historial como eliminacion.
+            Historial::registrar(
+                'Eliminar',
+                'Usuarios',
+                "Usuario {$usuario->nombre_completo} ({$usuario->correo_electronico}) eliminado: queda como NO ACTIVO y se conserva todo lo que registró",
+                $usuario,
+                ['activo' => true],
+                ['activo' => false]
+            );
         });
 
         return response()->json(['message' => 'Usuario eliminado con éxito.']);
+    }
+
+    private function adminsActivos(): int
+    {
+        return Usuario::where('activo', true)
+            ->whereNull('eliminado_en')
+            ->whereHas('rol', fn ($q) => $q->where('nombre', 'administrador'))
+            ->count();
+    }
+
+    private function errorCampo(string $campo, string $mensaje)
+    {
+        return response()->json(['message' => $mensaje, 'errors' => [$campo => [$mensaje]]], 422);
+    }
+
+    private function abrirPeriodoRol(Usuario $usuario, int $rolId, ?int $asignadoPor): void
+    {
+        DB::table('usuario_rol_vigencia')->insert([
+            'usuario_id' => $usuario->id,
+            'rol_id' => $rolId,
+            'vigente_desde' => now('UTC'),
+            'asignado_por' => $asignadoPor,
+            'created_at' => now('UTC'),
+        ]);
+    }
+
+    private function cerrarPeriodoRol(Usuario $usuario): void
+    {
+        DB::table('usuario_rol_vigencia')
+            ->where('usuario_id', $usuario->id)
+            ->whereNull('vigente_hasta')
+            ->update(['vigente_hasta' => now('UTC')]);
+    }
+
+    // Periodos del rol del usuario, del mas reciente al mas antiguo (hora de La Paz).
+    private function historialRoles(Usuario $usuario): array
+    {
+        $tz = 'America/La_Paz';
+
+        return DB::table('usuario_rol_vigencia as v')
+            ->join('roles as r', 'r.id', '=', 'v.rol_id')
+            ->leftJoin('usuarios as a', 'a.id', '=', 'v.asignado_por')
+            ->where('v.usuario_id', $usuario->id)
+            ->orderByDesc('v.vigente_desde')
+            ->orderByDesc('v.id')
+            ->get(['v.id', 'r.nombre as rol', 'v.vigente_desde', 'v.vigente_hasta', 'a.nombre_completo as asignado_por'])
+            ->map(fn ($v) => [
+                'id' => $v->id,
+                'rol' => $v->rol,
+                'desde' => Carbon::parse($v->vigente_desde, 'UTC')->setTimezone($tz)->format('d/m/Y H:i'),
+                'hasta' => $v->vigente_hasta ? Carbon::parse($v->vigente_hasta, 'UTC')->setTimezone($tz)->format('d/m/Y H:i') : null,
+                'asignado_por' => $v->asignado_por,
+            ])
+            ->all();
     }
 }

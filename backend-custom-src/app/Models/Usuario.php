@@ -32,6 +32,7 @@ class Usuario extends Authenticatable
     protected $casts = [
         'bloqueado_hasta' => 'datetime',
         'ultimo_acceso' => 'datetime',
+        'eliminado_en' => 'datetime',
         'activo' => 'boolean',
     ];
 
@@ -40,7 +41,7 @@ class Usuario extends Authenticatable
     {
         static::saving(function (Usuario $u) {
             if ($u->isDirty(['nombres', 'apellidos']) && ($u->nombres || $u->apellidos)) {
-                $u->nombre_completo = trim(preg_replace('/\s+/', ' ', trim($u->nombres.' '.$u->apellidos)));
+                $u->nombre_completo = mb_substr(trim(preg_replace('/\s+/', ' ', trim($u->nombres.' '.$u->apellidos))), 0, 100);
             }
         });
     }
