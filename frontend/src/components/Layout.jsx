@@ -90,19 +90,17 @@ export default function Layout() {
     return () => window.removeEventListener('keydown', alTeclear);
   }, [menuAbierto]);
 
-  // Clic en un modulo: si no se esta en el, el sistema redirige a su primera pantalla
-  // (Lista de ...); si ya se esta en el, solo se pliega o despliega el submenu.
-  // Con el menu oculto, el clic en el icono de un modulo vuelve a mostrar el menu.
+  // Clic en un modulo: solo despliega o pliega sus opciones (no cambia de pantalla), para
+  // que la persona elija a cual entrar. El menu lateral se cierra (en celular) al elegir una
+  // opcion. Con el menu oculto (solo iconos), el clic en un modulo vuelve a mostrar el menu
+  // con ese modulo desplegado.
   function clicModulo(modulo) {
     if (compacto) {
       alternarMenu();
-    }
-    if (!moduloActual || moduloActual.base !== modulo.base) {
       setAbierto(modulo.base);
-      navigate(modulo.items[0].to);
       return;
     }
-    setAbierto((a) => (a === modulo.base && !compacto ? null : modulo.base));
+    setAbierto((a) => (a === modulo.base ? null : modulo.base));
   }
 
   const pantallaActual =
