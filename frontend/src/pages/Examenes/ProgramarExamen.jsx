@@ -8,6 +8,7 @@ import Aviso, { useMensajeFlash } from '../../components/Aviso';
 import { SelectorExamen, ambientesDeExamen } from '../../components/Selectores';
 import { fechaDMA } from '../../api/formato';
 import Encabezado from '../../components/Encabezado';
+import { AlertaIcon } from '../../components/Iconos';
 
 // Fecha (AAAA-MM-DD) y hora (HH:MM) actuales en la hora local del equipo.
 function fechaHoy() {
@@ -71,6 +72,14 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
   const [formOriginal, setFormOriginal] = useState(null);
   // Sprint 4 (observaciones 2 y 8): examen ya registrado con la misma asignatura, fecha y hora.
   const [duplicado, setDuplicado] = useState(null);
+  // La alerta del examen duplicado se muestra como ventana (modal) encima de la pantalla.
+  // Si se cierra, queda un aviso corto para volver a abrirla; se vuelve a abrir sola si se
+  // detecta otro examen duplicado o si se presiona "Guardar".
+  const [alertaAbierta, setAlertaAbierta] = useState(false);
+  const claveDuplicado = duplicado ? String(duplicado.id) : '';
+  useEffect(() => {
+    setAlertaAbierta(Boolean(claveDuplicado));
+  }, [claveDuplicado]);
   // Sprint 4 (observacion 14): registros que impiden eliminar el examen.
   const [bloqueoEliminar, setBloqueoEliminar] = useState(null); // null = sin consultar; [] = se puede
 
@@ -271,7 +280,7 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
       if (err?.response?.status === 409 && err.response.data?.duplicado) {
         // Examen duplicado: no se registra y se muestra la alerta con la opcion de editarlo.
         setDuplicado(err.response.data.duplicado);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setAlertaAbierta(true);
       } else {
         setErrores(erroresCampos(err));
       }
@@ -291,37 +300,22 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
 
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <Aviso mensaje={error} tipo="error" onCerrar={() => setError('')} />
-      {modo === 'registrar' && duplicado && (
-        <div role="alert" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-4 text-sm text-amber-900 shadow-sm">
-          <p className="font-semibold">Ya existe un examen de esta asignatura en ese horario</p>
-          <p className="mt-1">
-            {duplicado.asignatura} — {duplicado.fecha} a las {duplicado.hora}
-            {duplicado.duracion ? ` (${duplicado.duracion} min)` : ''} — {duplicado.ambientes}
-          </p>
-          <p className="mt-1">
-            No se puede registrar otro examen igual. Si necesitas más aulas o cambiar sus datos, edita ese examen.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {duplicado.editable && (
-              <button
-                type="button"
-                onClick={() => navigate(`/examenes/editar/${duplicado.id}`)}
-                className="bg-amber-600 text-white text-sm font-medium rounded-lg px-4 py-2 hover:bg-amber-700"
-              >
-                Ir a Editar examen
-              </button>
-            )}
-            {tiene('examenes.ver') && (
-              <button
-                type="button"
-                onClick={() => navigate(`/examenes/datos/${duplicado.id}`)}
-                className="border border-amber-400 text-amber-900 text-sm font-medium rounded-lg px-4 py-2 hover:bg-amber-100"
-              >
-                Ver datos del examen
-              </button>
-            )}
-          </div>
+      {modo === 'registrar' && duplicado && !alertaAbierta && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          <span>Ya existe un examen de esta asignatura en ese horario.</span>
+          <button type="button" onClick={() => setAlertaAbierta(true)} className="font-medium underline hover:text-amber-700">
+            Ver aviso
+          </button>
         </div>
+      )}
+      {modo === 'registrar' && duplicado && alertaAbierta && (
+        <AlertaDuplicado
+          duplicado={duplicado}
+          puedeVer={tiene('examenes.ver')}
+          onEditar={() => navigate(`/examenes/editar/${duplicado.id}`)}
+          onVer={() => navigate(`/examenes/datos/${duplicado.id}`)}
+          onCerrar={() => setAlertaAbierta(false)}
+        />
       )}
       {editando && cerrado && modo !== 'eliminar' && (
         <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -533,5 +527,84 @@ function DocIcon() {
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
       <path d="M14 2v6h6M9 13h6M9 17h6" />
     </svg>
+  );
+}
+
+// Sprint 4 (observacion 2): ventana de alerta encima de la pantalla cuando ya existe un examen
+// de la misma asignatura, el mismo dia y en un horario que se cruza. Se cierra con "Cerrar",
+// con la tecla Esc o haciendo clic fuera de la ventana.
+function AlertaDuplicado({ duplicado, puedeVer, onEditar, onVer, onCerrar }) {
+  useEffect(() => {
+    const alPresionar = (e) => e.key === 'Escape' && onCerrar();
+    window.addEventListener('keydown', alPresionar);
+    return () => window.removeEventListener('keydown', alPresionar);
+  }, [onCerrar]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-kairos-950/40 backdrop-blur-sm flex items-center justify-center p-4"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="titulo-duplicado"
+      onClick={onCerrar}
+    >
+      <div
+        className="bg-white rounded-xl shadow-2xl ring-1 ring-amber-200 w-full max-w-lg p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+            <AlertaIcon size={22} />
+          </span>
+          <div className="min-w-0">
+            <h2 id="titulo-duplicado" className="text-lg font-semibold text-gray-800">
+              Ya existe un examen de esta asignatura en ese horario
+            </h2>
+            <p className="mt-1 text-sm text-gray-600">
+              No se puede registrar otro examen igual. Si necesitas más aulas o cambiar sus datos, edita ese examen.
+            </p>
+          </div>
+        </div>
+
+        <dl className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 space-y-1">
+          <div className="flex gap-2"><dt className="font-medium w-24 shrink-0">Asignatura</dt><dd>{duplicado.asignatura}</dd></div>
+          <div className="flex gap-2"><dt className="font-medium w-24 shrink-0">Fecha</dt><dd>{duplicado.fecha}</dd></div>
+          <div className="flex gap-2">
+            <dt className="font-medium w-24 shrink-0">Hora</dt>
+            <dd>{duplicado.hora}{duplicado.duracion ? ` (${duplicado.duracion} min)` : ''}</dd>
+          </div>
+          <div className="flex gap-2"><dt className="font-medium w-24 shrink-0">Ambientes</dt><dd>{duplicado.ambientes}</dd></div>
+        </dl>
+
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg px-4 py-2 text-sm font-medium"
+          >
+            Cerrar
+          </button>
+          {puedeVer && (
+            <button
+              type="button"
+              onClick={onVer}
+              className="border border-amber-400 text-amber-900 hover:bg-amber-50 rounded-lg px-4 py-2 text-sm font-medium"
+            >
+              Ver datos del examen
+            </button>
+          )}
+          {duplicado.editable && (
+            <button
+              type="button"
+              autoFocus
+              onClick={onEditar}
+              className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-4 py-2 text-sm font-medium"
+            >
+              Ir a Editar examen
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
