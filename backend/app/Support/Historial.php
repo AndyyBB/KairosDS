@@ -154,7 +154,7 @@ class Historial
                 .' en '.self::examen($m->ingreso?->habilitacion?->examen).': '.$m->motivo, []],
             $m instanceof Incidencia => ['Incidencias', 'Situación excepcional ('.($m->tipoIncidencia?->descripcion ?? 'sin tipo').')'
                 .($m->estudiante_id ? ' de '.self::estudiante($m->estudiante_id) : '')
-                .' en '.self::examen($m->examen), []],
+                .' en '.self::examen($m->examen).($m->descripcion ? ' — Descripción: '.$m->descripcion : ''), []],
             default => null,
         };
     }

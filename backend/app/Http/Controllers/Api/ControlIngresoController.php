@@ -402,6 +402,7 @@ class ControlIngresoController extends Controller
                 'id' => $i->incidencia->id,
                 'tipo' => self::TIPOS_RIESGO[$i->incidencia->tipoIncidencia?->codigo] ?? $i->incidencia->tipoIncidencia?->descripcion,
                 'hora' => $this->hora($i->incidencia->fecha_hora),
+                'descripcion' => $i->incidencia->descripcion,
             ] : null,
         ];
     }

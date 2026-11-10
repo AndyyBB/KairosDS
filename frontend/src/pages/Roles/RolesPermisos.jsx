@@ -40,38 +40,12 @@ export default function RolesPermisos() {
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
-  // Sprint 4 (observacion 10): historial de permisos del rol por periodos de vigencia.
-  const [historial, setHistorial] = useState([]);
-  const [fechaConsulta, setFechaConsulta] = useState('');
-  const [enFecha, setEnFecha] = useState(null); // { fecha, permisos }
-  const [errorFecha, setErrorFecha] = useState('');
-
-  async function cargarHistorial(id = rolId) {
-    if (!id) return;
-    try {
-      const res = await api.get(`/roles/${id}/permisos/historial`);
-      setHistorial(res.data.periodos ?? []);
-    } catch (err) {
-      setHistorial([]);
-    }
-  }
-
-  // Permisos que el rol tenia en una fecha (auditoria).
-  async function consultarFecha(e) {
-    e.preventDefault();
-    setErrorFecha('');
-    setEnFecha(null);
-    if (!fechaConsulta) {
-      setErrorFecha('Seleccione una fecha.');
-      return;
-    }
-    try {
-      const res = await api.get(`/roles/${rolId}/permisos/historial`, { params: { fecha: fechaConsulta } });
-      setEnFecha({ fecha: res.data.fecha, permisos: res.data.en_fecha ?? [] });
-    } catch (err) {
-      setErrorFecha(primerError(err, 'No se pudo consultar la fecha.'));
-    }
-  }
+  // Sprint 4: fecha desde la que rigen los permisos que se marcan y, opcionalmente, hasta cuando.
+  const [vigencias, setVigencias] = useState({}); // periodo de cada permiso ya guardado
+  const [hoy, setHoy] = useState('');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [errorFechas, setErrorFechas] = useState('');
 
   // HU-17 (1): roles Administrador, Docente y Personal de control de ingreso.
   useEffect(() => {
@@ -95,12 +69,13 @@ export default function RolesPermisos() {
         setGuardado(res.data.modulos);
         setEdicion(res.data.modulos);
         setBloqueado(res.data.bloqueado);
+        setVigencias(res.data.vigencias ?? {});
+        setHoy(res.data.hoy ?? '');
+        setDesde(res.data.hoy ?? '');
+        setHasta('');
+        setErrorFechas('');
       })
       .catch((err) => setError(primerError(err)));
-    setEnFecha(null);
-    setErrorFecha('');
-    cargarHistorial(rolId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rolId]);
 
   function alternar(modulo, accion) {
@@ -114,22 +89,43 @@ export default function RolesPermisos() {
   // HU-17 (7): Cancelar descarta los cambios no guardados.
   function cancelar() {
     setEdicion(guardado);
+    setDesde(hoy);
+    setHasta('');
+    setErrorFechas('');
     setMensaje('');
     setError('');
   }
 
   // HU-17 (5, 6): Guardar los permisos del rol seleccionado.
   async function guardar() {
-    setGuardando(true);
     setMensaje('');
     setError('');
+    setErrorFechas('');
+    if (hasta && desde && hasta < desde) {
+      setErrorFechas('La fecha final no puede ser anterior a la fecha de inicio.');
+      return;
+    }
+    if (desde && hoy && desde < hoy) {
+      setErrorFechas('La fecha de inicio no puede ser anterior a la fecha actual.');
+      return;
+    }
+    setGuardando(true);
     const permisos = [];
     edicion.forEach((m) => ACCIONES.forEach((a) => m[a.id] && permisos.push(`${m.modulo}.${a.id}`)));
     try {
-      const res = await api.put(`/roles/${rolId}/permisos`, { permisos });
+      const res = await api.put(`/roles/${rolId}/permisos`, {
+        permisos,
+        vigente_desde: desde || null,
+        vigente_hasta: hasta || null,
+      });
       setGuardado(edicion);
       setMensaje(res.data.message);
-      cargarHistorial();
+      // Se vuelven a leer los permisos para mostrar las fechas de cada uno.
+      const act = await api.get(`/roles/${rolId}/permisos`);
+      setVigencias(act.data.vigencias ?? {});
+      setHoy(act.data.hoy ?? '');
+      setDesde(act.data.hoy ?? '');
+      setHasta('');
     } catch (err) {
       setError(primerError(err));
     } finally {
@@ -201,12 +197,63 @@ export default function RolesPermisos() {
                             {pantalla(m.modulo, a.id)}
                           </span>
                         )}
+                        {m[a.id] && vigencias[`${m.modulo}.${a.id}`] && (
+                          <span className="mt-0.5 block text-[11px] text-gray-500">
+                            Desde {vigencias[`${m.modulo}.${a.id}`].desde}
+                            {vigencias[`${m.modulo}.${a.id}`].hasta
+                              ? ` hasta ${vigencias[`${m.modulo}.${a.id}`].hasta}`
+                              : ' · sin fecha de fin'}
+                          </span>
+                        )}
                       </td>
                     ))}
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {edicion && (
+          <div className="mt-5 rounded-lg border border-kairos-100 bg-kairos-50/50 px-4 py-3">
+            <p className="text-sm font-medium text-gray-700 mb-2">Vigencia de los permisos que se marquen ahora</p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div>
+                <label htmlFor="vigente-desde" className="block text-sm text-gray-600 mb-1">Vigente desde</label>
+                <input
+                  id="vigente-desde"
+                  type="date"
+                  className="input"
+                  min={hoy || undefined}
+                  value={desde}
+                  disabled={bloqueado}
+                  onChange={(e) => {
+                    setDesde(e.target.value);
+                    setErrorFechas('');
+                  }}
+                />
+              </div>
+              <div>
+                <label htmlFor="vigente-hasta" className="block text-sm text-gray-600 mb-1">Vigente hasta (opcional)</label>
+                <input
+                  id="vigente-hasta"
+                  type="date"
+                  className="input"
+                  min={desde || hoy || undefined}
+                  value={hasta}
+                  disabled={bloqueado}
+                  onChange={(e) => {
+                    setHasta(e.target.value);
+                    setErrorFechas('');
+                  }}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Si dejas vacía la fecha final, el permiso no vence. Estas fechas se aplican a los permisos que marques en este
+              guardado; los que ya estaban asignados conservan las suyas.
+            </p>
+            {errorFechas && <p className="text-sm text-red-600 mt-1">{errorFechas}</p>}
           </div>
         )}
 
@@ -234,84 +281,6 @@ export default function RolesPermisos() {
               Guardar
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* Sprint 4 (observacion 10): periodos de vigencia de los permisos, para auditorias. */}
-      <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
-        <h2 className="text-lg font-semibold text-gray-800">Historial de permisos del rol</h2>
-        <p className="text-sm text-gray-500 mb-4">
-          Desde qué fecha y hasta qué fecha el rol {nombreRol(roles.find((r) => r.id === rolId)?.nombre)} tuvo cada permiso, y quién lo asignó o lo retiró.
-        </p>
-
-        <form onSubmit={consultarFecha} className="flex flex-col sm:flex-row sm:items-end gap-3 mb-4">
-          <div>
-            <label htmlFor="fecha-permisos" className="block text-sm font-medium text-gray-600 mb-1">Consultar permisos a la fecha</label>
-            <input
-              id="fecha-permisos"
-              type="date"
-              className="input"
-              value={fechaConsulta}
-              onChange={(e) => {
-                setFechaConsulta(e.target.value);
-                setErrorFecha('');
-              }}
-            />
-          </div>
-          <button type="submit" className="border border-kairos-600 text-kairos-700 text-sm font-medium rounded-lg px-5 py-2 hover:bg-kairos-50">
-            Consultar
-          </button>
-        </form>
-        {errorFecha && <p className="text-sm text-red-600 -mt-2 mb-3">{errorFecha}</p>}
-        {enFecha && (
-          <div className="mb-4 rounded-lg border border-kairos-100 bg-kairos-50/60 px-4 py-3 text-sm">
-            <p className="font-medium text-kairos-800 mb-2">Permisos que tenía el rol el {enFecha.fecha}:</p>
-            {enFecha.permisos.length ? (
-              <div className="flex flex-wrap gap-2">
-                {enFecha.permisos.map((p) => (
-                  <span key={p.id} className="rounded-full bg-white border border-kairos-200 px-3 py-1 text-xs text-kairos-800">
-                    {p.modulo} · {p.accion}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-600">El rol no tenía permisos registrados en esa fecha.</p>
-            )}
-          </div>
-        )}
-
-        <div className="overflow-x-auto rounded-lg border border-gray-100 max-h-[420px] overflow-y-auto">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead className="bg-kairos-50/80 text-kairos-800 text-left sticky top-0">
-              <tr>
-                <th className="px-3 py-2">Módulo</th>
-                <th className="px-3 py-2">Acción</th>
-                <th className="px-3 py-2">Vigente desde</th>
-                <th className="px-3 py-2">Vigente hasta</th>
-                <th className="px-3 py-2">Asignado por</th>
-                <th className="px-3 py-2">Retirado por</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historial.map((p) => (
-                <tr key={p.id} className="border-t border-gray-100">
-                  <td className="px-3 py-2 font-medium text-gray-800">{p.modulo}</td>
-                  <td className="px-3 py-2">{p.accion}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{p.desde}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {p.hasta ?? <span className="text-kairos-700 font-medium">Vigente</span>}
-                  </td>
-                  <td className="px-3 py-2 text-gray-600">{p.asignado_por ?? 'Configuración inicial'}</td>
-                  <td className="px-3 py-2 text-gray-600">{p.hasta ? p.retirado_por ?? '—' : '—'}</td>
-                </tr>
-              ))}
-              {historial.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-gray-400">No hay permisos registrados para este rol.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
         </div>
       </div>
     </div>

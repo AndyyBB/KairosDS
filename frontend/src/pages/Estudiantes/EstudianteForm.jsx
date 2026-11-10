@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
 import { erroresCampos, primerError } from '../../api/errores';
-import { fechaDMA } from '../../api/formato';
 import { useAuth } from '../../api/AuthContext';
 import BotonesFormulario from '../../components/BotonesFormulario';
 import Aviso, { useMensajeFlash } from '../../components/Aviso';
@@ -54,7 +53,6 @@ export default function EstudianteForm({ modo = 'registrar' }) {
   const [verQr, setVerQr] = useState(false);
   const [error, setError] = useState('');
   const [eliminando, setEliminando] = useState(false);
-  const [historial, setHistorial] = useState([]); // periodos de cada carrera (Sprint 4)
   const { tiene } = useAuth();
   const soloLectura = modo === 'datos' || modo === 'eliminar';
   // Sprint 4 (observacion 11): al editar solo se modifican el correo institucional y las
@@ -80,7 +78,6 @@ export default function EstudianteForm({ modo = 'registrar' }) {
           };
           setForm(datos);
           setOriginal(datos);
-          setHistorial(res.data.historial_carreras ?? []);
           setRegistrado({ nombre_completo: datos.nombre_completo, codigo_universitario: datos.codigo_universitario });
         })
         .catch((err) => setError(primerError(err, 'No se pudo cargar al estudiante.')));
@@ -181,7 +178,6 @@ export default function EstudianteForm({ modo = 'registrar' }) {
           correo_institucional: form.correo_institucional,
           carreras: carrerasElegidas,
         });
-        setHistorial(res.data?.historial_carreras ?? historial);
         // Vuelve a mostrar los datos (ya guardados) sin poder modificarlos.
         setOriginal(form);
         setRegistrado({ nombre_completo: form.nombre_completo, codigo_universitario: form.codigo_universitario });
@@ -356,34 +352,6 @@ export default function EstudianteForm({ modo = 'registrar' }) {
           )}
         </Campo>
 
-        {/* Sprint 4: historial de carreras con su periodo de vigencia */}
-        {editando && historial.length > 0 && (
-          <div>
-            <p className="text-sm font-medium text-gray-600 mb-1">Historial de carreras</p>
-            <div className="overflow-x-auto rounded-lg border border-gray-100">
-              <table className="w-full text-sm">
-                <thead className="bg-kairos-50/80 text-kairos-800 text-left">
-                  <tr>
-                    <th className="px-3 py-2">Carrera</th>
-                    <th className="px-3 py-2">Desde</th>
-                    <th className="px-3 py-2">Hasta</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {historial.map((c) => (
-                    <tr key={c.pivot?.id ?? `${c.id}-${c.pivot?.fecha_inicio}`} className="border-t border-gray-100">
-                      <td className="px-3 py-2">{c.nombre}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{fechaDMA(c.pivot?.fecha_inicio)}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {c.pivot?.fecha_fin ? fechaDMA(c.pivot.fecha_fin) : <span className="text-kairos-700 font-medium">Vigente</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
         </fieldset>
 
         <BotonesFormulario

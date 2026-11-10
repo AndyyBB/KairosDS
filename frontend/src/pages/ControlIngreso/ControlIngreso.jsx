@@ -3,7 +3,7 @@ import api from '../../api/client';
 import { useAuth } from '../../api/AuthContext';
 import { primerError } from '../../api/errores';
 import Paginacion from '../../components/Paginacion';
-import { IconoTitulo, ClipboardCheckIcon } from '../../components/Iconos';
+import { IconoTitulo, ClipboardCheckIcon, AlertaIcon } from '../../components/Iconos';
 import LectorQR from './LectorQR';
 
 const METODOS = [
@@ -321,6 +321,7 @@ export default function ControlIngreso() {
   const intentosVisibles = intentos.slice((paginaIntentos - 1) * POR_PAGINA, paginaIntentos * POR_PAGINA);
 
   const habilitado = resultado?.estado === 'habilitado';
+  const noInscrito = resultado?.estado === 'no_inscrito';
   const yaIngreso = !!resultado?.ingreso_previo;
   const enOtroExamen = Boolean(resultado?.otro_examen) && !resultado?.registrado;
   const botonActivo = habilitado && !yaIngreso && !registrando && (!enOtroExamen || conSalida);
@@ -442,10 +443,18 @@ export default function ControlIngreso() {
 
       {/* HU-11: resultado de la validacion */}
       {resultado && (
-        <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
+        <div
+          className={`bg-white rounded-xl shadow-md p-5 mb-5 ${
+            noInscrito ? 'border-2 border-red-300' : 'border border-kairos-100/70'
+          }`}
+        >
           <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
             <h2 className="text-lg font-semibold text-gray-800">Resultado de la validación</h2>
-            {habilitado && enOtroExamen ? (
+            {noInscrito ? (
+              <span className="rounded-full border border-red-300 bg-red-600 text-white font-bold text-sm tracking-wide px-4 py-1">
+                NO INSCRITO EN EL EXAMEN
+              </span>
+            ) : habilitado && enOtroExamen ? (
               <span className="rounded-full border border-amber-300 bg-amber-50 text-amber-800 font-bold text-sm tracking-wide px-4 py-1">
                 EN OTRO EXAMEN
               </span>
@@ -460,6 +469,19 @@ export default function ControlIngreso() {
             )}
           </div>
 
+          {/* Sprint 4: aviso destacado cuando el estudiante no esta inscrito en el examen */}
+          {noInscrito && (
+            <div role="alert" className="mb-4 flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-800">
+              <span className="shrink-0 text-red-600 mt-0.5"><AlertaIcon size={24} /></span>
+              <div>
+                <p className="font-bold">El estudiante no está inscrito en este examen</p>
+                <p className="text-sm mt-0.5">
+                  No se puede registrar su ingreso mientras no esté inscrito en el examen seleccionado.
+                </p>
+              </div>
+            </div>
+          )}
+
           <dl>
             <Dato etiqueta="Nombre completo" valor={resultado.estudiante.nombre_completo} />
             <Dato etiqueta="Código universitario" valor={resultado.estudiante.codigo_universitario} />
@@ -471,11 +493,6 @@ export default function ControlIngreso() {
           {resultado.estado === 'no_habilitado' && (
             <div className="mt-4 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm px-4 py-3">
               <span className="font-bold">Motivo de inhabilitación:</span> {resultado.motivo}
-            </div>
-          )}
-          {resultado.estado === 'no_inscrito' && (
-            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm px-4 py-3 font-semibold">
-              {resultado.mensaje_estado}
             </div>
           )}
 
@@ -659,7 +676,14 @@ export default function ControlIngreso() {
                     <td className="px-3 py-2">{i.registrado_por}</td>
                     <td className="px-3 py-2">
                       {i.incidencia ? (
-                        <span className="text-xs text-green-700">Registrada: {i.incidencia.tipo} ({i.incidencia.hora})</span>
+                        <div className="text-xs text-green-700 w-60">
+                          <p className="font-semibold">Registrada: {i.incidencia.tipo} ({i.incidencia.hora})</p>
+                          {i.incidencia.descripcion && (
+                            <p className="mt-0.5 text-gray-600 whitespace-normal break-words">
+                              Descripción: {i.incidencia.descripcion}
+                            </p>
+                          )}
+                        </div>
                       ) : puedeRegistrar ? (
                         <button
                           type="button"
@@ -712,7 +736,12 @@ function IncidenciaDeRiesgo({ riesgo, tipos, onRegistrada, onCerrar }) {
   if (riesgo.incidencia) {
     return (
       <div className="mb-4 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800">
-        Incidencia registrada para este intento: {riesgo.incidencia.tipo} ({riesgo.incidencia.hora}).
+        <p>Incidencia registrada para este intento: {riesgo.incidencia.tipo} ({riesgo.incidencia.hora}).</p>
+        {riesgo.incidencia.descripcion && (
+          <p className="mt-1 text-green-900">
+            <span className="font-semibold">Descripción:</span> {riesgo.incidencia.descripcion}
+          </p>
+        )}
       </div>
     );
   }

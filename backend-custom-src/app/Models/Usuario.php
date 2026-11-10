@@ -77,7 +77,7 @@ class Usuario extends Authenticatable
 
         return self::conVerImplicito(
             $this->rol
-                ? $this->rol->permisos()->orderBy('permisos.id')->pluck('codigo')->all()
+                ? $this->rol->permisosVigentes()->orderBy('permisos.id')->pluck('codigo')->all()
                 : []
         );
     }

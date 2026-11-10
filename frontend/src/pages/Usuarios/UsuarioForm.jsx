@@ -50,7 +50,6 @@ export default function UsuarioForm({ modo = 'registrar' }) {
   const soloLectura = modo === 'datos' || modo === 'eliminar';
   // Nombres y apellidos solo se escriben al registrar; despues quedan fijos.
   const datosFijos = soloLectura || modoEdicion;
-  const [historialRoles, setHistorialRoles] = useState([]);
   const navigate = useNavigate();
 
   const [roles, setRoles] = useState([]);
@@ -96,7 +95,6 @@ export default function UsuarioForm({ modo = 'registrar' }) {
         };
         setForm(datos);
         setOriginal(datos);
-        setHistorialRoles(u.historial_roles ?? []);
       }
     }
     cargar();
@@ -148,7 +146,6 @@ export default function UsuarioForm({ modo = 'registrar' }) {
         const guardado = { ...form, password: '' };
         setForm(guardado);
         setOriginal(guardado);
-        setHistorialRoles(res.data?.historial_roles ?? historialRoles);
         setVerPassword(false);
         setMensaje('Usuario actualizado con éxito.');
         return;
@@ -200,7 +197,7 @@ export default function UsuarioForm({ modo = 'registrar' }) {
           {modo === 'editar' && (
             <p className="mb-4 rounded-lg border border-kairos-100 bg-kairos-50/60 px-4 py-3 text-sm text-kairos-800">
               Solo se pueden modificar el rol, el estado y la contraseña. Los nombres, los apellidos y el correo (con el que
-              inicia sesión) no se editan. Cada cambio de rol queda guardado con su fecha en el historial de roles.
+              inicia sesión) no se editan.
             </p>
           )}
           {modo === 'eliminar' && (
@@ -312,36 +309,6 @@ export default function UsuarioForm({ modo = 'registrar' }) {
         </div>
         )}
 
-        {/* Sprint 4: historial del rol con su periodo de vigencia */}
-        {editando && historialRoles.length > 0 && (
-          <div>
-            <p className="text-sm font-medium text-gray-600 mb-1">Historial de roles</p>
-            <div className="overflow-x-auto rounded-lg border border-gray-100">
-              <table className="w-full text-sm">
-                <thead className="bg-kairos-50/80 text-kairos-800 text-left">
-                  <tr>
-                    <th className="px-3 py-2">Rol</th>
-                    <th className="px-3 py-2">Desde</th>
-                    <th className="px-3 py-2">Hasta</th>
-                    <th className="px-3 py-2">Asignado por</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {historialRoles.map((r) => (
-                    <tr key={r.id} className="border-t border-gray-100">
-                      <td className="px-3 py-2">{r.rol.charAt(0).toUpperCase() + r.rol.slice(1)}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.desde}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {r.hasta ?? <span className="text-kairos-700 font-medium">Vigente</span>}
-                      </td>
-                      <td className="px-3 py-2 text-gray-500">{r.asignado_por ?? '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
         </fieldset>
 
 
