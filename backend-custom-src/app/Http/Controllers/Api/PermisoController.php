@@ -190,8 +190,8 @@ class PermisoController extends Controller
         return response()->json(['message' => 'Permisos actualizados con éxito.']);
     }
 
-    // Sprint 4 (observacion 10): historial de permisos del rol por periodos, para las
-    // auditorias. Con ?fecha=AAAA-MM-DD devuelve ademas los permisos que el rol tenia ese dia.
+    // HU-36: historial de permisos del rol por periodos, para las
+    // auditorias (pantalla independiente "Historial de permisos"). Con ?fecha=AAAA-MM-DD devuelve ademas los permisos que el rol tenia ese dia.
     public function historial(Request $request, Role $rol)
     {
         $data = $request->validate([
@@ -207,6 +207,8 @@ class PermisoController extends Controller
             ->leftJoin('usuarios as ur', 'ur.id', '=', 'v.retirado_por')
             ->where('v.rol_id', $rol->id)
             ->where('p.codigo', 'not like', '%.ver')
+            // HU-36 (6): solo las acciones configurables (Registrar, Editar y Eliminar).
+            ->whereNotIn('p.codigo', self::SIN_ACCION)
             ->orderByDesc('v.vigente_desde')
             ->orderBy('p.codigo')
             ->get(['v.id', 'p.codigo', 'v.vigente_desde', 'v.vigente_hasta', 'ua.nombre_completo as asignado_por', 'ur.nombre_completo as retirado_por']);

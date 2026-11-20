@@ -131,6 +131,13 @@ export const MODULOS = [
     descripcion: 'Permisos de cada rol sobre los módulos del sistema.',
   },
   {
+    to: '/historial-permisos',
+    label: 'Historial de permisos',
+    icon: HistorialIcon,
+    soloAdmin: true,
+    descripcion: 'Desde cuándo y hasta cuándo cada rol tuvo cada permiso (HU-36).',
+  },
+  {
     to: '/historial',
     label: 'Historial de operaciones',
     icon: HistorialIcon,
