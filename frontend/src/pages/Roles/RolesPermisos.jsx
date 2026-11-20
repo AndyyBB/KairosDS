@@ -34,7 +34,6 @@ function nombreRol(nombre) {
 export default function RolesPermisos() {
   const [roles, setRoles] = useState([]);
   const [rolId, setRolId] = useState(null);
-  const [guardado, setGuardado] = useState(null); // permisos tal como estan guardados
   const [edicion, setEdicion] = useState(null); // permisos con los cambios sin guardar
   const [bloqueado, setBloqueado] = useState(false);
   const [mensaje, setMensaje] = useState('');
@@ -66,7 +65,6 @@ export default function RolesPermisos() {
     api
       .get(`/roles/${rolId}/permisos`)
       .then((res) => {
-        setGuardado(res.data.modulos);
         setEdicion(res.data.modulos);
         setBloqueado(res.data.bloqueado);
         setVigencias(res.data.vigencias ?? {});
@@ -84,16 +82,6 @@ export default function RolesPermisos() {
     setEdicion((prev) =>
       prev.map((m) => (m.modulo === modulo ? { ...m, [accion]: !m[accion] } : m))
     );
-  }
-
-  // HU-17 (7): Cancelar descarta los cambios no guardados.
-  function cancelar() {
-    setEdicion(guardado);
-    setDesde(hoy);
-    setHasta('');
-    setErrorFechas('');
-    setMensaje('');
-    setError('');
   }
 
   // HU-17 (5, 6): Guardar los permisos del rol seleccionado.
@@ -118,7 +106,6 @@ export default function RolesPermisos() {
         vigente_desde: desde || null,
         vigente_hasta: hasta || null,
       });
-      setGuardado(edicion);
       setMensaje(res.data.message);
       // Se vuelven a leer los permisos para mostrar las fechas de cada uno.
       const act = await api.get(`/roles/${rolId}/permisos`);
@@ -161,6 +148,50 @@ export default function RolesPermisos() {
             </button>
           ))}
         </div>
+
+        {/* Sprint 4: las fechas de vigencia van arriba de la tabla de permisos (mas visibles). */}
+        {edicion && (
+          <div className="mb-5 rounded-lg border border-kairos-200 bg-kairos-50 px-4 py-3">
+            <p className="text-sm font-semibold text-kairos-800 mb-2">Vigencia de los permisos que se marquen ahora</p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div>
+                <label htmlFor="vigente-desde" className="block text-sm font-medium text-gray-700 mb-1">Vigente desde</label>
+                <input
+                  id="vigente-desde"
+                  type="date"
+                  className="input"
+                  min={hoy || undefined}
+                  value={desde}
+                  disabled={bloqueado}
+                  onChange={(e) => {
+                    setDesde(e.target.value);
+                    setErrorFechas('');
+                  }}
+                />
+              </div>
+              <div>
+                <label htmlFor="vigente-hasta" className="block text-sm font-medium text-gray-700 mb-1">Vigente hasta (opcional)</label>
+                <input
+                  id="vigente-hasta"
+                  type="date"
+                  className="input"
+                  min={desde || hoy || undefined}
+                  value={hasta}
+                  disabled={bloqueado}
+                  onChange={(e) => {
+                    setHasta(e.target.value);
+                    setErrorFechas('');
+                  }}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-600 mt-2">
+              Si dejas vacía la fecha final, el permiso no vence. Estas fechas se aplican a los permisos que marques en este
+              guardado; los que ya estaban asignados conservan las suyas.
+            </p>
+            {errorFechas && <p className="text-sm text-red-600 mt-1">{errorFechas}</p>}
+          </div>
+        )}
 
         {edicion && (
           <div className="overflow-x-auto">
@@ -214,49 +245,6 @@ export default function RolesPermisos() {
           </div>
         )}
 
-        {edicion && (
-          <div className="mt-5 rounded-lg border border-kairos-100 bg-kairos-50/50 px-4 py-3">
-            <p className="text-sm font-medium text-gray-700 mb-2">Vigencia de los permisos que se marquen ahora</p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div>
-                <label htmlFor="vigente-desde" className="block text-sm text-gray-600 mb-1">Vigente desde</label>
-                <input
-                  id="vigente-desde"
-                  type="date"
-                  className="input"
-                  min={hoy || undefined}
-                  value={desde}
-                  disabled={bloqueado}
-                  onChange={(e) => {
-                    setDesde(e.target.value);
-                    setErrorFechas('');
-                  }}
-                />
-              </div>
-              <div>
-                <label htmlFor="vigente-hasta" className="block text-sm text-gray-600 mb-1">Vigente hasta (opcional)</label>
-                <input
-                  id="vigente-hasta"
-                  type="date"
-                  className="input"
-                  min={desde || hoy || undefined}
-                  value={hasta}
-                  disabled={bloqueado}
-                  onChange={(e) => {
-                    setHasta(e.target.value);
-                    setErrorFechas('');
-                  }}
-                />
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Si dejas vacía la fecha final, el permiso no vence. Estas fechas se aplican a los permisos que marques en este
-              guardado; los que ya estaban asignados conservan las suyas.
-            </p>
-            {errorFechas && <p className="text-sm text-red-600 mt-1">{errorFechas}</p>}
-          </div>
-        )}
-
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-5">
           <div className="text-sm text-gray-500 space-y-0.5">
             <p>Cada casilla habilita la opción del menú indicada debajo; si no se marca, la opción no aparece en el menú del rol.</p>
@@ -264,14 +252,6 @@ export default function RolesPermisos() {
             <p>Los cambios se aplican en el siguiente inicio de sesión.</p>
           </div>
           <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={cancelar}
-              disabled={bloqueado}
-              className="border border-gray-300 text-gray-800 text-sm font-medium rounded-lg px-5 py-2 hover:bg-gray-50 disabled:opacity-50"
-            >
-              Cancelar
-            </button>
             <button
               type="button"
               onClick={guardar}

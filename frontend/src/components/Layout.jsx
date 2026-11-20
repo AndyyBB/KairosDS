@@ -180,6 +180,22 @@ export default function Layout() {
               );
             }
 
+            // Modulo con una sola pantalla (Control de ingreso): enlace directo, sin submenu.
+            if (m.directo && m.items.length === 1) {
+              const item = m.items[0];
+              return (
+                <NavLink
+                  key={m.base}
+                  to={item.to}
+                  className={claseItem(enModulo(pathname, m.base))}
+                  title={compacto ? item.label : undefined}
+                >
+                  <m.icon size={18} />
+                  {!compacto && item.label}
+                </NavLink>
+              );
+            }
+
             const activo = moduloActual?.base === m.base;
             const desplegado = abierto === m.base && !compacto;
             return (
