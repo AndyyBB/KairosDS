@@ -19,9 +19,15 @@ use Illuminate\Support\Facades\Mail;
 class UsuarioController extends Controller
 {
     // Los usuarios eliminados (baja logica, Sprint 4) ya no aparecen.
-    public function index()
+    // Con ?incluir_eliminados=1 (Lista de usuarios) tambien se devuelven los usuarios
+    // eliminados que se conservaron por tener registros: se muestran como "Inactivo".
+    // Sin ese parametro (tablas de seleccion de Editar y Eliminar) solo los no eliminados.
+    public function index(Request $request)
     {
-        return Usuario::with('rol')->whereNull('eliminado_en')->orderBy('nombre_completo')->get();
+        return Usuario::with('rol')
+            ->when(! $request->boolean('incluir_eliminados'), fn ($q) => $q->whereNull('eliminado_en'))
+            ->orderBy('nombre_completo')
+            ->get();
     }
 
     // Catalogo de roles disponibles, usado por el formulario de HU-15.

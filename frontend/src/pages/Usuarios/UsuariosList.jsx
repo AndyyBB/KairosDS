@@ -33,7 +33,8 @@ export default function UsuariosList() {
   async function cargar() {
     setCargando(true);
     try {
-      const res = await api.get('/usuarios');
+      // Incluye a los usuarios eliminados con registros (se muestran como Inactivo).
+      const res = await api.get('/usuarios', { params: { incluir_eliminados: 1 } });
       setUsuarios(res.data);
     } catch (err) {
       setError(primerError(err, 'No se pudo cargar la lista de usuarios.'));
@@ -104,7 +105,8 @@ export default function UsuariosList() {
                 <td className="px-4 py-2 text-gray-500">{u.correo_electronico}</td>
                 <td className="px-4 py-2 capitalize">{u.rol?.nombre}</td>
                 <td className="px-4 py-2">
-                  <span className={`text-xs px-2 py-1 rounded-full ${u.activo ? 'bg-kairos-gradient text-white shadow-glow' : 'bg-gray-100 text-gray-500'}`}>
+                  {/* Estado en texto simple, sin recuadro de color */}
+                  <span className={`text-xs font-medium ${u.activo ? 'text-gray-700' : 'text-gray-400'}`}>
                     {u.activo ? 'Activo' : 'Inactivo'}
                   </span>
                 </td>
