@@ -13,6 +13,10 @@ body {
       hover:border-kairos-300 focus:border-kairos-400 focus:outline-none focus:ring-2 focus:ring-kairos-400/60
       disabled:cursor-default disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-800 disabled:shadow-none disabled:opacity-100;
   }
+  /* Campo con error (por ejemplo, nombre ya registrado): queda resaltado en rojo. */
+  .input-error {
+    @apply border-red-400 bg-red-50 hover:border-red-400 focus:border-red-400 focus:ring-red-300/60;
+  }
 }
 
 /* HU-16: ocultar el ojo nativo de Edge/Chrome para que solo se vea el de Kairos
@@ -159,4 +163,13 @@ button:focus-visible {
   .tablas-moviles table tbody tr:hover {
     background-color: #fff;
   }
+}
+
+/* El navegador pinta de celeste los campos que autocompleta (correo, contrasena).
+   Se quita ese color para que no parezca que el sistema resalta ese campo. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  -webkit-text-fill-color: #111827;
 }

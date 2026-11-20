@@ -47,6 +47,8 @@ export default function EstudianteForm({ modo = 'registrar' }) {
   const [form, setForm] = useState(initial);
   const [carreras, setCarreras] = useState([]);
   const [errores, setErrores] = useState({});
+  // El nombre completo (Nombres + Apellidos) ya esta registrado: se resaltan ambos campos.
+  const nombreRepetido = (errores.nombres?.[0] || '').includes('registrado');
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useMensajeFlash();
   const [registrado, setRegistrado] = useState(null); // ultimo estudiante registrado (para su QR)
@@ -268,7 +270,7 @@ export default function EstudianteForm({ modo = 'registrar' }) {
 
         <Campo label="Documento de identidad" icon={<IdCardIcon />} error={errores.documento_identidad}>
           <input
-            className="input"
+            className={`input ${errores.documento_identidad ? 'input-error' : ''}`}
             value={form.documento_identidad}
             disabled={datosFijos}
             onChange={(e) => set('documento_identidad', e.target.value)}
@@ -278,7 +280,7 @@ export default function EstudianteForm({ modo = 'registrar' }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <Campo label="Nombres" icon={<UserIcon />} error={errores.nombres}>
             <input
-              className="input"
+              className={`input ${errores.nombres ? 'input-error' : ''}`}
               placeholder="Ej. Ana María"
               value={form.nombres}
               disabled={datosFijos}
@@ -288,7 +290,7 @@ export default function EstudianteForm({ modo = 'registrar' }) {
 
           <Campo label="Apellidos" icon={<UserIcon />} error={errores.apellidos}>
             <input
-              className="input"
+              className={`input ${errores.apellidos || nombreRepetido ? 'input-error' : ''}`}
               placeholder="Ej. Rivero Claros"
               value={form.apellidos}
               disabled={datosFijos}

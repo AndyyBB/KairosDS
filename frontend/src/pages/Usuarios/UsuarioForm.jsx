@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
 import { erroresCampos, primerError } from '../../api/errores';
@@ -54,10 +54,13 @@ export default function UsuarioForm({ modo = 'registrar' }) {
   const navigate = useNavigate();
 
   const [roles, setRoles] = useState([]);
+  const nombresRef = useRef(null);
   const [form, setForm] = useState(FORM_INICIAL);
   const [mensaje, setMensaje] = useMensajeFlash();
   const [error, setError] = useState(null);
   const [errores, setErrores] = useState({});
+  // El nombre completo (Nombres + Apellidos) ya esta registrado: se resaltan ambos campos.
+  const nombreRepetido = (errores.nombres?.[0] || '').includes('registrado');
   const [guardando, setGuardando] = useState(false);
   const [verPassword, setVerPassword] = useState(false);
   const [eliminando, setEliminando] = useState(false);
@@ -180,6 +183,8 @@ export default function UsuarioForm({ modo = 'registrar' }) {
     } catch (err) {
       const campos = erroresCampos(err);
       setErrores(campos);
+      // Si el nombre ya esta registrado, el cursor vuelve al campo Nombres.
+      if (campos.nombres || campos.apellidos) nombresRef.current?.focus();
       // Solo se muestra el aviso general cuando el error no pertenece a un campo.
       if (Object.keys(campos).length === 0) {
         setError(primerError(err, 'No se pudo guardar el usuario.'));
@@ -235,7 +240,8 @@ export default function UsuarioForm({ modo = 'registrar' }) {
           <div>
             <Etiqueta icon={<UserIcon />}>Nombres</Etiqueta>
             <input
-              className="input"
+              ref={nombresRef}
+              className={`input ${errores.nombres ? 'input-error' : ''}`}
               maxLength={60}
               value={form.nombres}
               disabled={datosFijos}
@@ -246,7 +252,7 @@ export default function UsuarioForm({ modo = 'registrar' }) {
           <div>
             <Etiqueta icon={<UserIcon />}>Apellidos</Etiqueta>
             <input
-              className="input"
+              className={`input ${errores.apellidos || nombreRepetido ? 'input-error' : ''}`}
               maxLength={60}
               value={form.apellidos}
               disabled={datosFijos}
@@ -259,7 +265,8 @@ export default function UsuarioForm({ modo = 'registrar' }) {
         <div>
           <Etiqueta icon={<MailIcon />}>Correo electrónico</Etiqueta>
           <input
-            className="input"
+            className={`input ${errores.correo_electronico ? 'input-error' : ''}`}
+            autoComplete="off"
             value={form.correo_electronico}
             onChange={(e) => setForm({ ...form, correo_electronico: e.target.value })}
             placeholder="nombre@correo.com"
