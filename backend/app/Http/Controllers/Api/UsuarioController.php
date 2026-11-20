@@ -125,6 +125,9 @@ class UsuarioController extends Controller
     // aparece en el sistema, y se conservan los examenes, habilitaciones, ingresos e
     // incidencias que registro (y su nombre en el historial). No se puede eliminar la propia
     // cuenta ni al ultimo administrador activo.
+    // HU-33: si el usuario no tiene ningun registro en el sistema, se borra definitivamente
+    // de la base de datos; si tiene registros, la eliminacion es logica (queda como NO ACTIVO
+    // y se conserva todo lo que registro).
     public function destroy(Request $request, Usuario $usuario)
     {
         if ($usuario->eliminado_en) {
@@ -135,6 +138,27 @@ class UsuarioController extends Controller
         }
         if ($usuario->esAdministrador() && $usuario->activo && $this->adminsActivos() <= 1) {
             return response()->json(['message' => 'No se puede eliminar al único administrador activo.'], 409);
+        }
+
+        $registros = $this->registrosDelUsuario($usuario);
+
+        if (! $registros) {
+            DB::transaction(function () use ($usuario) {
+                $usuario->tokens()->delete();
+                // Su propio historial de roles se borra junto con la cuenta.
+                DB::table('usuario_rol_vigencia')->where('usuario_id', $usuario->id)->delete();
+                $usuario->deleteQuietly();
+                Historial::registrar(
+                    'Eliminar',
+                    'Usuarios',
+                    "Usuario {$usuario->nombre_completo} ({$usuario->correo_electronico}) eliminado definitivamente: no tenía registros en el sistema",
+                    $usuario,
+                    ['nombre_completo' => $usuario->nombre_completo, 'correo_electronico' => $usuario->correo_electronico],
+                    null
+                );
+            });
+
+            return response()->json(['message' => 'Usuario eliminado con éxito.', 'definitiva' => true]);
         }
 
         DB::transaction(function () use ($request, $usuario) {
@@ -157,7 +181,62 @@ class UsuarioController extends Controller
             );
         });
 
-        return response()->json(['message' => 'Usuario eliminado con éxito.']);
+        return response()->json(['message' => 'Usuario eliminado con éxito.', 'definitiva' => false]);
+    }
+
+    // HU-33: indica si el usuario se borrara definitivamente (sin registros) o quedara como
+    // NO ACTIVO (con registros), para mostrar el aviso correcto antes de eliminar.
+    public function eliminable(Usuario $usuario)
+    {
+        $registros = $this->registrosDelUsuario($usuario);
+
+        return response()->json(['definitiva' => ! $registros, 'registros' => $registros]);
+    }
+
+    // Registros del sistema que hizo o que referencian al usuario (cualquier tabla con una
+    // llave foranea a usuarios). Su propio historial de roles no cuenta.
+    private function registrosDelUsuario(Usuario $usuario): array
+    {
+        $nombres = [
+            'examenes' => ['examen', 'exámenes'],
+            'expulsiones' => ['expulsión', 'expulsiones'],
+            'habilitaciones' => ['habilitación', 'habilitaciones'],
+            'historial_operaciones' => ['operación en el historial', 'operaciones en el historial'],
+            'incidencias' => ['incidencia', 'incidencias'],
+            'ingresos' => ['ingreso', 'ingresos'],
+            'inscripciones_examen' => ['inscripción', 'inscripciones'],
+            'intentos_ingreso' => ['intento de ingreso', 'intentos de ingreso'],
+            'respaldos' => ['respaldo', 'respaldos'],
+            'usuarios' => ['usuario eliminado', 'usuarios eliminados'],
+            'rol_permiso_vigencia' => ['cambio de permisos', 'cambios de permisos'],
+            'usuario_rol_vigencia' => ['asignación de rol', 'asignaciones de rol'],
+        ];
+        $fks = DB::select("SELECT c.conrelid::regclass::text AS tabla, a.attname AS columna
+            FROM pg_constraint c
+            JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY(c.conkey)
+            WHERE c.contype = 'f' AND c.confrelid = 'usuarios'::regclass");
+
+        $conteo = [];
+        foreach ($fks as $fk) {
+            $tabla = trim($fk->tabla, '"');
+            if ($tabla === 'usuario_rol_vigencia' && $fk->columna === 'usuario_id') {
+                continue;
+            }
+            $n = DB::table($tabla)->where($fk->columna, $usuario->id)
+                ->when($tabla === 'usuarios', fn ($q) => $q->where('id', '!=', $usuario->id))
+                ->count();
+            if ($n) {
+                $conteo[$tabla] = ($conteo[$tabla] ?? 0) + $n;
+            }
+        }
+
+        $lista = [];
+        foreach ($conteo as $tabla => $n) {
+            [$uno, $varios] = $nombres[$tabla] ?? [$tabla, $tabla];
+            $lista[] = $n.' '.($n === 1 ? $uno : $varios);
+        }
+
+        return $lista;
     }
 
     private function adminsActivos(): int

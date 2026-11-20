@@ -114,6 +114,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // HU-15
     $recurso('usuarios', UsuarioController::class, 'usuarios', 'usuario');
+    // HU-33: aviso de eliminacion definitiva (sin registros) o logica (con registros).
+    Route::get('/usuarios/{usuario}/eliminable', [UsuarioController::class, 'eliminable'])->middleware('permiso:usuarios.eliminar');
 
     // ---------------- Sprint 3 ----------------
     // HU-05 y HU-18: Consultas.

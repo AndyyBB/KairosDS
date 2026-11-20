@@ -40,8 +40,9 @@ const TEXTOS = {
 // pantalla independiente del menu Usuarios. "Datos del usuario" se abre desde la Lista de
 // usuarios (clic en el nombre) y solo muestra los datos.
 // Sprint 4 (observaciones 17 y 18 de la licenciada): al editar solo se cambian el rol (que se
-// guarda por periodos), el estado y la contrasena; la eliminacion es logica (la cuenta queda
-// NO ACTIVA y se conserva todo lo que el usuario registro).
+// guarda por periodos), el estado y la contrasena. Al eliminar: si el usuario no tiene
+// registros se borra definitivamente; si tiene registros, la eliminacion es logica (la cuenta
+// queda NO ACTIVA y se conserva todo lo que registro).
 export default function UsuarioForm({ modo = 'registrar' }) {
   const { id } = useParams();
   const editando = Boolean(id); // hay un usuario cargado (datos, editar o eliminar)
@@ -60,10 +61,14 @@ export default function UsuarioForm({ modo = 'registrar' }) {
   const [guardando, setGuardando] = useState(false);
   const [verPassword, setVerPassword] = useState(false);
   const [eliminando, setEliminando] = useState(false);
+  const [eliminable, setEliminable] = useState(null); // { definitiva, registros }
   const { tiene } = useAuth();
 
   async function eliminar() {
-    if (!confirm(`¿Eliminar a ${form.nombre_completo}? Su cuenta quedará como NO ACTIVA y ya no podrá iniciar sesión.`)) return;
+    const pregunta = eliminable?.definitiva
+      ? `¿Eliminar a ${form.nombre_completo}? No tiene registros en el sistema: su cuenta se borrará definitivamente.`
+      : `¿Eliminar a ${form.nombre_completo}? Su cuenta quedará como NO ACTIVA y ya no podrá iniciar sesión.`;
+    if (!confirm(pregunta)) return;
     setEliminando(true);
     setError(null);
     try {
@@ -95,6 +100,15 @@ export default function UsuarioForm({ modo = 'registrar' }) {
         };
         setForm(datos);
         setOriginal(datos);
+        // HU-33: antes de eliminar se indica si la eliminacion sera definitiva o logica.
+        if (modo === 'eliminar') {
+          setEliminable(null);
+          try {
+            setEliminable((await api.get(`/usuarios/${id}/eliminable`)).data);
+          } catch {
+            setEliminable({ definitiva: false, registros: [] });
+          }
+        }
       }
     }
     cargar();
@@ -200,10 +214,17 @@ export default function UsuarioForm({ modo = 'registrar' }) {
               inicia sesión) no se editan.
             </p>
           )}
-          {modo === 'eliminar' && (
+          {modo === 'eliminar' && eliminable?.definitiva && (
             <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              Revisa los datos antes de eliminar. La cuenta no se borra de la base de datos: queda como NO ACTIVA, el usuario
-              ya no podrá ingresar al sistema y se conserva todo lo que registró (exámenes, habilitaciones, ingresos e incidencias).
+              Revisa los datos antes de eliminar. El usuario no tiene registros en el sistema: su cuenta se borrará
+              definitivamente de la base de datos.
+            </p>
+          )}
+          {modo === 'eliminar' && eliminable && !eliminable.definitiva && (
+            <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              Revisa los datos antes de eliminar. El usuario tiene registros en el sistema
+              {eliminable.registros?.length ? ` (${eliminable.registros.join(', ')})` : ''}, por eso su cuenta no se borra de la
+              base de datos: queda como NO ACTIVA, el usuario ya no podrá ingresar al sistema y se conserva todo lo que registró.
             </p>
           )}
 
@@ -323,7 +344,7 @@ export default function UsuarioForm({ modo = 'registrar' }) {
         <BotonesFormulario
           modo={modo}
           puedeGuardar={true}
-          puedeEliminar={tiene('usuarios.eliminar')}
+          puedeEliminar={tiene('usuarios.eliminar') && eliminable !== null}
           guardando={guardando}
           eliminando={eliminando}
           onCancelar={cancelar}
