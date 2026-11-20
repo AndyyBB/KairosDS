@@ -7,18 +7,18 @@ import { fechaDMA, horaHM } from '../../api/formato';
 import Aviso from '../../components/Aviso';
 import Encabezado from '../../components/Encabezado';
 import Paginacion from '../../components/Paginacion';
-import { UserMinusIcon, UserPlusIcon } from '../../components/Iconos';
+import { CheckAllIcon, CheckIcon, UserMinusIcon, UserPlusIcon } from '../../components/Iconos';
 
 // HU-04 (Sprint 4, observacion 3 de la licenciada): la inscripcion se maneja en DOS
 // pantallas independientes del menu Examenes:
-// - "Inscribir estudiantes": solo inscribe (ya no tiene botones "Quitar").
+// - "Inscribir estudiantes": solo inscribe: se marcan los estudiantes y se guardan.
 // - "Desinscribir estudiantes": solo quita inscripciones (estudiantes seleccionados).
 // Despues de inscribir, cada estudiante se marca como Habilitado o No habilitado en la
 // pantalla "Habilitar/Deshabilitar estudiantes"; el Control de ingreso solo deja entrar a inscritos habilitados.
 const TEXTOS = {
   inscribir: {
     titulo: 'Inscribir estudiantes',
-    descripcion: 'Elige un examen y registra a los estudiantes que lo van a rendir.',
+    descripcion: 'Elige un examen, marca a los estudiantes que lo van a rendir y presiona "Guardar inscripciones".',
     vacio: 'Se mostrarán los estudiantes para inscribirlos en ese examen.',
     ruta: '/examenes/inscribir',
     Icono: UserPlusIcon,
@@ -225,92 +225,184 @@ function Busqueda({ d, opcionesMostrar }) {
 }
 
 // ---------------- Inscribir estudiantes ----------------
+// Sprint 4: misma forma que "Habilitar/Deshabilitar estudiantes". Se marcan los
+// estudiantes que van a rendir el examen y se guardan con un solo boton. La barra con
+// "Inscribir a todos" y el contador (izquierda) y "Guardar inscripciones" (derecha) esta
+// arriba de la tabla y se mantiene visible al bajar por la lista. No hay boton "Cancelar".
 function PanelInscribir({ examenId, cerrado = false }) {
   const { tiene } = useAuth();
   const puedeInscribir = tiene('habilitaciones.registrar');
   const d = useEstudiantesDelExamen(examenId, 'no_inscritos');
+  const [seleccion, setSeleccion] = useState({}); // { [id]: nombre }
+  // "Inscribir a todos": marca a todos los no inscritos de la busqueda actual (todas las paginas).
+  const [todos, setTodos] = useState(false);
   const [trabajando, setTrabajando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
-  const [confirmarTodos, setConfirmarTodos] = useState(false);
 
-  async function inscribir(body, respaldo) {
-    setConfirmarTodos(false);
+  // Si cambia la busqueda, "todos" ya no se refiere a los mismos estudiantes.
+  useEffect(() => {
+    setTodos(false);
+  }, [d.busqueda, d.carreraId, d.mostrar]);
+
+  const editable = puedeInscribir && !cerrado;
+  const elegibles = d.filas.filter((e) => !e.inscrito);
+  const marcado = (e) => !e.inscrito && (todos || Boolean(seleccion[e.id]));
+  const paginaMarcada = elegibles.length > 0 && elegibles.every(marcado);
+  const marcados = Object.keys(seleccion).length;
+
+  function alternar(e) {
+    if (todos) {
+      // Al desmarcar uno, quedan marcados los demas de esta pagina.
+      const n = {};
+      elegibles.forEach((x) => {
+        if (x.id !== e.id) n[x.id] = x.nombre_completo;
+      });
+      setTodos(false);
+      setSeleccion(n);
+      return;
+    }
+    setSeleccion((s) => {
+      const n = { ...s };
+      if (n[e.id]) delete n[e.id];
+      else n[e.id] = e.nombre_completo;
+      return n;
+    });
+  }
+
+  function alternarPagina() {
+    if (todos) {
+      setTodos(false);
+      setSeleccion({});
+      return;
+    }
+    setSeleccion((s) => {
+      const n = { ...s };
+      elegibles.forEach((e) => {
+        if (paginaMarcada) delete n[e.id];
+        else n[e.id] = e.nombre_completo;
+      });
+      return n;
+    });
+  }
+
+  function inscribirATodos() {
+    setSeleccion({});
+    setTodos(true);
+  }
+
+  async function guardar() {
+    if (!todos && !marcados) return;
     setTrabajando(true);
     setError('');
     setMensaje('');
     try {
+      const body = todos
+        ? { todos: true, buscar: d.busqueda || undefined, carrera_id: d.carreraId || undefined }
+        : { estudiante_ids: Object.keys(seleccion).map(Number) };
       const res = await api.post(`/examenes/${examenId}/inscripciones`, body);
       setMensaje(res.data.message);
+      setSeleccion({});
+      setTodos(false);
       await d.cargar();
     } catch (err) {
-      setError(primerError(err, respaldo));
+      setError(primerError(err, 'No se pudo inscribir a los estudiantes.'));
     } finally {
       setTrabajando(false);
     }
   }
 
   return (
-    <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5">
+    <>
       {cerrado && <p className="text-sm text-amber-700 mb-4">Este examen ya finalizó: ya no admite inscripciones.</p>}
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <Aviso mensaje={error || d.errorCarga} tipo="error" onCerrar={() => setError('')} />
 
-      <Busqueda
-        d={d}
-        opcionesMostrar={[
-          ['no_inscritos', 'Solo los no inscritos'],
-          ['inscritos', 'Solo los inscritos'],
-          ['todos', 'Todos los estudiantes'],
-        ]}
-      />
-
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-        <p className="text-sm text-gray-600">
-          <span className="font-semibold text-kairos-700">{d.meta.inscritos}</span> inscritos en este examen
-        </p>
-        {puedeInscribir && !cerrado && d.mostrar !== 'inscritos' && (confirmarTodos ? (
-          <span className="flex items-center gap-2 text-sm text-gray-600">
-            ¿Inscribir a los {d.meta.total} estudiantes de la búsqueda?
-            <button
-              type="button"
-              onClick={() => inscribir({ todos: true, buscar: d.busqueda || undefined, carrera_id: d.carreraId || undefined }, 'No se pudo inscribir a los estudiantes.')}
-              disabled={trabajando}
-              className="bg-kairos-gradient text-white rounded-lg px-3 py-1 text-xs font-medium"
-            >
-              Sí
-            </button>
-            <button type="button" onClick={() => setConfirmarTodos(false)} className="border border-gray-300 rounded-lg px-3 py-1 text-xs">
-              No
-            </button>
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setConfirmarTodos(true)}
-            disabled={trabajando || d.meta.total === 0}
-            className="border border-kairos-600 text-kairos-700 rounded-lg px-4 py-2 text-sm font-medium hover:bg-kairos-50 disabled:opacity-50"
-          >
-            Inscribir a todos
-          </button>
-        ))}
+      <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md px-5 pt-5 pb-2 mb-3">
+        <Busqueda
+          d={d}
+          opcionesMostrar={[
+            ['no_inscritos', 'Solo los no inscritos'],
+            ['inscritos', 'Solo los inscritos'],
+            ['todos', 'Todos los estudiantes'],
+          ]}
+        />
       </div>
 
-      <div className="rounded-lg border border-gray-100 overflow-x-auto">
+      {/* Barra de acciones fija arriba: siempre visible al bajar por la lista. */}
+      <div className="sticky top-[64px] lg:top-0 z-20 -mx-1 mb-3 px-1 py-2 bg-[#f3f8f8]/95 backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-kairos-100/70 bg-white px-4 py-3 shadow-md">
+          <div className="flex flex-wrap items-center gap-3">
+            {editable && (
+              <button
+                type="button"
+                onClick={inscribirATodos}
+                disabled={trabajando || d.meta.total === 0 || d.mostrar === 'inscritos'}
+                className="inline-flex items-center gap-2 bg-white border border-kairos-600 text-kairos-700 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-kairos-50 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+              >
+                <CheckAllIcon size={16} />
+                Inscribir a todos
+              </button>
+            )}
+            <p className="text-sm text-gray-600">
+              <span className="font-semibold text-kairos-700">{d.meta.inscritos}</span> inscritos en este examen /{' '}
+              <span className="font-semibold text-gray-700">
+                {todos ? (d.mostrar === 'no_inscritos' ? d.meta.total : 'Todos') : marcados}
+              </span>{' '}
+              seleccionados
+            </p>
+          </div>
+          {editable && (
+            <button
+              type="button"
+              onClick={guardar}
+              disabled={trabajando || (!todos && !marcados)}
+              className="inline-flex items-center gap-2 bg-kairos-gradient text-white text-sm font-medium rounded-lg px-5 py-2 shadow-glow transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none"
+            >
+              <CheckIcon size={16} />
+              {trabajando ? 'Guardando...' : 'Guardar inscripciones'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
         <table className="w-full min-w-[760px] text-sm">
           <thead className="bg-kairos-50/80 text-kairos-800 text-left">
             <tr>
+              <th className="px-4 py-2 w-10">
+                {editable && (
+                  <input
+                    type="checkbox"
+                    aria-label="Marcar a todos los de esta página"
+                    className="h-4 w-4 accent-kairos-600"
+                    checked={paginaMarcada}
+                    disabled={elegibles.length === 0}
+                    onChange={alternarPagina}
+                  />
+                )}
+              </th>
               <th className="px-4 py-2">Estudiante</th>
               <th className="px-4 py-2">Código</th>
               <th className="px-4 py-2">Documento</th>
               <th className="px-4 py-2">Carrera</th>
               <th className="px-4 py-2">Estado</th>
-              <th className="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {d.filas.map((e) => (
-              <tr key={e.id} className="border-t border-gray-100">
+              <tr key={e.id} className={`border-t border-gray-100 ${marcado(e) ? 'bg-kairos-50/60' : ''}`}>
+                <td className="px-4 py-2">
+                  {editable && !e.inscrito && (
+                    <input
+                      type="checkbox"
+                      aria-label={`Marcar a ${e.nombre_completo}`}
+                      className="h-4 w-4 accent-kairos-600"
+                      checked={marcado(e)}
+                      onChange={() => alternar(e)}
+                    />
+                  )}
+                </td>
                 <td className="px-4 py-2">{e.nombre_completo}</td>
                 <td className="px-4 py-2 text-gray-500">{e.codigo_universitario}</td>
                 <td className="px-4 py-2 text-gray-500">{e.documento_identidad}</td>
@@ -323,18 +415,6 @@ function PanelInscribir({ examenId, cerrado = false }) {
                   >
                     {e.inscrito ? 'Inscrito' : 'No inscrito'}
                   </span>
-                </td>
-                <td className="px-4 py-2 text-right">
-                  {!cerrado && !e.inscrito && puedeInscribir && (
-                    <button
-                      type="button"
-                      onClick={() => inscribir({ estudiante_ids: [e.id] }, 'No se pudo inscribir al estudiante.')}
-                      disabled={trabajando}
-                      className="rounded-lg border border-kairos-600 px-3 py-1 text-xs font-medium text-kairos-700 hover:bg-kairos-50 disabled:opacity-50"
-                    >
-                      Inscribir
-                    </button>
-                  )}
                 </td>
               </tr>
             ))}
@@ -350,7 +430,7 @@ function PanelInscribir({ examenId, cerrado = false }) {
       </div>
 
       <Paginacion pagina={d.meta.pagina} ultima={d.meta.ultima} total={d.meta.total} onCambiar={d.setPagina} />
-    </div>
+    </>
   );
 }
 

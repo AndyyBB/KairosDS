@@ -24,9 +24,9 @@ function carrerasDe(estudiante) {
 
 // HU-04: Habilitar/Deshabilitar estudiantes en un examen.
 // La pantalla se llama "Habilitar/Deshabilitar" porque permite marcar a cada estudiante
-// inscrito como Habilitado o No habilitado. La barra con el contador, "Habilitar a todos",
-// "Cancelar" y "Guardar habilitaciones" esta arriba de la tabla y se mantiene visible al
-// bajar por la lista (no hace falta ir al final de la pagina para guardar).
+// inscrito como Habilitado o No habilitado. La barra con "Habilitar a todos" y el contador
+// (a la izquierda) y "Guardar habilitaciones" (a la derecha) esta arriba de la tabla y se
+// mantiene visible al bajar por la lista. Sprint 4: se quito el boton "Cancelar".
 export default function HabilitarEstudiantes() {
   const { examenId } = useParams();
   const { tiene } = useAuth();
@@ -252,13 +252,6 @@ export default function HabilitarEstudiantes() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="border border-gray-300 text-gray-700 rounded-lg px-4 py-2 text-sm font-medium hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
             <button
               type="button"
               onClick={guardar}
