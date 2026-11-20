@@ -19,6 +19,7 @@ import UsuarioForm from './pages/Usuarios/UsuarioForm';
 import UsuariosList from './pages/Usuarios/UsuariosList';
 import RolesPermisos from './pages/Roles/RolesPermisos';
 import HistorialPermisos from './pages/Roles/HistorialPermisos';
+import RespaldarRegistros from './pages/Respaldos/RespaldarRegistros';
 import ConsultaMotivo from './pages/Consultas/ConsultaMotivo';
 import EstudiantesIngresados from './pages/Consultas/EstudiantesIngresados';
 import RegistrarExpulsion from './pages/Incidencias/RegistrarExpulsion';
@@ -133,6 +134,9 @@ export default function App() {
 
         {/* HU-36: historial de permisos por rol (solo el administrador) */}
         <Route path="historial-permisos" element={<RutaPermiso soloAdmin><HistorialPermisos /></RutaPermiso>} />
+
+        {/* HU-28: respaldo de registros (solo el administrador) */}
+        <Route path="respaldos/respaldar" element={<RutaPermiso soloAdmin><RespaldarRegistros /></RutaPermiso>} />
 
         {/* Rutas anteriores: se redirigen a las pantallas nuevas */}
         <Route path="estudiantes/nuevo" element={<Navigate to="/estudiantes/registrar" replace />} />

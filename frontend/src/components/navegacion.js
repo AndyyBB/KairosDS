@@ -10,6 +10,7 @@ import {
   AlertaIcon,
   ReporteIcon,
   HistorialIcon,
+  BaseDatosIcon,
 } from './Iconos';
 
 // Menu del sistema. Cada accion es una pantalla independiente del menu de su modulo:
@@ -143,6 +144,13 @@ export const MODULOS = [
     icon: HistorialIcon,
     soloAdmin: true,
     descripcion: 'Operaciones realizadas en el sistema, con su usuario, fecha y hora.',
+  },
+  {
+    to: '/respaldos/respaldar',
+    label: 'Respaldar registros',
+    icon: BaseDatosIcon,
+    soloAdmin: true,
+    descripcion: 'Copia de seguridad de todos los registros del sistema (HU-28).',
   },
 ];
 

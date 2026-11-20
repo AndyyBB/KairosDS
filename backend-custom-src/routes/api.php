@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\ConsultaController;
 use App\Http\Controllers\Api\HistorialController;
 use App\Http\Controllers\Api\IncidenciaController;
 use App\Http\Controllers\Api\ReporteController;
+use App\Http\Controllers\Api\RespaldoController;
 use App\Http\Controllers\Api\AmbienteController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CarreraController;
@@ -106,6 +107,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/roles/{rol}/permisos', [PermisoController::class, 'update']);
         // HU-36: historial de permisos del rol por periodos de vigencia.
         Route::get('/roles/{rol}/permisos/historial', [PermisoController::class, 'historial']);
+        // HU-28: respaldo de registros.
+        Route::post('/respaldos', [RespaldoController::class, 'generar']);
+        Route::get('/respaldos/{respaldo}/descargar', [RespaldoController::class, 'descargar']);
     });
 
     // HU-15
