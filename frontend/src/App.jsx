@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import RutaPermiso from './components/RutaPermiso';
 import EntrarModulo, { RedirigirConId } from './components/EntrarModulo';
 import Login from './pages/Auth/Login';
+import RecuperarContrasena from './pages/Auth/RecuperarContrasena';
 import Home from './pages/Home';
 import EstudianteForm from './pages/Estudiantes/EstudianteForm';
 import EstudiantesList from './pages/Estudiantes/EstudiantesList';
@@ -37,6 +38,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      {/* HU-39: recuperacion de contraseña por correo (sin iniciar sesion) */}
+      <Route path="/recuperar-contrasena" element={<RecuperarContrasena />} />
 
       <Route
         path="/"

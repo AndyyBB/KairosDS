@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../api/AuthContext';
 import { primerError } from '../../api/errores';
 import KairosLogo from '../../components/KairosLogo';
@@ -90,6 +90,13 @@ export default function Login() {
           >
             {cargando ? 'Ingresando...' : 'Ingresar'}
           </button>
+
+          {/* HU-39: recuperacion de contraseña por correo */}
+          <p className="text-center text-sm">
+            <Link to="/recuperar-contrasena" className="text-kairos-600 font-medium hover:underline">
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </p>
         </form>
       </div>
     </div>

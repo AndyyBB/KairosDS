@@ -16,11 +16,15 @@ use App\Http\Controllers\Api\InscripcionController;
 use App\Http\Controllers\Api\MateriaController;
 use App\Http\Controllers\Api\MotivoInhabilitacionController;
 use App\Http\Controllers\Api\PermisoController;
+use App\Http\Controllers\Api\RecuperacionController;
 use App\Http\Controllers\Api\UsuarioController;
 use Illuminate\Support\Facades\Route;
 
 // HU-16: Autenticacion de usuarios
 Route::post('/login', [AuthController::class, 'login']);
+
+// HU-39: recuperacion de contraseña por correo (sin iniciar sesion).
+Route::post('/recuperar-contrasena', [RecuperacionController::class, 'solicitar']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
