@@ -19,11 +19,6 @@ const TEXTOS = {
   inscribir: {
     titulo: 'Inscribir estudiantes',
     descripcion: 'Elige un examen y registra a los estudiantes que lo van a rendir.',
-    ayuda: [
-      'Inscribir es registrar qué estudiantes van a rendir el examen.',
-      'Solo los estudiantes inscritos aparecen en "Habilitar/Deshabilitar estudiantes", donde se decide si pueden ingresar, y solo ellos pueden registrar su ingreso el día del examen.',
-      'Para quitar a un estudiante de un examen usa la pantalla "Desinscribir estudiantes".',
-    ],
     vacio: 'Se mostrarán los estudiantes para inscribirlos en ese examen.',
     ruta: '/examenes/inscribir',
     Icono: UserPlusIcon,
@@ -31,11 +26,6 @@ const TEXTOS = {
   desinscribir: {
     titulo: 'Desinscribir estudiantes',
     descripcion: 'Elige un examen, marca a los estudiantes que ya no lo rendirán y presiona "Desinscribir seleccionados".',
-    ayuda: [
-      'Desinscribir quita la inscripción del estudiante en el examen y también su habilitación.',
-      'No se puede desinscribir a un estudiante que ya registró su ingreso al examen.',
-      'Para inscribir estudiantes usa la pantalla "Inscribir estudiantes".',
-    ],
     vacio: 'Se mostrarán los estudiantes inscritos en ese examen.',
     ruta: '/examenes/desinscribir',
     Icono: UserMinusIcon,
@@ -82,16 +72,6 @@ export default function InscribirEstudiantes({ modo = 'inscribir' }) {
     <div className="max-w-6xl">
       <Encabezado icono={<Icono size={22} />} titulo={textos.titulo} descripcion={textos.descripcion} />
       <Aviso mensaje={error} tipo="error" onCerrar={() => setError('')} />
-
-      {/* Sprint 4: explicacion de para que sirve la pantalla (observacion 3: "aclarar esta HU"). */}
-      <div className="mb-5 rounded-xl border border-kairos-100 bg-kairos-50/60 px-5 py-4 text-sm text-kairos-900">
-        <p className="font-semibold mb-1">¿Para qué sirve esta pantalla?</p>
-        <ul className="list-disc pl-5 space-y-0.5">
-          {textos.ayuda.map((t) => (
-            <li key={t}>{t}</li>
-          ))}
-        </ul>
-      </div>
 
       <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
         <label htmlFor="examen-inscribir" className="block text-sm font-medium text-gray-600 mb-1">Examen</label>
