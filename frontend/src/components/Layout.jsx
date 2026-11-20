@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../api/AuthContext';
 import KairosLogo from './KairosLogo';
-import { LogoutIcon } from './Iconos';
+import { LockIcon, LogoutIcon } from './Iconos';
 import { modulosPermitidos, rutaDeItem } from './navegacion';
 import { useTablasMoviles } from './TablasMoviles';
 
@@ -239,11 +239,25 @@ export default function Layout() {
               <p className="text-xs text-gray-400 truncate">{usuario?.rol?.nombre}</p>
             </>
           )}
+          {/* HU-38: boton para que cada usuario cambie su propia contraseña */}
+          <NavLink
+            to="/cambiar-contrasena"
+            title={compacto ? 'Cambiar contraseña' : undefined}
+            aria-label="Cambiar contraseña"
+            className={({ isActive }) =>
+              `${compacto ? '' : 'mt-3'} w-full flex items-center justify-center gap-2 text-sm rounded-lg py-1.5 ${
+                isActive ? 'bg-kairos-gradient text-white shadow-glow' : 'border border-kairos-200 text-kairos-700 hover:bg-kairos-50'
+              }`
+            }
+          >
+            <LockIcon />
+            {!compacto && 'Cambiar contraseña'}
+          </NavLink>
           <button
             onClick={handleLogout}
             title={compacto ? 'Cerrar sesión' : undefined}
             aria-label="Cerrar sesión"
-            className={`${compacto ? '' : 'mt-3'} w-full flex items-center justify-center gap-2 text-sm border border-gray-300 text-gray-700 rounded-lg py-1.5 hover:bg-gray-50`}
+            className={`mt-2 w-full flex items-center justify-center gap-2 text-sm border border-gray-300 text-gray-700 rounded-lg py-1.5 hover:bg-gray-50`}
           >
             <LogoutIcon />
             {!compacto && 'Cerrar sesión'}

@@ -26,6 +26,7 @@ import ReporteAusentismo from './pages/Reportes/ReporteAusentismo';
 import ReporteIntentos from './pages/Reportes/ReporteIntentos';
 import ReporteRegistrados from './pages/Reportes/ReporteRegistrados';
 import HistorialOperaciones from './pages/Historial/HistorialOperaciones';
+import CambiarContrasena from './pages/Cuenta/CambiarContrasena';
 
 // Cada accion es una pantalla independiente: Lista, Registrar, Editar y Eliminar. La lista
 // abre "Datos de ..." (solo lectura) al hacer clic en el nombre. Cada ruta exige el permiso
@@ -119,6 +120,9 @@ export default function App() {
 
         {/* Sprint 3: Historial de operaciones (HU-27): solo el administrador; otro rol vuelve a Inicio */}
         <Route path="historial" element={<RutaPermiso soloAdmin alInicio><HistorialOperaciones /></RutaPermiso>} />
+
+        {/* HU-38: cambio de contraseña del propio usuario (todos los roles) */}
+        <Route path="cambiar-contrasena" element={<CambiarContrasena />} />
 
         {/* Roles y permisos */}
         <Route path="roles-permisos" element={<RutaPermiso soloAdmin><RolesPermisos /></RutaPermiso>} />

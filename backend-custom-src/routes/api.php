@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\AmbienteController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CarreraController;
 use App\Http\Controllers\Api\ControlIngresoController;
+use App\Http\Controllers\Api\CuentaController;
 use App\Http\Controllers\Api\EstudianteController;
 use App\Http\Controllers\Api\ExamenController;
 use App\Http\Controllers\Api\HabilitacionController;
@@ -24,6 +25,8 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+    // HU-38: cada usuario cambia su propia contrasena.
+    Route::post('/cuenta/contrasena', [CuentaController::class, 'cambiarContrasena']);
 
     Route::apiResource('carreras', CarreraController::class);
     Route::apiResource('materias', MateriaController::class);
