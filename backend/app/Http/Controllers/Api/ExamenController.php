@@ -104,12 +104,12 @@ class ExamenController extends Controller
     }
 
     // HU-08: Edicion de examenes (Sprint 4, observacion 13): solo ambientes, duracion y
-    // normas. Un examen finalizado o cancelado ya no se edita.
+    // normas. Un examen en curso, finalizado o cancelado ya no se edita (criterio 12).
     public function update(UpdateExamenRequest $request, Examen $examen)
     {
-        if (in_array($examen->estado_actual ?? $examen->estado, ['finalizado', 'cancelado'], true)) {
+        if (in_array($examen->estado_actual ?? $examen->estado, ['en curso', 'finalizado', 'cancelado'], true)) {
             return response()->json([
-                'message' => 'Este examen está '.($examen->estado_actual ?? $examen->estado).': ya no se puede editar.',
+                'message' => 'Este examen está '.($examen->estado_actual ?? $examen->estado).': ya no se puede editar, solo eliminar.',
             ], 422);
         }
 

@@ -102,6 +102,8 @@ export default function RegistrarAmbiente({ modo = 'registrar' }) {
       navigate('/ambientes/eliminar', { state: { mensaje: 'Ambiente eliminado con éxito.' } });
     } catch (err) {
       setError(primerError(err, 'No se pudo eliminar el ambiente.'));
+    } finally {
+      // Se libera el boton para poder eliminar otro registro sin recargar la pagina.
       setEliminando(false);
     }
   }
@@ -110,6 +112,7 @@ export default function RegistrarAmbiente({ modo = 'registrar' }) {
     e.preventDefault();
     setErrores({});
     setMensaje('');
+    setError('');
     setGuardando(true);
     try {
       if (editando) {
@@ -123,7 +126,14 @@ export default function RegistrarAmbiente({ modo = 'registrar' }) {
       setForm(initial);
       setMensaje('Ambiente registrado con éxito.');
     } catch (err) {
-      setErrores(erroresCampos(err));
+      const campos = erroresCampos(err);
+      setErrores(campos);
+      // Si el error no pertenece a un campo (por ejemplo, el registro fue eliminado en otra
+      // ventana), se muestra el mensaje del sistema arriba de la pantalla.
+      if (Object.keys(campos).length === 0) {
+        setError(primerError(err, 'No se pudo guardar el ambiente.'));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     } finally {
       setGuardando(false);
     }

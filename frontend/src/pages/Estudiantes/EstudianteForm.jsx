@@ -120,6 +120,9 @@ export default function EstudianteForm({ modo = 'registrar' }) {
       navigate('/estudiantes/eliminar', { state: { mensaje: 'Estudiante eliminado con éxito.' } });
     } catch (err) {
       setError(primerError(err, 'No se pudo eliminar al estudiante.'));
+    } finally {
+      // HU-07: se libera el boton "Eliminar" para poder eliminar a otro estudiante sin
+      // recargar la pagina (antes quedaba en "Eliminando...").
       setEliminando(false);
     }
   }
@@ -162,6 +165,7 @@ export default function EstudianteForm({ modo = 'registrar' }) {
     e.preventDefault();
     setGuardando(true);
     setErrores({});
+    setError('');
     setMensaje('');
     const carrerasElegidas = form.carreras.filter(Boolean).map(Number);
     const payload = {
@@ -196,7 +200,14 @@ export default function EstudianteForm({ modo = 'registrar' }) {
       setMensaje('Estudiante registrado con éxito.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      setErrores(erroresCampos(err));
+      const campos = erroresCampos(err);
+      setErrores(campos);
+      // Si el error no pertenece a un campo (por ejemplo, el registro fue eliminado en otra
+      // ventana), se muestra el mensaje del sistema arriba de la pantalla.
+      if (Object.keys(campos).length === 0) {
+        setError(primerError(err, 'No se pudo guardar al estudiante.'));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     } finally {
       setGuardando(false);
     }

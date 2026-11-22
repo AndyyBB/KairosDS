@@ -188,10 +188,10 @@ export default function Layout() {
                   key={m.base}
                   to={item.to}
                   className={claseItem(enModulo(pathname, m.base))}
-                  title={compacto ? item.label : undefined}
+                  title={compacto ? m.label : undefined}
                 >
                   <m.icon size={18} />
-                  {!compacto && item.label}
+                  {!compacto && m.label}
                 </NavLink>
               );
             }

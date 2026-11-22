@@ -188,11 +188,14 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
       navigate('/examenes/eliminar', { state: { mensaje: 'Examen eliminado con éxito.' } });
     } catch (err) {
       setError(primerError(err, 'No se pudo eliminar el examen.'));
+    } finally {
+      // Se libera el boton para poder eliminar otro registro sin recargar la pagina.
       setCancelando(false);
     }
   }
 
-  const cerrado = ['finalizado', 'cancelado'].includes(estadoExamen);
+  // HU-08 (criterio 12): un examen en curso o finalizado ya no se puede editar, solo eliminar.
+  const cerrado = ['en curso', 'finalizado', 'cancelado'].includes(estadoExamen);
   const soloLectura = modo === 'datos' || modo === 'eliminar' || (modo === 'editar' && cerrado);
   // Sprint 4 (observacion 13): al editar solo se cambian las aulas, la duracion y las normas.
   const datosFijos = soloLectura || modo === 'editar';
@@ -228,6 +231,7 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setErrores({});
+    setError('');
     setMensaje('');
 
     // No se permite una fecha pasada, ni una hora pasada o igual a la actual
@@ -282,7 +286,14 @@ export default function ProgramarExamen({ modo = 'registrar' }) {
         setDuplicado(err.response.data.duplicado);
         setAlertaAbierta(true);
       } else {
-        setErrores(erroresCampos(err));
+        const campos = erroresCampos(err);
+        setErrores(campos);
+        // Si el error no pertenece a un campo (por ejemplo, el registro fue eliminado en otra
+        // ventana), se muestra el mensaje del sistema arriba de la pantalla.
+        if (Object.keys(campos).length === 0) {
+          setError(primerError(err, 'No se pudo guardar el examen.'));
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       }
     } finally {
       setGuardando(false);

@@ -74,7 +74,7 @@ export const MODULOS = [
     icon: ClipboardCheckIcon,
     descripcion: 'Verificación de identidad y registro de ingresos.',
     // Sprint 4: el modulo tiene una sola pantalla, por eso en el menu lateral aparece
-    // directamente "Registrar ingreso" (sin desplegar un submenu).
+    // directamente "Control de ingreso" (sin desplegar un submenu) y abre "Registrar ingreso".
     directo: true,
     items: [
       { to: '/control-ingreso/registrar', label: 'Registrar ingreso', permiso: 'control_ingreso.registrar', hu: 'HU-10' },

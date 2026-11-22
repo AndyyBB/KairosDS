@@ -32,7 +32,9 @@ class PermisoController extends Controller
 
     // Sprint 4 (observaciones 19 y 20): los ingresos no se editan ni se eliminan, por eso
     // Control de ingreso solo tiene la accion Registrar.
-    private const SIN_ACCION = ['control_ingreso.editar', 'control_ingreso.eliminar'];
+    // Sprint 4: "Eliminar" de Habilitaciones no habilita ninguna pantalla (las inscripciones
+    // se quitan en "Desinscribir estudiantes", que usa el permiso Editar), por eso se muestra "—".
+    private const SIN_ACCION = ['control_ingreso.editar', 'control_ingreso.eliminar', 'habilitaciones.eliminar'];
 
     // Roles en el orden del mockup: Administrador, Docente, Personal de control de ingreso.
     public function roles()

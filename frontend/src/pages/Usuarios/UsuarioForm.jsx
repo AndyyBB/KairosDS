@@ -79,6 +79,8 @@ export default function UsuarioForm({ modo = 'registrar' }) {
       navigate('/usuarios/eliminar', { state: { mensaje: 'Usuario eliminado con éxito.' } });
     } catch (err) {
       setError(primerError(err, 'No se pudo eliminar al usuario.'));
+    } finally {
+      // Se libera el boton para poder eliminar otro registro sin recargar la pagina.
       setEliminando(false);
     }
   }
@@ -226,10 +228,11 @@ export default function UsuarioForm({ modo = 'registrar' }) {
             </p>
           )}
           {modo === 'eliminar' && eliminable && !eliminable.definitiva && (
+            // HU-33 (criterio 4): texto igual al del Sprint Planning.
             <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              Revisa los datos antes de eliminar. El usuario tiene registros en el sistema
-              {eliminable.registros?.length ? ` (${eliminable.registros.join(', ')})` : ''}, por eso su cuenta no se borra de la
-              base de datos: queda como NO ACTIVA, el usuario ya no podrá ingresar al sistema y se conserva todo lo que registró.
+              Revisa los datos antes de eliminar. La cuenta no se borra de la base de datos: queda como NO ACTIVA, el usuario
+              ya no podrá ingresar al sistema y se conserva todo lo que registró (exámenes, habilitaciones, ingresos e
+              incidencias).
             </p>
           )}
 
