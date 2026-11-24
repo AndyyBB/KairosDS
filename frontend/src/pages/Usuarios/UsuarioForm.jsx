@@ -272,10 +272,19 @@ export default function UsuarioForm({ modo = 'registrar' }) {
             autoComplete="off"
             value={form.correo_electronico}
             onChange={(e) => setForm({ ...form, correo_electronico: e.target.value })}
-            placeholder="nombre@correo.com"
+            placeholder="nombre@gmail.com"
             disabled={editando}
           />
-          {errores.correo_electronico && <p className="text-xs text-red-600 mt-1">{errores.correo_electronico[0]}</p>}
+          {errores.correo_electronico ? (
+            <p className="text-xs text-red-600 mt-1">{errores.correo_electronico[0]}</p>
+          ) : (
+            !editando && (
+              // Sprint 4: solo se aceptan dominios de correo conocidos o institucionales de la UMSS.
+              <p className="text-xs text-gray-500 mt-1">
+                Usa un correo de Gmail, Outlook, Hotmail, Yahoo, iCloud, Proton o institucional de la UMSS.
+              </p>
+            )
+          )}
         </div>
 
         {(!editando || modoEdicion) && (

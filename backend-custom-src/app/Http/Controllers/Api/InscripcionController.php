@@ -118,7 +118,8 @@ class InscripcionController extends Controller
     }
 
     // Sprint 4 (observacion 3): pantalla "Desinscribir estudiantes". Quita la inscripcion (y la
-    // habilitacion) de los estudiantes seleccionados. Los que ya registraron su ingreso no se
+    // habilitacion) de los estudiantes seleccionados o, con "Desinscribir a todos", de todos los
+    // inscritos que coinciden con la busqueda. Los que ya registraron su ingreso no se
     // desinscriben y se informan en el mensaje.
     public function quitar(Request $request, Examen $examen)
     {
@@ -129,18 +130,26 @@ class InscripcionController extends Controller
         }
 
         $data = $request->validate([
-            'estudiante_ids' => ['required', 'array', 'min:1'],
+            'estudiante_ids' => ['required_without:todos', 'array', 'min:1'],
             'estudiante_ids.*' => ['integer'],
+            'todos' => ['sometimes', 'boolean'],
         ], [
-            'estudiante_ids.required' => 'Selecciona al menos un estudiante.',
+            'estudiante_ids.required_without' => 'Selecciona al menos un estudiante.',
             'estudiante_ids.min' => 'Selecciona al menos un estudiante.',
         ]);
 
-        $inscritos = InscripcionExamen::where('examen_id', $examen->id)
-            ->whereIn('estudiante_id', $data['estudiante_ids'])
-            ->pluck('estudiante_id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
+        // "Desinscribir a todos": todos los inscritos que coinciden con la busqueda actual.
+        $inscritos = ! empty($data['todos'])
+            ? $this->estudiantesFiltrados($request)
+                ->whereIn('id', $this->inscritosIds($examen))
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all()
+            : InscripcionExamen::where('examen_id', $examen->id)
+                ->whereIn('estudiante_id', $data['estudiante_ids'])
+                ->pluck('estudiante_id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
         $conIngreso = $this->conIngresoIds($examen, $inscritos);
         $quitar = array_values(array_diff($inscritos, $conIngreso));
 

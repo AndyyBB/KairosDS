@@ -12,7 +12,7 @@ import { CheckAllIcon, CheckIcon, UserMinusIcon, UserPlusIcon } from '../../comp
 // HU-04 (Sprint 4, observacion 3 de la licenciada): la inscripcion se maneja en DOS
 // pantallas independientes del menu Examenes:
 // - "Inscribir estudiantes": solo inscribe: se marcan los estudiantes y se guardan.
-// - "Desinscribir estudiantes": solo quita inscripciones (estudiantes seleccionados).
+// - "Desinscribir estudiantes": solo quita inscripciones (seleccionados o "Desinscribir a todos").
 // Despues de inscribir, cada estudiante se marca como Habilitado o No habilitado en la
 // pantalla "Habilitar estudiantes" (o "Deshabilitar estudiantes"); el Control de ingreso solo deja entrar a inscritos habilitados.
 const TEXTOS = {
@@ -435,19 +435,39 @@ function PanelInscribir({ examenId, cerrado = false }) {
 }
 
 // ---------------- Desinscribir estudiantes ----------------
-// Se marcan los estudiantes inscritos y se desinscriben con un solo boton (con confirmacion).
+// Sprint 4: misma forma que "Inscribir estudiantes". La barra con "Desinscribir a todos" y el
+// contador (izquierda) y "Desinscribir seleccionados" (derecha) esta arriba de la tabla y se
+// mantiene visible al bajar por la lista. Siempre se pide confirmacion antes de desinscribir.
 function PanelDesinscribir({ examenId, cerrado = false }) {
   const d = useEstudiantesDelExamen(examenId, 'inscritos');
   const [seleccion, setSeleccion] = useState({}); // { [id]: nombre }
+  // "Desinscribir a todos": marca a todos los inscritos de la busqueda actual (todas las paginas).
+  const [todos, setTodos] = useState(false);
   const [trabajando, setTrabajando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
 
+  // Si cambia la busqueda, "todos" ya no se refiere a los mismos estudiantes.
+  useEffect(() => {
+    setTodos(false);
+  }, [d.busqueda, d.carreraId]);
+
   const elegibles = d.filas.filter((e) => !e.con_ingreso);
+  const marcado = (e) => !e.con_ingreso && (todos || Boolean(seleccion[e.id]));
+  const paginaMarcada = elegibles.length > 0 && elegibles.every(marcado);
   const marcados = Object.keys(seleccion).length;
-  const todosMarcados = elegibles.length > 0 && elegibles.every((e) => seleccion[e.id]);
 
   function alternar(e) {
+    if (todos) {
+      // Al desmarcar uno, quedan marcados los demas de esta pagina.
+      const n = {};
+      elegibles.forEach((x) => {
+        if (x.id !== e.id) n[x.id] = x.nombre_completo;
+      });
+      setTodos(false);
+      setSeleccion(n);
+      return;
+    }
     setSeleccion((s) => {
       const n = { ...s };
       if (n[e.id]) delete n[e.id];
@@ -457,33 +477,53 @@ function PanelDesinscribir({ examenId, cerrado = false }) {
   }
 
   function alternarPagina() {
+    if (todos) {
+      setTodos(false);
+      setSeleccion({});
+      return;
+    }
     setSeleccion((s) => {
       const n = { ...s };
       elegibles.forEach((e) => {
-        if (todosMarcados) delete n[e.id];
+        if (paginaMarcada) delete n[e.id];
         else n[e.id] = e.nombre_completo;
       });
       return n;
     });
   }
 
+  function desinscribirATodos() {
+    setSeleccion({});
+    setTodos(true);
+  }
+
   async function desinscribir() {
-    if (!marcados) return;
-    const texto =
-      marcados === 1
-        ? `¿Desinscribir a ${Object.values(seleccion)[0]} del examen? Se quitará su inscripción y su habilitación.`
-        : `¿Desinscribir a ${marcados} estudiantes del examen? Se quitará su inscripción y su habilitación.`;
+    if (!todos && !marcados) return;
+    let texto;
+    if (todos) {
+      texto = d.busqueda || d.carreraId
+        ? `¿Desinscribir a los ${d.meta.total} estudiantes inscritos que coinciden con la búsqueda? Se quitará su inscripción y su habilitación.`
+        : `¿Desinscribir a todos los estudiantes inscritos en este examen (${d.meta.total})? Se quitará su inscripción y su habilitación.`;
+    } else {
+      texto =
+        marcados === 1
+          ? `¿Desinscribir a ${Object.values(seleccion)[0]} del examen? Se quitará su inscripción y su habilitación.`
+          : `¿Desinscribir a ${marcados} estudiantes del examen? Se quitará su inscripción y su habilitación.`;
+    }
     if (!confirm(texto)) return;
     setTrabajando(true);
     setError('');
     setMensaje('');
     try {
-      const res = await api.post(`/examenes/${examenId}/inscripciones/quitar`, {
-        estudiante_ids: Object.keys(seleccion).map(Number),
-      });
+      const body = todos
+        ? { todos: true, buscar: d.busqueda || undefined, carrera_id: d.carreraId || undefined }
+        : { estudiante_ids: Object.keys(seleccion).map(Number) };
+      const res = await api.post(`/examenes/${examenId}/inscripciones/quitar`, body);
       setMensaje(res.data.message);
       setSeleccion({});
-      await d.cargar();
+      setTodos(false);
+      if (d.pagina !== 1) d.setPagina(1);
+      else await d.cargar();
     } catch (err) {
       setError(primerError(err, 'No se pudo desinscribir a los estudiantes.'));
     } finally {
@@ -491,44 +531,67 @@ function PanelDesinscribir({ examenId, cerrado = false }) {
     }
   }
 
+  const editable = !cerrado;
+
   return (
-    <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5">
+    <>
       {cerrado && <p className="text-sm text-amber-700 mb-4">Este examen ya finalizó: ya no se pueden cambiar sus inscripciones.</p>}
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
       <Aviso mensaje={error || d.errorCarga} tipo="error" onCerrar={() => setError('')} />
 
-      <Busqueda d={d} />
-
-      {/* Barra de accion arriba de la lista */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 rounded-lg border border-red-100 bg-red-50/50 px-4 py-3">
-        <p className="text-sm text-gray-700">
-          <span className="font-semibold text-kairos-700">{d.meta.inscritos}</span> inscritos en este examen ·{' '}
-          <span className="font-semibold text-red-700">{marcados}</span> seleccionados
-        </p>
-        <button
-          type="button"
-          onClick={desinscribir}
-          disabled={trabajando || !marcados || cerrado}
-          className="inline-flex items-center gap-2 bg-red-600 text-white rounded-lg px-4 py-2 text-sm font-medium shadow-sm hover:bg-red-700 disabled:opacity-50 disabled:pointer-events-none"
-        >
-          <UserMinusIcon size={16} />
-          {trabajando ? 'Desinscribiendo...' : 'Desinscribir seleccionados'}
-        </button>
+      <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md px-5 pt-5 pb-2 mb-3">
+        <Busqueda d={d} />
       </div>
 
-      <div className="rounded-lg border border-gray-100 overflow-x-auto">
+      {/* Barra de acciones fija arriba: siempre visible al bajar por la lista. */}
+      <div className="sticky top-[64px] lg:top-0 z-20 -mx-1 mb-3 px-1 py-2 bg-[#f3f8f8]/95 backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-100 bg-white px-4 py-3 shadow-md">
+          <div className="flex flex-wrap items-center gap-3">
+            {editable && (
+              <button
+                type="button"
+                onClick={desinscribirATodos}
+                disabled={trabajando || d.meta.total === 0}
+                className="inline-flex items-center gap-2 bg-white border border-red-500 text-red-700 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-red-50 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+              >
+                <CheckAllIcon size={16} />
+                Desinscribir a todos
+              </button>
+            )}
+            <p className="text-sm text-gray-600">
+              <span className="font-semibold text-kairos-700">{d.meta.inscritos}</span> inscritos en este examen /{' '}
+              <span className="font-semibold text-red-700">{todos ? d.meta.total : marcados}</span> seleccionados
+            </p>
+          </div>
+          {editable && (
+            <button
+              type="button"
+              onClick={desinscribir}
+              disabled={trabajando || (!todos && !marcados)}
+              className="inline-flex items-center gap-2 bg-red-600 text-white rounded-lg px-5 py-2 text-sm font-medium shadow-sm transition hover:bg-red-700 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+            >
+              <UserMinusIcon size={16} />
+              {trabajando ? 'Desinscribiendo...' : 'Desinscribir seleccionados'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
         <table className="w-full min-w-[760px] text-sm">
           <thead className="bg-kairos-50/80 text-kairos-800 text-left">
             <tr>
               <th className="px-4 py-2 w-10">
-                <input
-                  type="checkbox"
-                  aria-label="Seleccionar todos los de esta página"
-                  className="h-4 w-4 accent-kairos-600"
-                  checked={todosMarcados}
-                  disabled={cerrado || elegibles.length === 0}
-                  onChange={alternarPagina}
-                />
+                {editable && (
+                  <input
+                    type="checkbox"
+                    aria-label="Marcar a todos los de esta página"
+                    className="h-4 w-4 accent-red-600"
+                    checked={paginaMarcada}
+                    disabled={elegibles.length === 0}
+                    onChange={alternarPagina}
+                  />
+                )}
               </th>
               <th className="px-4 py-2">Estudiante</th>
               <th className="px-4 py-2">Código</th>
@@ -539,16 +602,18 @@ function PanelDesinscribir({ examenId, cerrado = false }) {
           </thead>
           <tbody>
             {d.filas.map((e) => (
-              <tr key={e.id} className={`border-t border-gray-100 ${seleccion[e.id] ? 'bg-red-50/60' : ''}`}>
+              <tr key={e.id} className={`border-t border-gray-100 ${marcado(e) ? 'bg-red-50/60' : ''}`}>
                 <td className="px-4 py-2">
-                  <input
-                    type="checkbox"
-                    aria-label={`Seleccionar a ${e.nombre_completo}`}
-                    className="h-4 w-4 accent-red-600"
-                    checked={Boolean(seleccion[e.id])}
-                    disabled={cerrado || e.con_ingreso}
-                    onChange={() => alternar(e)}
-                  />
+                  {editable && (
+                    <input
+                      type="checkbox"
+                      aria-label={`Marcar a ${e.nombre_completo}`}
+                      className="h-4 w-4 accent-red-600"
+                      checked={marcado(e)}
+                      disabled={e.con_ingreso}
+                      onChange={() => alternar(e)}
+                    />
+                  )}
                 </td>
                 <td className="px-4 py-2">{e.nombre_completo}</td>
                 <td className="px-4 py-2 text-gray-500">{e.codigo_universitario}</td>
@@ -569,6 +634,6 @@ function PanelDesinscribir({ examenId, cerrado = false }) {
       </div>
 
       <Paginacion pagina={d.meta.pagina} ultima={d.meta.ultima} total={d.meta.total} onCambiar={d.setPagina} />
-    </div>
+    </>
   );
 }

@@ -18,7 +18,7 @@ class StoreAmbienteRequest extends FormRequest
     {
         return [
             'nombre' => ['bail', 'required', 'string', 'max:50', 'unique:ambientes,nombre'],
-            'capacidad_maxima' => ['bail', 'required', 'integer', 'min:1'],
+            'capacidad_maxima' => ['bail', 'required', 'integer', 'min:1', 'max:1000'],
             'ubicacion' => ['bail', 'required', 'string', 'max:100'],
         ];
     }
