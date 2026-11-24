@@ -7,7 +7,7 @@ import { fechaDMA, horaHM } from '../../api/formato';
 import Aviso from '../../components/Aviso';
 import Encabezado from '../../components/Encabezado';
 import Paginacion from '../../components/Paginacion';
-import { CheckAllIcon, CheckIcon, UserMinusIcon, UserPlusIcon } from '../../components/Iconos';
+import { CheckAllIcon, CheckIcon, UserMinusIcon, UserPlusIcon, XIcon } from '../../components/Iconos';
 
 // HU-04 (Sprint 4, observacion 3 de la licenciada): la inscripcion se maneja en DOS
 // pantallas independientes del menu Examenes:
@@ -270,9 +270,10 @@ function PanelInscribir({ examenId, cerrado = false }) {
   }
 
 
+  // Un clic marca a todos; otro clic los desmarca.
   function inscribirATodos() {
     setSeleccion({});
-    setTodos(true);
+    setTodos((t) => !t);
   }
 
   async function guardar() {
@@ -321,11 +322,12 @@ function PanelInscribir({ examenId, cerrado = false }) {
               <button
                 type="button"
                 onClick={inscribirATodos}
+                aria-pressed={todos}
                 disabled={trabajando || d.meta.total === 0 || d.mostrar === 'inscritos'}
                 className="inline-flex items-center gap-2 bg-white border border-kairos-600 text-kairos-700 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-kairos-50 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
               >
-                <CheckAllIcon size={16} />
-                Inscribir a todos
+                {todos ? <XIcon size={16} /> : <CheckAllIcon size={16} />}
+                {todos ? 'Desmarcar a todos' : 'Inscribir a todos'}
               </button>
             )}
             <p className="text-sm text-gray-600">
@@ -451,9 +453,10 @@ function PanelDesinscribir({ examenId, cerrado = false }) {
   }
 
 
+  // Un clic marca a todos; otro clic los desmarca.
   function desinscribirATodos() {
     setSeleccion({});
-    setTodos(true);
+    setTodos((t) => !t);
   }
 
   async function desinscribir() {
@@ -510,11 +513,12 @@ function PanelDesinscribir({ examenId, cerrado = false }) {
               <button
                 type="button"
                 onClick={desinscribirATodos}
+                aria-pressed={todos}
                 disabled={trabajando || d.meta.total === 0}
                 className="inline-flex items-center gap-2 bg-white border border-red-500 text-red-700 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-red-50 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
               >
-                <CheckAllIcon size={16} />
-                Desinscribir a todos
+                {todos ? <XIcon size={16} /> : <CheckAllIcon size={16} />}
+                {todos ? 'Desmarcar a todos' : 'Desinscribir a todos'}
               </button>
             )}
             <p className="text-sm text-gray-600">

@@ -6,7 +6,7 @@ import { fechaDMA, horaHM } from '../../api/formato';
 import Aviso from '../../components/Aviso';
 import Encabezado from '../../components/Encabezado';
 import Paginacion from '../../components/Paginacion';
-import { CheckAllIcon, MailIcon } from '../../components/Iconos';
+import { CheckAllIcon, MailIcon, XIcon } from '../../components/Iconos';
 
 // HU-41: Enviar invitaciones (menu Examenes, solo Administrador y Docente).
 // Se elige un examen programado, se marcan los estudiantes y se presiona "Enviar invitaciones".
@@ -98,6 +98,7 @@ function PanelInvitar({ examenId }) {
   const [cargando, setCargando] = useState(true);
   const [seleccion, setSeleccion] = useState({}); // { [id]: nombre }
   // "Invitar a todos": marca a todos los no inscritos de la busqueda actual (todas las paginas).
+  // Un segundo clic ("Desmarcar a todos") los desmarca.
   const [todos, setTodos] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState('');
@@ -243,13 +244,14 @@ function PanelInvitar({ examenId }) {
               type="button"
               onClick={() => {
                 setSeleccion({});
-                setTodos(true);
+                setTodos((t) => !t);
               }}
+              aria-pressed={todos}
               disabled={enviando || meta.total === 0}
               className="inline-flex items-center gap-2 bg-white border border-kairos-600 text-kairos-700 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-kairos-50 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
             >
-              <CheckAllIcon size={16} />
-              Invitar a todos
+              {todos ? <XIcon size={16} /> : <CheckAllIcon size={16} />}
+              {todos ? 'Desmarcar a todos' : 'Invitar a todos'}
             </button>
             <p className="text-sm text-gray-600">
               <span className="font-semibold text-kairos-700">{meta.inscritos}</span> inscritos /{' '}

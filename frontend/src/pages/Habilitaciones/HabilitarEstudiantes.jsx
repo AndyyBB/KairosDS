@@ -151,9 +151,17 @@ export default function HabilitarEstudiantes({ modo = 'habilitar' }) {
 
   // "Habilitar a todos" / "Deshabilitar a todos": marca a todos los inscritos que todavia
   // faltan habilitar (o deshabilitar). Al deshabilitar, cada uno sigue necesitando su motivo.
+  // Un clic marca a todos; si ya estan todos marcados, otro clic los desmarca.
+  const todosElegibles = inscritos.filter(elegible);
+  const todosMarcados = todosElegibles.length > 0 && todosElegibles.every(({ estudiante }) => seleccion[estudiante.id]);
+
   function marcarATodos() {
+    if (todosMarcados) {
+      setSeleccion({});
+      return;
+    }
     const n = {};
-    inscritos.filter(elegible).forEach(({ estudiante }) => {
+    todosElegibles.forEach(({ estudiante }) => {
       n[estudiante.id] = true;
     });
     setSeleccion(n);
@@ -297,13 +305,14 @@ export default function HabilitarEstudiantes({ modo = 'habilitar' }) {
                   <button
                     type="button"
                     onClick={marcarATodos}
-                    disabled={guardando || inscritos.filter(elegible).length === 0}
+                    aria-pressed={todosMarcados}
+                    disabled={guardando || todosElegibles.length === 0}
                     className={`inline-flex items-center gap-2 bg-white border rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none ${
                       habilitar ? 'border-kairos-600 text-kairos-700 hover:bg-kairos-50' : 'border-red-500 text-red-700 hover:bg-red-50'
                     }`}
                   >
-                    <CheckAllIcon size={16} />
-                    {habilitar ? 'Habilitar a todos' : 'Deshabilitar a todos'}
+                    {todosMarcados ? <XIcon size={16} /> : <CheckAllIcon size={16} />}
+                    {todosMarcados ? 'Desmarcar a todos' : habilitar ? 'Habilitar a todos' : 'Deshabilitar a todos'}
                   </button>
                 )}
                 <p className="text-sm text-gray-600">
