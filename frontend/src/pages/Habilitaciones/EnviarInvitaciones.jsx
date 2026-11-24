@@ -139,7 +139,6 @@ function PanelInvitar({ examenId }) {
 
   const elegibles = filas.filter((e) => !e.inscrito);
   const marcado = (e) => !e.inscrito && (todos || Boolean(seleccion[e.id]));
-  const paginaMarcada = elegibles.length > 0 && elegibles.every(marcado);
   const marcados = Object.keys(seleccion).length;
 
   function alternar(e) {
@@ -160,21 +159,6 @@ function PanelInvitar({ examenId }) {
     });
   }
 
-  function alternarPagina() {
-    if (todos) {
-      setTodos(false);
-      setSeleccion({});
-      return;
-    }
-    setSeleccion((s) => {
-      const n = { ...s };
-      elegibles.forEach((e) => {
-        if (paginaMarcada) delete n[e.id];
-        else n[e.id] = e.nombre_completo;
-      });
-      return n;
-    });
-  }
 
   async function enviar() {
     if (!todos && !marcados) return;
@@ -293,14 +277,7 @@ function PanelInvitar({ examenId }) {
           <thead className="bg-kairos-50/80 text-kairos-800 text-left">
             <tr>
               <th className="px-4 py-2 w-10">
-                <input
-                  type="checkbox"
-                  aria-label="Marcar a todos los de esta página"
-                  className="h-4 w-4 accent-kairos-600"
-                  checked={paginaMarcada}
-                  disabled={elegibles.length === 0}
-                  onChange={alternarPagina}
-                />
+                {/* Sin casilla "marcar pagina": para marcar a todos se usa el boton "... a todos". */}
               </th>
               <th className="px-4 py-2">Estudiante</th>
               <th className="px-4 py-2">Código</th>

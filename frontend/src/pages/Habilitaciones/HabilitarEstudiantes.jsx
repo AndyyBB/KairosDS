@@ -137,8 +137,6 @@ export default function HabilitarEstudiantes({ modo = 'habilitar' }) {
   const totalSinDecidir = inscritos.length - totalHabilitados - totalNoHabilitados;
   const marcados = Object.keys(seleccion).length;
 
-  const elegiblesVisibles = visibles.filter(elegible);
-  const paginaMarcada = elegiblesVisibles.length > 0 && elegiblesVisibles.every(({ estudiante }) => seleccion[estudiante.id]);
 
   function alternar(id) {
     setSeleccion((s) => {
@@ -150,19 +148,10 @@ export default function HabilitarEstudiantes({ modo = 'habilitar' }) {
     setErroresMotivo((e) => ({ ...e, [id]: false }));
   }
 
-  function alternarPagina() {
-    setSeleccion((s) => {
-      const n = { ...s };
-      elegiblesVisibles.forEach(({ estudiante }) => {
-        if (paginaMarcada) delete n[estudiante.id];
-        else n[estudiante.id] = true;
-      });
-      return n;
-    });
-  }
 
-  // "Habilitar a todos": marca a todos los inscritos que todavia no estan habilitados.
-  function habilitarATodos() {
+  // "Habilitar a todos" / "Deshabilitar a todos": marca a todos los inscritos que todavia
+  // faltan habilitar (o deshabilitar). Al deshabilitar, cada uno sigue necesitando su motivo.
+  function marcarATodos() {
     const n = {};
     inscritos.filter(elegible).forEach(({ estudiante }) => {
       n[estudiante.id] = true;
@@ -304,15 +293,17 @@ export default function HabilitarEstudiantes({ modo = 'habilitar' }) {
               }`}
             >
               <div className="flex flex-wrap items-center gap-3">
-                {habilitar && editable && (
+                {editable && (
                   <button
                     type="button"
-                    onClick={habilitarATodos}
+                    onClick={marcarATodos}
                     disabled={guardando || inscritos.filter(elegible).length === 0}
-                    className="inline-flex items-center gap-2 bg-white border border-kairos-600 text-kairos-700 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-kairos-50 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+                    className={`inline-flex items-center gap-2 bg-white border rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none ${
+                      habilitar ? 'border-kairos-600 text-kairos-700 hover:bg-kairos-50' : 'border-red-500 text-red-700 hover:bg-red-50'
+                    }`}
                   >
                     <CheckAllIcon size={16} />
-                    Habilitar a todos
+                    {habilitar ? 'Habilitar a todos' : 'Deshabilitar a todos'}
                   </button>
                 )}
                 <p className="text-sm text-gray-600">
@@ -350,17 +341,8 @@ export default function HabilitarEstudiantes({ modo = 'habilitar' }) {
               <thead className="bg-kairos-50/80 text-kairos-800 text-left">
                 <tr>
                   <th className="px-4 py-2 w-10">
-                    {editable && (
-                      <input
-                        type="checkbox"
-                        aria-label="Marcar a todos los de esta página"
-                        className={`h-4 w-4 ${habilitar ? 'accent-kairos-600' : 'accent-red-600'}`}
-                        checked={paginaMarcada}
-                        disabled={elegiblesVisibles.length === 0}
-                        onChange={alternarPagina}
-                      />
-                    )}
-                  </th>
+                {/* Sin casilla "marcar pagina": para marcar a todos se usa el boton "... a todos". */}
+              </th>
                   <th className="px-4 py-2">Estudiante</th>
                   <th className="px-4 py-2">Código</th>
                   <th className="px-4 py-2">CI</th>
