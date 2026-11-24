@@ -14,10 +14,10 @@ const ACCIONES = [
 ];
 
 // Opcion del menu que habilita cada casilla. Cada accion es una pantalla independiente
-// ("Registrar ...", "Editar ...", "Eliminar ..."); la habilitacion de estudiantes se hace
-// en una sola pantalla.
+// ("Registrar ...", "Editar ...", "Eliminar ..."); habilitar y deshabilitar estudiantes son
+// dos pantallas separadas.
 const PANTALLAS_EXTRA = {
-  'habilitaciones.registrar': 'Inscribir estudiantes, Habilitar/Deshabilitar estudiantes',
+  'habilitaciones.registrar': 'Inscribir estudiantes, Habilitar estudiantes, Deshabilitar estudiantes',
   'habilitaciones.editar': 'Desinscribir estudiantes y cambiar habilitaciones',
 };
 

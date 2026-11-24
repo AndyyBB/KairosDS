@@ -7,205 +7,248 @@ import { primerError } from '../../api/errores';
 import { useAuth } from '../../api/AuthContext';
 import Aviso from '../../components/Aviso';
 import Encabezado from '../../components/Encabezado';
-import {
-  CheckBadgeIcon,
-  CheckIcon,
-  XIcon,
-  CheckAllIcon,
-} from '../../components/Iconos';
+import { CheckAllIcon, CheckBadgeIcon, CheckIcon, XIcon } from '../../components/Iconos';
 
 const POR_PAGINA = 20;
 
-// Todas las carreras del estudiante (puede tener más de una).
+// Sprint 4 (observacion de la licenciada): habilitar y deshabilitar son dos pantallas
+// independientes del menu Examenes (antes era una sola: "Habilitar/Deshabilitar estudiantes").
+// - "Habilitar estudiantes": se marcan los inscritos que pueden rendir el examen y se presiona
+//   "Guardar habilitaciones".
+// - "Deshabilitar estudiantes": se marcan los inscritos que NO pueden rendirlo, se escribe el
+//   motivo de cada uno (obligatorio) y se presiona "Deshabilitar seleccionados".
+// En las dos, la barra de acciones esta arriba de la tabla y se mantiene visible al bajar.
+const TEXTOS = {
+  habilitar: {
+    titulo: 'Habilitar estudiantes',
+    descripcion: 'Selecciona un examen, marca a los estudiantes inscritos que pueden rendirlo y presiona "Guardar habilitaciones".',
+    ruta: '/examenes/habilitar',
+  },
+  deshabilitar: {
+    titulo: 'Deshabilitar estudiantes',
+    descripcion: 'Selecciona un examen, marca a los estudiantes que no pueden rendirlo, escribe el motivo y presiona "Deshabilitar seleccionados".',
+    ruta: '/examenes/deshabilitar',
+  },
+};
+
+// Todas las carreras del estudiante (puede tener mas de una).
 function carrerasDe(estudiante) {
   const lista = estudiante.carreras?.length ? estudiante.carreras : estudiante.carrera ? [estudiante.carrera] : [];
   return lista.map((c) => c.nombre).join(', ') || '-';
 }
 
-// HU-04: Habilitar/Deshabilitar estudiantes en un examen.
-// La pantalla se llama "Habilitar/Deshabilitar" porque permite marcar a cada estudiante
-// inscrito como Habilitado o No habilitado. La barra con "Habilitar a todos" y el contador
-// (a la izquierda) y "Guardar habilitaciones" (a la derecha) esta arriba de la tabla y se
-// mantiene visible al bajar por la lista. Sprint 4: se quito el boton "Cancelar".
-export default function HabilitarEstudiantes() {
+// Estado actual de la habilitacion: true (habilitado), false (no habilitado) o null (sin decidir).
+const estadoDe = (habilitacion) => (habilitacion ? habilitacion.habilitado : null);
+
+function EstadoActual({ habilitacion }) {
+  const estado = estadoDe(habilitacion);
+  if (estado === true) {
+    return <span className="whitespace-nowrap rounded-full bg-kairos-gradient px-2.5 py-0.5 text-xs font-medium text-white shadow-sm">Habilitado</span>;
+  }
+  if (estado === false) {
+    return <span className="whitespace-nowrap rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700">No habilitado</span>;
+  }
+  return <span className="whitespace-nowrap rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">Sin decidir</span>;
+}
+
+export default function HabilitarEstudiantes({ modo = 'habilitar' }) {
   const { examenId } = useParams();
   const { tiene } = useAuth();
+  const navigate = useNavigate();
+  const textos = TEXTOS[modo];
+  const habilitar = modo === 'habilitar';
+
+  const [examenes, setExamenes] = useState([]);
   const [examen, setExamen] = useState(null);
   const [inscritos, setInscritos] = useState([]);
-  const [estado, setEstado] = useState({});
   const [cargando, setCargando] = useState(true);
-  const [guardando, setGuardando] = useState(false);
-  const [error, setError] = useState(null);
+  const [seleccion, setSeleccion] = useState({}); // { [id]: true }
+  const [motivos, setMotivos] = useState({}); // solo en "Deshabilitar"
   const [erroresMotivo, setErroresMotivo] = useState({});
-  const navigate = useNavigate();
+  const [buscar, setBuscar] = useState('');
+  const [mostrar, setMostrar] = useState('pendientes'); // pendientes | todos
   const [pagina, setPagina] = useState(1);
-  const [examenes, setExamenes] = useState([]);
+  const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [error, setError] = useState('');
 
-  // HU-04 (1): lista de examenes registrados que aun admiten habilitaciones.
+  // Examenes registrados que todavia admiten habilitaciones (no finalizados ni cancelados).
   useEffect(() => {
     api
       .get('/examenes', { params: { per_page: 100 } })
       .then((res) => {
-        const lista = (res.data.data ?? res.data).filter(
-          (ex) => !['finalizado', 'cancelado'].includes(ex.estado_actual)
-        );
+        const lista = (res.data.data ?? res.data).filter((ex) => !['finalizado', 'cancelado'].includes(ex.estado_actual));
         lista.sort((a, b) => `${a.fecha} ${a.hora_inicio}`.localeCompare(`${b.fecha} ${b.hora_inicio}`));
         setExamenes(lista);
       })
       .catch((err) => setError(primerError(err, 'No se pudo cargar la lista de exámenes.')));
   }, []);
 
-  function seleccionarExamen(id) {
-    setMensaje('');
-    setPagina(1);
-    navigate(id ? `/examenes/habilitar/${id}` : '/examenes/habilitar');
-  }
-
   async function cargar() {
+    setSeleccion({});
+    setMotivos({});
+    setErroresMotivo({});
     if (!examenId) {
       setExamen(null);
       setInscritos([]);
-      setEstado({});
       setCargando(false);
       return;
     }
     setCargando(true);
-    const [examenRes, inscritosRes] = await Promise.all([
-      api.get(`/examenes/${examenId}`),
-      api.get(`/examenes/${examenId}/inscritos`),
-    ]);
-    setExamen(examenRes.data);
-    setInscritos(inscritosRes.data);
-
-    // Nada viene premarcado: solo se refleja lo que ya se guardo antes desde
-    // esta misma pagina. Un estudiante sin habilitacion previa queda sin
-    // decidir (null) hasta que el docente elija Habilitado o No hab.
-    const inicial = {};
-    inscritosRes.data.forEach(({ estudiante, habilitacion }) => {
-      inicial[estudiante.id] = {
-        habilitado: habilitacion ? habilitacion.habilitado : null,
-        motivo: habilitacion?.observacion || '',
-      };
-    });
-    setEstado(inicial);
-    setErroresMotivo({});
-    setError(null);
-    setCargando(false);
+    try {
+      const [examenRes, inscritosRes] = await Promise.all([
+        api.get(`/examenes/${examenId}`),
+        api.get(`/examenes/${examenId}/inscritos`),
+      ]);
+      setExamen(examenRes.data);
+      setInscritos(inscritosRes.data);
+    } catch (err) {
+      setError(primerError(err, 'No se pudo cargar el examen.'));
+    } finally {
+      setCargando(false);
+    }
   }
 
   useEffect(() => {
+    setPagina(1);
     cargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examenId]);
 
-  function marcar(estudianteId, habilitado) {
-    setEstado((prev) => ({ ...prev, [estudianteId]: { ...prev[estudianteId], habilitado } }));
-    setErroresMotivo((prev) => ({ ...prev, [estudianteId]: false }));
-  }
-
-  function cambiarMotivo(estudianteId, motivo) {
-    setEstado((prev) => ({ ...prev, [estudianteId]: { ...prev[estudianteId], motivo } }));
-    setErroresMotivo((prev) => ({ ...prev, [estudianteId]: false }));
-  }
-
-  function habilitarATodos() {
-    setEstado((prev) => {
-      const next = { ...prev };
-      inscritos.forEach(({ estudiante }) => {
-        next[estudiante.id] = { ...next[estudiante.id], habilitado: true };
-      });
-      return next;
-    });
-    setErroresMotivo({});
-  }
-
-  const totalHabilitados = inscritos.filter(({ estudiante }) => estado[estudiante.id]?.habilitado === true).length;
-  const totalNoHabilitados = inscritos.filter(({ estudiante }) => estado[estudiante.id]?.habilitado === false).length;
   const cerrado = ['finalizado', 'cancelado'].includes(examen?.estado_actual);
-  const ultimaPagina = Math.max(1, Math.ceil(inscritos.length / POR_PAGINA));
-  const visibles = inscritos.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
+  const editable = !cerrado;
+
+  // Un estudiante se puede marcar si todavia no tiene el estado de esta pantalla:
+  // en "Habilitar", los sin decidir y los no habilitados; en "Deshabilitar", los sin decidir y los habilitados.
+  const elegible = ({ habilitacion }) => (habilitar ? estadoDe(habilitacion) !== true : estadoDe(habilitacion) !== false);
+
+  const texto = buscar.trim().toLowerCase();
+  const filtrados = inscritos.filter((fila) => {
+    if (mostrar === 'pendientes' && !elegible(fila)) return false;
+    if (!texto) return true;
+    const e = fila.estudiante;
+    return [e.nombre_completo, e.codigo_universitario, e.documento_identidad].some((v) => String(v ?? '').toLowerCase().includes(texto));
+  });
+  const ultimaPagina = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
+  const visibles = filtrados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
+
+  const totalHabilitados = inscritos.filter(({ habilitacion }) => estadoDe(habilitacion) === true).length;
+  const totalNoHabilitados = inscritos.filter(({ habilitacion }) => estadoDe(habilitacion) === false).length;
   const totalSinDecidir = inscritos.length - totalHabilitados - totalNoHabilitados;
+  const marcados = Object.keys(seleccion).length;
+
+  const elegiblesVisibles = visibles.filter(elegible);
+  const paginaMarcada = elegiblesVisibles.length > 0 && elegiblesVisibles.every(({ estudiante }) => seleccion[estudiante.id]);
+
+  function alternar(id) {
+    setSeleccion((s) => {
+      const n = { ...s };
+      if (n[id]) delete n[id];
+      else n[id] = true;
+      return n;
+    });
+    setErroresMotivo((e) => ({ ...e, [id]: false }));
+  }
+
+  function alternarPagina() {
+    setSeleccion((s) => {
+      const n = { ...s };
+      elegiblesVisibles.forEach(({ estudiante }) => {
+        if (paginaMarcada) delete n[estudiante.id];
+        else n[estudiante.id] = true;
+      });
+      return n;
+    });
+  }
+
+  // "Habilitar a todos": marca a todos los inscritos que todavia no estan habilitados.
+  function habilitarATodos() {
+    const n = {};
+    inscritos.filter(elegible).forEach(({ estudiante }) => {
+      n[estudiante.id] = true;
+    });
+    setSeleccion(n);
+  }
 
   async function guardar() {
-    // Se puede guardar aunque haya estudiantes sin decidir: solo se envían
-    // los que tienen Habilitado o No habilitado; los demás quedan pendientes.
-    const faltantes = {};
-    inscritos.forEach(({ estudiante }) => {
-      const e = estado[estudiante.id];
-      if (e && e.habilitado === false && !e.motivo?.trim()) {
-        faltantes[estudiante.id] = true;
-      }
-    });
+    const ids = Object.keys(seleccion).map(Number);
+    if (!ids.length) return;
 
-    if (Object.keys(faltantes).length > 0) {
-      // Solo se muestra el mensaje junto a cada estudiante sin motivo.
-      setErroresMotivo(faltantes);
-      setError(null);
-      const primerIndice = inscritos.findIndex(({ estudiante }) => faltantes[estudiante.id]);
-      setPagina(Math.floor(primerIndice / POR_PAGINA) + 1);
-      return;
+    if (!habilitar) {
+      // El motivo de inhabilitacion es obligatorio para cada estudiante marcado.
+      const faltantes = {};
+      ids.forEach((id) => {
+        if (!motivos[id]?.trim()) faltantes[id] = true;
+      });
+      if (Object.keys(faltantes).length) {
+        setErroresMotivo(faltantes);
+        const indice = filtrados.findIndex(({ estudiante }) => faltantes[estudiante.id]);
+        if (indice >= 0) setPagina(Math.floor(indice / POR_PAGINA) + 1);
+        return;
+      }
+      const pregunta = ids.length === 1 ? '¿Deshabilitar al estudiante seleccionado?' : `¿Deshabilitar a los ${ids.length} estudiantes seleccionados?`;
+      if (!confirm(`${pregunta} No podrán registrar su ingreso a este examen.`)) return;
     }
 
-    setError(null);
     setGuardando(true);
+    setError('');
+    setMensaje('');
     try {
-      const decididos = inscritos.filter(({ estudiante }) => estado[estudiante.id]?.habilitado != null);
       await Promise.all(
-        decididos.map(({ estudiante }) => {
-          const e = estado[estudiante.id];
-          return api.post(`/examenes/${examenId}/habilitaciones`, {
-            estudiante_id: estudiante.id,
-            habilitado: e.habilitado,
-            observacion: e.habilitado ? null : e.motivo.trim(),
-          });
-        })
+        ids.map((id) =>
+          api.post(`/examenes/${examenId}/habilitaciones`, {
+            estudiante_id: id,
+            habilitado: habilitar,
+            observacion: habilitar ? null : motivos[id].trim(),
+          })
+        )
       );
-      // HU-04 (10): el sistema muestra el mensaje de confirmacion en esta misma pantalla.
+      const n = ids.length;
       setMensaje(
-        `Habilitaciones registradas con éxito: ${totalHabilitados} habilitados / ${totalNoHabilitados} no habilitados` +
-          (totalSinDecidir > 0 ? ` / ${totalSinDecidir} sin decidir.` : '.')
+        habilitar
+          ? `Habilitaciones registradas con éxito: ${n === 1 ? '1 estudiante habilitado' : `${n} estudiantes habilitados`}.`
+          : `${n === 1 ? '1 estudiante deshabilitado' : `${n} estudiantes deshabilitados`} con éxito.`
       );
-      window.scrollTo({ top: 0, behavior: 'smooth' });
       await cargar();
     } catch (err) {
-      setError(primerError(err, 'No se pudo guardar las habilitaciones.'));
+      setError(primerError(err, habilitar ? 'No se pudo guardar las habilitaciones.' : 'No se pudo deshabilitar a los estudiantes.'));
+      await cargar();
     } finally {
       setGuardando(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
+
+  const etiqueta = (ex) =>
+    `${ex.materia?.nombre} — ${fechaDMA(ex.fecha)} ${horaHM(ex.hora_inicio)} — ${
+      ex.ambientes?.length ? ex.ambientes.map((a) => a.nombre).join(', ') : ex.ambiente?.nombre ?? ''
+    }`;
 
   return (
     <div className="max-w-6xl">
-      <Encabezado
-        icono={<CheckBadgeIcon size={22} />}
-        titulo="Habilitar/Deshabilitar estudiantes"
-        descripcion='Selecciona un examen, marca a cada estudiante inscrito como Habilitado o No habilitado y presiona "Guardar habilitaciones".'
-      />
+      <Encabezado icono={<CheckBadgeIcon size={22} />} titulo={textos.titulo} descripcion={textos.descripcion} />
 
       <Aviso mensaje={mensaje} onCerrar={() => setMensaje('')} />
+      <Aviso mensaje={error} tipo="error" onCerrar={() => setError('')} />
 
       <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md p-5 mb-5">
-        <label htmlFor="examen-habilitar" className="block text-sm font-medium text-gray-600 mb-1">Examen</label>
+        <label htmlFor={`examen-${modo}`} className="block text-sm font-medium text-gray-600 mb-1">Examen</label>
         <select
-          id="examen-habilitar"
+          id={`examen-${modo}`}
           className="input"
           value={examenId ?? ''}
-          onChange={(e) => seleccionarExamen(e.target.value)}
+          onChange={(e) => {
+            setMensaje('');
+            navigate(e.target.value ? `${textos.ruta}/${e.target.value}` : textos.ruta);
+          }}
         >
           <option value="">Seleccione un examen</option>
           {examenes.map((ex) => (
-            <option key={ex.id} value={String(ex.id)}>
-              {`${ex.materia?.nombre} — ${fechaDMA(ex.fecha)} ${horaHM(ex.hora_inicio)} — ${
-                ex.ambientes?.length ? ex.ambientes.map((a) => a.nombre).join(', ') : ex.ambiente?.nombre ?? ''
-              }`}
-            </option>
+            <option key={ex.id} value={String(ex.id)}>{etiqueta(ex)}</option>
           ))}
           {/* Si se entra con un examen que ya no esta en la lista (finalizado), igual se muestra. */}
           {examen && !examenes.some((ex) => String(ex.id) === String(examen.id)) && (
-            <option value={String(examen.id)}>
-              {`${examen.materia?.nombre} — ${fechaDMA(examen.fecha)} ${horaHM(examen.hora_inicio)}`}
-            </option>
+            <option value={String(examen.id)}>{etiqueta(examen)}</option>
           )}
         </select>
       </div>
@@ -221,147 +264,197 @@ export default function HabilitarEstudiantes() {
       )}
 
       {examenId && (
-      <>
-      {cerrado && (
-        <p className="text-sm text-amber-700 mb-4">Este examen está {examen.estado_actual}: ya no admite habilitaciones.</p>
-      )}
+        <>
+          {cerrado && (
+            <p className="text-sm text-amber-700 mb-4">Este examen está {examen.estado_actual}: ya no admite habilitaciones.</p>
+          )}
 
-      {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
-
-      {/* Barra de acciones fija arriba: siempre visible al bajar por la lista. */}
-      <div className="sticky top-[64px] lg:top-0 z-20 -mx-1 mb-3 px-1 py-2 bg-[#f3f8f8]/95 backdrop-blur">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-kairos-100/70 bg-white px-4 py-3 shadow-md">
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={habilitarATodos}
-              disabled={cerrado || inscritos.length === 0}
-              className="inline-flex items-center gap-2 bg-white border border-kairos-600 text-kairos-700 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-kairos-50 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
-            >
-              <CheckAllIcon size={16} />
-              Habilitar a todos
-            </button>
-            <p className="text-sm text-gray-600">
-              <span className="font-semibold text-kairos-700">{totalHabilitados}</span> habilitados /{' '}
-              <span className="font-semibold text-red-600">{totalNoHabilitados}</span> no habilitados
-              {totalSinDecidir > 0 && (
-                <>
-                  {' '}/ <span className="font-semibold text-gray-700">{totalSinDecidir}</span> sin decidir
-                </>
-              )}
-            </p>
+          {/* Busqueda dentro de los inscritos */}
+          <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md px-5 pt-5 pb-2 mb-3">
+            <div className="flex flex-col lg:flex-row gap-2 mb-3">
+              <input
+                className="input lg:flex-1"
+                placeholder="Buscar por nombre, código o documento"
+                value={buscar}
+                onChange={(e) => {
+                  setBuscar(e.target.value);
+                  setPagina(1);
+                }}
+              />
+              <select
+                className="input lg:w-72"
+                aria-label="Mostrar"
+                value={mostrar}
+                onChange={(e) => {
+                  setMostrar(e.target.value);
+                  setPagina(1);
+                }}
+              >
+                <option value="pendientes">{habilitar ? 'Solo los que faltan habilitar' : 'Solo los que faltan deshabilitar'}</option>
+                <option value="todos">Todos los inscritos</option>
+              </select>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={guardar}
-              disabled={guardando || totalHabilitados + totalNoHabilitados === 0 || cerrado}
-              className="inline-flex items-center gap-2 bg-kairos-gradient text-white text-sm font-medium rounded-lg px-5 py-2 shadow-glow transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none"
-            >
-              <CheckIcon size={16} />
-              {guardando ? 'Guardando...' : 'Guardar habilitaciones'}
-            </button>
-          </div>
-        </div>
-      </div>
 
-      <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
-        <table className="w-full min-w-[900px] text-sm">
-          <thead className="bg-kairos-50/80 text-kairos-800 text-left">
-            <tr>
-              <th className="px-4 py-2">Estudiante</th>
-              <th className="px-4 py-2">Código</th>
-              <th className="px-4 py-2">CI</th>
-              <th className="px-4 py-2">Carrera</th>
-              <th className="px-4 py-2">Estado</th>
-              <th className="px-4 py-2">Motivo de inhabilitación</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibles.map(({ estudiante }) => {
-              const e = estado[estudiante.id] || { habilitado: null, motivo: '' };
-              return (
-                <tr key={estudiante.id} className="border-t border-gray-100 align-top">
-                  <td className="px-4 py-2">{estudiante.nombre_completo}</td>
-                  <td className="px-4 py-2 text-gray-500">{estudiante.codigo_universitario}</td>
-                  <td className="px-4 py-2 text-gray-500">{estudiante.documento_identidad || '-'}</td>
-                  <td className="px-4 py-2 text-gray-500">{carrerasDe(estudiante)}</td>
-                  <td className="px-4 py-2">
-                    <div className="flex items-center gap-2 whitespace-nowrap" role="group" aria-label="Estado de habilitación">
-                      <button
-                        type="button"
-                        disabled={cerrado}
-                        aria-pressed={e.habilitado === true}
-                        onClick={() => marcar(estudiante.id, true)}
-                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition active:scale-[0.97] disabled:pointer-events-none ${
-                          e.habilitado === true
-                            ? 'bg-kairos-gradient text-white shadow-sm'
-                            : 'border border-gray-300 text-gray-600 hover:border-kairos-500 hover:text-kairos-700 hover:bg-kairos-50'
-                        }`}
-                      >
-                        <CheckIcon />
-                        Habilitado
-                      </button>
-                      <button
-                        type="button"
-                        disabled={cerrado}
-                        aria-pressed={e.habilitado === false}
-                        onClick={() => marcar(estudiante.id, false)}
-                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition active:scale-[0.97] disabled:pointer-events-none ${
-                          e.habilitado === false
-                            ? 'bg-red-600 text-white shadow-sm'
-                            : 'border border-gray-300 text-gray-600 hover:border-red-400 hover:text-red-600 hover:bg-red-50'
-                        }`}
-                      >
-                        <XIcon />
-                        No habilitado
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2">
-                    {e.habilitado === false ? (
-                      <div>
-                        <input
-                          className="input text-xs py-1"
-                          placeholder="Ingresa el motivo..."
-                          maxLength={200}
-                          value={e.motivo}
-                          onChange={(ev) => cambiarMotivo(estudiante.id, ev.target.value)}
-                        />
-                        {erroresMotivo[estudiante.id] && (
-                          <p className="text-red-500 text-xs mt-1">El motivo de inhabilitación es obligatorio.</p>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-            {!cargando && inscritos.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-400">
-                  Ningún estudiante está inscrito en este examen.
-                  {tiene('habilitaciones.registrar') && !cerrado && (
+          {/* Barra de acciones fija arriba: siempre visible al bajar por la lista. */}
+          <div className="sticky top-[64px] lg:top-0 z-20 -mx-1 mb-3 px-1 py-2 bg-[#f3f8f8]/95 backdrop-blur">
+            <div
+              className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 shadow-md ${
+                habilitar ? 'border-kairos-100/70 bg-white' : 'border-red-100 bg-red-50'
+              }`}
+            >
+              <div className="flex flex-wrap items-center gap-3">
+                {habilitar && editable && (
+                  <button
+                    type="button"
+                    onClick={habilitarATodos}
+                    disabled={guardando || inscritos.filter(elegible).length === 0}
+                    className="inline-flex items-center gap-2 bg-white border border-kairos-600 text-kairos-700 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-kairos-50 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    <CheckAllIcon size={16} />
+                    Habilitar a todos
+                  </button>
+                )}
+                <p className="text-sm text-gray-600">
+                  <span className="font-semibold text-kairos-700">{totalHabilitados}</span> habilitados /{' '}
+                  <span className="font-semibold text-red-600">{totalNoHabilitados}</span> no habilitados
+                  {totalSinDecidir > 0 && (
                     <>
-                      {' '}Primero inscríbelos en la pantalla{' '}
-                      <Link to={`/examenes/inscribir/${examenId}`} className="text-kairos-600 font-medium hover:underline">
-                        Inscribir estudiantes
-                      </Link>
-                      .
+                      {' '}/ <span className="font-semibold text-gray-700">{totalSinDecidir}</span> sin decidir
                     </>
                   )}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                  {' · '}
+                  <span className="font-semibold text-gray-800">{marcados}</span> seleccionados
+                </p>
+              </div>
+              {editable && (
+                <button
+                  type="button"
+                  onClick={guardar}
+                  disabled={guardando || !marcados}
+                  className={
+                    habilitar
+                      ? 'inline-flex items-center gap-2 bg-kairos-gradient text-white text-sm font-medium rounded-lg px-5 py-2 shadow-glow transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none'
+                      : 'inline-flex items-center gap-2 bg-red-600 text-white text-sm font-medium rounded-lg px-5 py-2 shadow-sm transition hover:bg-red-700 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none'
+                  }
+                >
+                  {habilitar ? <CheckIcon size={16} /> : <XIcon size={16} />}
+                  {guardando ? 'Guardando...' : habilitar ? 'Guardar habilitaciones' : 'Deshabilitar seleccionados'}
+                </button>
+              )}
+            </div>
+          </div>
 
-      <Paginacion pagina={pagina} ultima={ultimaPagina} total={inscritos.length} onCambiar={setPagina} />
+          <div className="bg-white rounded-xl border border-kairos-100/70 shadow-md overflow-x-auto">
+            <table className="w-full min-w-[900px] text-sm">
+              <thead className="bg-kairos-50/80 text-kairos-800 text-left">
+                <tr>
+                  <th className="px-4 py-2 w-10">
+                    {editable && (
+                      <input
+                        type="checkbox"
+                        aria-label="Marcar a todos los de esta página"
+                        className={`h-4 w-4 ${habilitar ? 'accent-kairos-600' : 'accent-red-600'}`}
+                        checked={paginaMarcada}
+                        disabled={elegiblesVisibles.length === 0}
+                        onChange={alternarPagina}
+                      />
+                    )}
+                  </th>
+                  <th className="px-4 py-2">Estudiante</th>
+                  <th className="px-4 py-2">Código</th>
+                  <th className="px-4 py-2">CI</th>
+                  <th className="px-4 py-2">Carrera</th>
+                  <th className="px-4 py-2">Estado</th>
+                  <th className="px-4 py-2">Motivo de inhabilitación</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibles.map((fila) => {
+                  const { estudiante, habilitacion } = fila;
+                  const marcado = Boolean(seleccion[estudiante.id]);
+                  return (
+                    <tr
+                      key={estudiante.id}
+                      className={`border-t border-gray-100 align-top ${marcado ? (habilitar ? 'bg-kairos-50/60' : 'bg-red-50/60') : ''}`}
+                    >
+                      <td className="px-4 py-2">
+                        {editable && elegible(fila) && (
+                          <input
+                            type="checkbox"
+                            aria-label={`Marcar a ${estudiante.nombre_completo}`}
+                            className={`h-4 w-4 ${habilitar ? 'accent-kairos-600' : 'accent-red-600'}`}
+                            checked={marcado}
+                            onChange={() => alternar(estudiante.id)}
+                          />
+                        )}
+                      </td>
+                      <td className="px-4 py-2">{estudiante.nombre_completo}</td>
+                      <td className="px-4 py-2 text-gray-500">{estudiante.codigo_universitario}</td>
+                      <td className="px-4 py-2 text-gray-500">{estudiante.documento_identidad || '-'}</td>
+                      <td className="px-4 py-2 text-gray-500">{carrerasDe(estudiante)}</td>
+                      <td className="px-4 py-2">
+                        <EstadoActual habilitacion={habilitacion} />
+                      </td>
+                      <td className="px-4 py-2">
+                        {!habilitar && marcado ? (
+                          <div>
+                            <input
+                              className={`input text-xs py-1 ${erroresMotivo[estudiante.id] ? 'input-error' : ''}`}
+                              placeholder="Ingresa el motivo..."
+                              maxLength={200}
+                              value={motivos[estudiante.id] ?? ''}
+                              onChange={(ev) => {
+                                setMotivos((m) => ({ ...m, [estudiante.id]: ev.target.value }));
+                                setErroresMotivo((e) => ({ ...e, [estudiante.id]: false }));
+                              }}
+                            />
+                            {erroresMotivo[estudiante.id] && (
+                              <p className="text-red-500 text-xs mt-1">El motivo de inhabilitación es obligatorio.</p>
+                            )}
+                          </div>
+                        ) : estadoDe(habilitacion) === false ? (
+                          <span className="text-xs text-gray-600">{habilitacion.observacion || habilitacion.motivo?.descripcion || '-'}</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!cargando && inscritos.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-6 text-center text-gray-400">
+                      Ningún estudiante está inscrito en este examen.
+                      {tiene('habilitaciones.registrar') && !cerrado && (
+                        <>
+                          {' '}Primero inscríbelos en la pantalla{' '}
+                          <Link to={`/examenes/inscribir/${examenId}`} className="text-kairos-600 font-medium hover:underline">
+                            Inscribir estudiantes
+                          </Link>
+                          .
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                )}
+                {!cargando && inscritos.length > 0 && filtrados.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-6 text-center text-gray-400">
+                      {mostrar === 'pendientes' && !texto
+                        ? habilitar
+                          ? 'Todos los inscritos ya están habilitados.'
+                          : 'Todos los inscritos ya están como no habilitados.'
+                        : 'No se encontraron estudiantes.'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
-      </>
+          <Paginacion pagina={pagina} ultima={ultimaPagina} total={filtrados.length} onCambiar={setPagina} />
+        </>
       )}
     </div>
   );

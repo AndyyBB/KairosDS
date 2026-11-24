@@ -14,7 +14,7 @@ import { CheckAllIcon, CheckIcon, UserMinusIcon, UserPlusIcon } from '../../comp
 // - "Inscribir estudiantes": solo inscribe: se marcan los estudiantes y se guardan.
 // - "Desinscribir estudiantes": solo quita inscripciones (estudiantes seleccionados).
 // Despues de inscribir, cada estudiante se marca como Habilitado o No habilitado en la
-// pantalla "Habilitar/Deshabilitar estudiantes"; el Control de ingreso solo deja entrar a inscritos habilitados.
+// pantalla "Habilitar estudiantes" (o "Deshabilitar estudiantes"); el Control de ingreso solo deja entrar a inscritos habilitados.
 const TEXTOS = {
   inscribir: {
     titulo: 'Inscribir estudiantes',
@@ -225,7 +225,7 @@ function Busqueda({ d, opcionesMostrar }) {
 }
 
 // ---------------- Inscribir estudiantes ----------------
-// Sprint 4: misma forma que "Habilitar/Deshabilitar estudiantes". Se marcan los
+// Sprint 4: misma forma que "Habilitar estudiantes". Se marcan los
 // estudiantes que van a rendir el examen y se guardan con un solo boton. La barra con
 // "Inscribir a todos" y el contador (izquierda) y "Guardar inscripciones" (derecha) esta
 // arriba de la tabla y se mantiene visible al bajar por la lista. No hay boton "Cancelar".
