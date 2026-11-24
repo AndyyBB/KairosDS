@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-// Barra de busqueda de las listas y de las tablas de seleccion: campo de texto con el
-// boton "Buscar" (Enter tambien busca) y, si la pantalla tiene filtros, el boton
-// "Filtros", que despliega el panel de filtros. Los filtros activos se muestran como
+// Barra de busqueda de las listas y de las tablas de seleccion: campo de texto que busca
+// mientras se escribe (Sprint 4, correccion de David: sin boton "Buscar") y, si la pantalla
+// tiene filtros, el boton "Filtros", que despliega el panel de filtros. Los filtros activos se muestran como
 // etiquetas que se pueden quitar una por una.
 
 function IconoBuscar() {
@@ -21,6 +21,9 @@ function IconoFiltro() {
     </svg>
   );
 }
+
+// Milisegundos que se espera despues de la ultima tecla antes de buscar.
+export const ESPERA_BUSQUEDA = 300;
 
 const vacio = (v) => v === '' || v === null || v === undefined;
 
@@ -86,6 +89,20 @@ export default function Buscador({ valor, onCambiar, onBuscar, placeholder, camp
   const [errorFiltros, setErrorFiltros] = useState('');
   const hayFiltros = Boolean(campos?.length && onFiltrar);
   const activos = filtrosActivos(filtros);
+
+  // Busqueda dinamica: la tabla se actualiza mientras se escribe (con una pausa corta para no
+  // consultar en cada tecla). Se usa siempre la ultima version de onBuscar.
+  const buscarRef = useRef(onBuscar);
+  buscarRef.current = onBuscar;
+  const primera = useRef(true);
+  useEffect(() => {
+    if (primera.current) {
+      primera.current = false;
+      return undefined;
+    }
+    const t = setTimeout(() => buscarRef.current(), ESPERA_BUSQUEDA);
+    return () => clearTimeout(t);
+  }, [valor]);
 
   // El panel siempre parte de los filtros aplicados.
   useEffect(() => {
@@ -156,9 +173,6 @@ export default function Buscador({ valor, onCambiar, onBuscar, placeholder, camp
             aria-label={placeholder}
           />
         </div>
-        <button type="submit" className="border border-gray-300 rounded-lg px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-          Buscar
-        </button>
         {hayFiltros && (
           <button
             type="button"

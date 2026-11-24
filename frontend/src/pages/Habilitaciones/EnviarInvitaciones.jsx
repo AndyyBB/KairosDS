@@ -6,6 +6,7 @@ import { fechaDMA, horaHM } from '../../api/formato';
 import Aviso from '../../components/Aviso';
 import Encabezado from '../../components/Encabezado';
 import Paginacion from '../../components/Paginacion';
+import { ESPERA_BUSQUEDA } from '../../components/Buscador';
 import { CheckAllIcon, MailIcon, XIcon } from '../../components/Iconos';
 
 // HU-41: Enviar invitaciones (menu Examenes, solo Administrador y Docente).
@@ -27,6 +28,7 @@ export default function EnviarInvitaciones() {
   const { examenId } = useParams();
   const navigate = useNavigate();
   const [examenes, setExamenes] = useState([]);
+  const [listaCargada, setListaCargada] = useState(false);
   const [error, setError] = useState('');
 
   // Solo los examenes programados (que todavia no empezaron) admiten invitaciones.
@@ -38,8 +40,12 @@ export default function EnviarInvitaciones() {
         lista.sort((a, b) => `${a.fecha} ${a.hora_inicio}`.localeCompare(`${b.fecha} ${b.hora_inicio}`));
         setExamenes(lista);
       })
-      .catch((err) => setError(primerError(err, 'No se pudo cargar la lista de exámenes.')));
+      .catch((err) => setError(primerError(err, 'No se pudo cargar la lista de exámenes.')))
+      .finally(() => setListaCargada(true));
   }, []);
+
+  // El examen de la direccion ya no esta programado (por ejemplo, ya esta en curso).
+  const noProgramado = Boolean(examenId) && listaCargada && !examenes.some((ex) => String(ex.id) === String(examenId));
 
   const etiqueta = (ex) =>
     `${ex.materia?.nombre} — ${fechaDMA(ex.fecha)} ${horaHM(ex.hora_inicio)} — ${
@@ -71,9 +77,12 @@ export default function EnviarInvitaciones() {
         {examenes.length === 0 && <p className="text-xs text-gray-400 mt-2">No hay exámenes programados.</p>}
       </div>
 
-      {examenId ? (
-        <PanelInvitar key={examenId} examenId={examenId} />
-      ) : (
+      {examenId && listaCargada && !noProgramado && <PanelInvitar key={examenId} examenId={examenId} />}
+      {examenId && noProgramado && (
+        // HU-41 (criterio 4): el examen elegido ya empezo (o finalizo): no se envian invitaciones.
+        <Aviso mensaje="Solo se envían invitaciones a exámenes programados (que todavía no empezaron)." tipo="error" />
+      )}
+      {!examenId && (
         <div className="rounded-xl border border-dashed border-kairos-200 bg-white/60 px-6 py-12 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-kairos-50 text-kairos-600">
             <MailIcon size={24} />
@@ -132,6 +141,18 @@ function PanelInvitar({ examenId }) {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  // Sprint 4 (correccion de David): la tabla se actualiza mientras se escribe, sin boton "Buscar".
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const texto = buscar.trim();
+      setBusqueda((actual) => {
+        if (actual !== texto) setPagina(1);
+        return texto;
+      });
+    }, ESPERA_BUSQUEDA);
+    return () => clearTimeout(t);
+  }, [buscar]);
 
   // Si cambia la busqueda, "todos" ya no se refiere a los mismos estudiantes.
   useEffect(() => {
@@ -230,9 +251,6 @@ function PanelInvitar({ examenId }) {
             <option value="pendientes">Invitados que no aceptaron</option>
             <option value="todos">Todos los estudiantes</option>
           </select>
-          <button type="submit" className="border border-gray-300 rounded-lg px-4 text-sm text-gray-700 py-2">
-            Buscar
-          </button>
         </form>
       </div>
 
