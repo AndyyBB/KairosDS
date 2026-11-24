@@ -31,6 +31,15 @@ const TEXTOS = {
   },
 };
 
+// El estudiante pertenece a la carrera elegida (puede tener mas de una).
+function esDeCarrera(estudiante, carreraId) {
+  const id = String(carreraId);
+  return (
+    String(estudiante.carrera_id ?? estudiante.carrera?.id ?? '') === id ||
+    (estudiante.carreras ?? []).some((c) => String(c.id) === id)
+  );
+}
+
 // Todas las carreras del estudiante (puede tener mas de una).
 function carrerasDe(estudiante) {
   const lista = estudiante.carreras?.length ? estudiante.carreras : estudiante.carrera ? [estudiante.carrera] : [];
@@ -66,11 +75,18 @@ export default function HabilitarEstudiantes({ modo = 'habilitar' }) {
   const [motivos, setMotivos] = useState({}); // solo en "Deshabilitar"
   const [erroresMotivo, setErroresMotivo] = useState({});
   const [buscar, setBuscar] = useState('');
+  // Sprint 4 (correccion de David): filtro "Todas las carreras", como en Inscribir estudiantes.
+  const [carreras, setCarreras] = useState([]);
+  const [carreraId, setCarreraId] = useState('');
   const [mostrar, setMostrar] = useState('pendientes'); // pendientes | todos
   const [pagina, setPagina] = useState(1);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.get('/carreras').then((res) => setCarreras(res.data)).catch(() => setCarreras([]));
+  }, []);
 
   // Examenes registrados que todavia admiten habilitaciones (no finalizados ni cancelados).
   useEffect(() => {
@@ -125,8 +141,9 @@ export default function HabilitarEstudiantes({ modo = 'habilitar' }) {
   const texto = buscar.trim().toLowerCase();
   const filtrados = inscritos.filter((fila) => {
     if (mostrar === 'pendientes' && !elegible(fila)) return false;
-    if (!texto) return true;
     const e = fila.estudiante;
+    if (carreraId && !esDeCarrera(e, carreraId)) return false;
+    if (!texto) return true;
     return [e.nombre_completo, e.codigo_universitario, e.documento_identidad].some((v) => String(v ?? '').toLowerCase().includes(texto));
   });
   const ultimaPagina = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
@@ -152,7 +169,8 @@ export default function HabilitarEstudiantes({ modo = 'habilitar' }) {
   // "Habilitar a todos" / "Deshabilitar a todos": marca a todos los inscritos que todavia
   // faltan habilitar (o deshabilitar). Al deshabilitar, cada uno sigue necesitando su motivo.
   // Un clic marca a todos; si ya estan todos marcados, otro clic los desmarca.
-  const todosElegibles = inscritos.filter(elegible);
+  // Respeta la busqueda y la carrera elegidas (como "Inscribir a todos").
+  const todosElegibles = filtrados.filter(elegible);
   const todosMarcados = todosElegibles.length > 0 && todosElegibles.every(({ estudiante }) => seleccion[estudiante.id]);
 
   function marcarATodos() {
@@ -278,6 +296,20 @@ export default function HabilitarEstudiantes({ modo = 'habilitar' }) {
                   setPagina(1);
                 }}
               />
+              <select
+                className="input lg:w-56"
+                aria-label="Carrera"
+                value={carreraId}
+                onChange={(e) => {
+                  setCarreraId(e.target.value);
+                  setPagina(1);
+                }}
+              >
+                <option value="">Todas las carreras</option>
+                {carreras.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                ))}
+              </select>
               <select
                 className="input lg:w-72"
                 aria-label="Mostrar"

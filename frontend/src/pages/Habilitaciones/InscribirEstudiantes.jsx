@@ -7,6 +7,7 @@ import { fechaDMA, horaHM } from '../../api/formato';
 import Aviso from '../../components/Aviso';
 import Encabezado from '../../components/Encabezado';
 import Paginacion from '../../components/Paginacion';
+import { ESPERA_BUSQUEDA } from '../../components/Buscador';
 import { CheckAllIcon, CheckIcon, UserMinusIcon, UserPlusIcon, XIcon } from '../../components/Iconos';
 
 // HU-04 (Sprint 4, observacion 3 de la licenciada): la inscripcion se maneja en DOS
@@ -162,6 +163,18 @@ function useEstudiantesDelExamen(examenId, filtroInicial) {
     cargar();
   }, [cargar]);
 
+  // Sprint 4 (correccion de David): la tabla se actualiza mientras se escribe, sin boton "Buscar".
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const texto = buscar.trim();
+      setBusqueda((actual) => {
+        if (actual !== texto) setPagina(1);
+        return texto;
+      });
+    }, ESPERA_BUSQUEDA);
+    return () => clearTimeout(t);
+  }, [buscar]);
+
   return {
     carreras, filas, meta, buscar, setBuscar, busqueda, setBusqueda, carreraId, setCarreraId,
     mostrar, setMostrar, pagina, setPagina, cargando, errorCarga, cargar,
@@ -217,9 +230,6 @@ function Busqueda({ d, opcionesMostrar }) {
           ))}
         </select>
       )}
-      <button type="submit" className="border border-gray-300 rounded-lg px-4 text-sm text-gray-700 py-2">
-        Buscar
-      </button>
     </form>
   );
 }

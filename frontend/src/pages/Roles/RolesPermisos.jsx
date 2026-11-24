@@ -46,6 +46,20 @@ export default function RolesPermisos() {
   const [hasta, setHasta] = useState('');
   const [errorFechas, setErrorFechas] = useState('');
 
+  // Sprint 4 (bug HU-17): las fechas se aplican a todos los permisos marcados del rol, por eso
+  // el formulario muestra las fechas que el rol ya tiene (si todos sus permisos comparten las
+  // mismas). Asi, guardar sin tocar las fechas no borra una fecha final ya puesta.
+  function cargarFechas(datos) {
+    const aIso = (dma) => (dma ? dma.split('/').reverse().join('-') : '');
+    const lista = Object.values(datos.vigencias ?? {});
+    const hoyRol = datos.hoy ?? '';
+    const comun = (campo) => (lista.length && lista.every((v) => v[campo] === lista[0][campo]) ? aIso(lista[0][campo]) : '');
+    const desdeComun = comun('desde');
+    setHoy(hoyRol);
+    setDesde(desdeComun && desdeComun > hoyRol ? desdeComun : hoyRol);
+    setHasta(comun('hasta'));
+  }
+
   // HU-17 (1): roles Administrador, Docente y Personal de control de ingreso.
   useEffect(() => {
     api
@@ -68,9 +82,7 @@ export default function RolesPermisos() {
         setEdicion(res.data.modulos);
         setBloqueado(res.data.bloqueado);
         setVigencias(res.data.vigencias ?? {});
-        setHoy(res.data.hoy ?? '');
-        setDesde(res.data.hoy ?? '');
-        setHasta('');
+        cargarFechas(res.data);
         setErrorFechas('');
       })
       .catch((err) => setError(primerError(err)));
@@ -110,9 +122,7 @@ export default function RolesPermisos() {
       // Se vuelven a leer los permisos para mostrar las fechas de cada uno.
       const act = await api.get(`/roles/${rolId}/permisos`);
       setVigencias(act.data.vigencias ?? {});
-      setHoy(act.data.hoy ?? '');
-      setDesde(act.data.hoy ?? '');
-      setHasta('');
+      cargarFechas(act.data);
     } catch (err) {
       setError(primerError(err));
     } finally {
@@ -152,7 +162,7 @@ export default function RolesPermisos() {
         {/* Sprint 4: las fechas de vigencia van arriba de la tabla de permisos (mas visibles). */}
         {edicion && (
           <div className="mb-5 rounded-lg border border-kairos-200 bg-kairos-50 px-4 py-3">
-            <p className="text-sm font-semibold text-kairos-800 mb-2">Vigencia de los permisos que se marquen ahora</p>
+            <p className="text-sm font-semibold text-kairos-800 mb-2">Vigencia de los permisos del rol</p>
             <div className="flex flex-col sm:flex-row gap-3">
               <div>
                 <label htmlFor="vigente-desde" className="block text-sm font-medium text-gray-700 mb-1">Vigente desde</label>
@@ -186,8 +196,8 @@ export default function RolesPermisos() {
               </div>
             </div>
             <p className="text-xs text-gray-600 mt-2">
-              Si dejas vacía la fecha final, el permiso no vence. Estas fechas se aplican a los permisos que marques en este
-              guardado; los que ya estaban asignados conservan las suyas.
+              Al guardar, estas fechas se aplican a todos los permisos marcados del rol, también a los que ya estaban
+              asignados. Si dejas vacía la fecha final, los permisos no vencen.
             </p>
             {errorFechas && <p className="text-sm text-red-600 mt-1">{errorFechas}</p>}
           </div>
