@@ -115,7 +115,8 @@ class PermisoController extends Controller
         $data = $request->validate([
             'permisos' => ['present', 'array'],
             'permisos.*' => ['string', Rule::in($codigos)],
-            // Fechas desde/hasta de los permisos que se asignan en esta operacion.
+            // Fechas desde/hasta: se aplican a TODOS los permisos marcados del rol (nuevos y
+            // los que ya tenia), Sprint 4 (bug HU-17 reportado por Maicol).
             'vigente_desde' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:'.$hoy],
             'vigente_hasta' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:'.($request->input('vigente_desde') ?: $hoy)],
         ], [
@@ -149,7 +150,12 @@ class PermisoController extends Controller
         $inicio = $desdeDia === $hoy ? now() : Carbon::parse($desdeDia.' 00:00:00', self::TZ)->utc();
         $fin = $hastaDia ? Carbon::parse($hastaDia.' 23:59:59', self::TZ)->utc() : null;
 
-        DB::transaction(function () use ($rol, $ids, $idsAntes, $request, $inicio, $fin) {
+        // Permisos de la tabla que el rol ya tenia y sigue teniendo: tambien toman las nuevas fechas.
+        // (Los de modulos fuera de la tabla, como Reportes, conservan las suyas.)
+        $idsFuera = Permiso::whereIn('codigo', $fuera)->pluck('id')->all();
+        $renovados = [];
+
+        DB::transaction(function () use ($rol, $ids, $idsAntes, $idsFuera, $request, $inicio, $fin, &$renovados) {
             $rol->permisos()->sync($ids);
 
             // Sprint 4 (observacion 10): periodos de vigencia de cada permiso del rol.
@@ -167,6 +173,36 @@ class PermisoController extends Controller
                         'retirado_por' => $usuarioId,
                     ]);
             }
+            // Sprint 4 (HU-17): las fechas elegidas se aplican tambien a los permisos que ya estaban
+            // asignados. Se cierra su periodo actual y se abre uno nuevo con las fechas elegidas,
+            // asi el Historial de permisos conserva el periodo anterior. Si ya tiene esas mismas
+            // fechas, no se toca.
+            $mismoDia = fn ($a, $b) => $a && $b
+                && Carbon::parse($a, 'UTC')->setTimezone(self::TZ)->format('Y-m-d') === Carbon::parse($b, 'UTC')->setTimezone(self::TZ)->format('Y-m-d');
+            $conservados = array_values(array_diff(array_intersect($ids, $idsAntes), $idsFuera));
+            foreach ($conservados as $permisoId) {
+                $actual = DB::table('rol_permiso_vigencia')
+                    ->where('rol_id', $rol->id)
+                    ->where('permiso_id', $permisoId)
+                    ->where(fn ($q) => $q->whereNull('vigente_hasta')->orWhere('vigente_hasta', '>', $ahora))
+                    ->orderByDesc('vigente_desde')
+                    ->first();
+                $igualFin = $fin === null ? ($actual?->vigente_hasta === null) : $mismoDia($actual?->vigente_hasta, $fin);
+                if ($actual && $mismoDia($actual->vigente_desde, $inicio) && $igualFin) {
+                    continue;
+                }
+                DB::table('rol_permiso_vigencia')
+                    ->where('rol_id', $rol->id)
+                    ->where('permiso_id', $permisoId)
+                    ->where(fn ($q) => $q->whereNull('vigente_hasta')->orWhere('vigente_hasta', '>', $ahora))
+                    ->update([
+                        'vigente_hasta' => DB::raw("GREATEST('".$ahora->copy()->utc()->format('Y-m-d H:i:s')."'::timestamp, vigente_desde)"),
+                        'retirado_por' => $usuarioId,
+                    ]);
+                $otorgados[] = $permisoId;
+                $renovados[] = $permisoId;
+            }
+
             foreach ($otorgados as $permisoId) {
                 DB::table('rol_permiso_vigencia')->insert([
                     'rol_id' => $rol->id,
@@ -182,10 +218,12 @@ class PermisoController extends Controller
         $despues = collect($codigosFinales)->sort()->values()->all();
         $agregados = array_values(array_diff($despues, $antes));
         $quitados = array_values(array_diff($antes, $despues));
-        if ($agregados || $quitados) {
+        $periodo = ' (vigentes desde '.Carbon::parse($desdeDia)->format('d/m/Y').($hastaDia ? ' hasta '.Carbon::parse($hastaDia)->format('d/m/Y') : ', sin fecha de fin').')';
+        $codigosRenovados = Permiso::whereIn('id', $renovados)->orderBy('codigo')->pluck('codigo')->all();
+        if ($agregados || $quitados || $codigosRenovados) {
             Historial::registrar('Editar', 'Roles y permisos', 'Permisos del rol '.ucfirst($rol->nombre)
-                .($agregados ? ' — agregados: '.implode(', ', $agregados) : '')
-                .($agregados ? ' (vigentes desde '.Carbon::parse($desdeDia)->format('d/m/Y').($hastaDia ? ' hasta '.Carbon::parse($hastaDia)->format('d/m/Y') : ', sin fecha de fin').')' : '')
+                .($agregados ? ' — agregados: '.implode(', ', $agregados).$periodo : '')
+                .($codigosRenovados ? ' — nuevas fechas: '.implode(', ', $codigosRenovados).($agregados ? '' : $periodo) : '')
                 .($quitados ? ' — quitados: '.implode(', ', $quitados) : ''), $rol, ['permisos' => $antes], ['permisos' => $despues]);
         }
 
