@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Mail\RecuperarContrasena;
 use App\Models\Usuario;
+use App\Rules\CorreoPermitido;
 use App\Support\Historial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -24,8 +25,9 @@ class RecuperacionController extends Controller
     public function solicitar(Request $request)
     {
         $data = $request->validate([
-            'correo_electronico' => ['bail', 'required', 'string', 'max:100', 'email'],
+            'correo_electronico' => ['bail', 'required', 'string', 'max:100', 'email', 'regex:'.CorreoPermitido::FORMATO],
         ], [
+            'correo_electronico.regex' => 'El correo electrónico no es válido.',
             'correo_electronico.required' => 'El campo Correo electrónico es obligatorio.',
             'correo_electronico.email' => 'El correo electrónico no es válido.',
             'correo_electronico.max' => 'El correo electrónico no es válido.',

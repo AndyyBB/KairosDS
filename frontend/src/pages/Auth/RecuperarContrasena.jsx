@@ -5,7 +5,9 @@ import { primerError } from '../../api/errores';
 import KairosLogo from '../../components/KairosLogo';
 import { Etiqueta, MailIcon } from '../../components/Iconos';
 
-const FORMATO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Sprint 4 (bug HU-39): formato estricto, el mismo que valida el backend (CorreoPermitido::FORMATO).
+// Rechaza, por ejemplo, "maria@gmail", "maria@gmail.c", "maria@gmail.123" y "maría@gmail.com".
+const FORMATO = /^[A-Za-z0-9_%+-]+(\.[A-Za-z0-9_%+-]+)*@([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}$/;
 
 // HU-39: Recuperacion de contrasena por correo. Se usa sin iniciar sesion.
 export default function RecuperarContrasena() {

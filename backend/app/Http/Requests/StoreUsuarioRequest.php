@@ -25,7 +25,7 @@ class StoreUsuarioRequest extends FormRequest
             'apellidos' => ['bail', 'required', 'string', 'max:60', 'regex:/^[\pL\s.]+$/u'],
             // El correo se valida como unico despues del nombre (ver after()).
             // Sprint 4: solo dominios de correo conocidos (Gmail, Outlook, ...) o de la UMSS.
-            'correo_electronico' => ['bail', 'required', 'string', 'email', 'max:100', new CorreoPermitido],
+            'correo_electronico' => ['bail', 'required', 'string', 'email', 'max:100', 'regex:'.CorreoPermitido::FORMATO, new CorreoPermitido],
             'password' => ['bail', 'required', 'string', 'min:8'],
             'rol_id' => ['bail', 'required', 'integer', 'exists:roles,id'],
         ];
