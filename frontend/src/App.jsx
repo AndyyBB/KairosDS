@@ -14,6 +14,8 @@ import ProgramarExamen from './pages/Examenes/ProgramarExamen';
 import ExamenesList from './pages/Examenes/ExamenesList';
 import HabilitarEstudiantes from './pages/Habilitaciones/HabilitarEstudiantes';
 import InscribirEstudiantes from './pages/Habilitaciones/InscribirEstudiantes';
+import EnviarInvitaciones from './pages/Habilitaciones/EnviarInvitaciones';
+import AceptarInvitacion from './pages/Auth/AceptarInvitacion';
 import ControlIngreso from './pages/ControlIngreso/ControlIngreso';
 import UsuarioForm from './pages/Usuarios/UsuarioForm';
 import UsuariosList from './pages/Usuarios/UsuariosList';
@@ -42,6 +44,8 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       {/* HU-39: recuperacion de contraseña por correo (sin iniciar sesion) */}
       <Route path="/recuperar-contrasena" element={<RecuperarContrasena />} />
+      {/* HU-41: el estudiante acepta la invitacion al examen desde el correo (sin iniciar sesion) */}
+      <Route path="/invitacion/:token" element={<AceptarInvitacion />} />
 
       <Route
         path="/"
@@ -73,7 +77,7 @@ export default function App() {
         <Route path="ambientes/eliminar" element={con('ambientes.eliminar', <RegistrarAmbiente key="eliminar" modo="eliminar" />)} />
         <Route path="ambientes/eliminar/:id" element={con('ambientes.eliminar', <RegistrarAmbiente key="eliminar" modo="eliminar" />)} />
 
-        {/* Examenes: Lista, Programar, Editar, Eliminar, Inscribir y Habilitar/Deshabilitar estudiantes */}
+        {/* Examenes: Lista, Programar, Editar, Eliminar, Inscribir, Habilitar y Deshabilitar estudiantes */}
         <Route path="examenes" element={<EntrarModulo base="/examenes" />} />
         <Route path="examenes/lista" element={con('examenes.ver', <ExamenesList />)} />
         <Route path="examenes/programar" element={con('examenes.registrar', <ProgramarExamen key="registrar" modo="registrar" />)} />
@@ -84,10 +88,14 @@ export default function App() {
         <Route path="examenes/eliminar/:id" element={con('examenes.eliminar', <ProgramarExamen key="eliminar" modo="eliminar" />)} />
         <Route path="examenes/inscribir" element={con('habilitaciones.registrar', <InscribirEstudiantes key="inscribir" modo="inscribir" />)} />
         <Route path="examenes/inscribir/:examenId" element={con('habilitaciones.registrar', <InscribirEstudiantes key="inscribir" modo="inscribir" />)} />
+        <Route path="examenes/invitar" element={<RutaPermiso roles={['administrador', 'docente']}><EnviarInvitaciones /></RutaPermiso>} />
+        <Route path="examenes/invitar/:examenId" element={<RutaPermiso roles={['administrador', 'docente']}><EnviarInvitaciones /></RutaPermiso>} />
         <Route path="examenes/desinscribir" element={con('habilitaciones.editar', <InscribirEstudiantes key="desinscribir" modo="desinscribir" />)} />
         <Route path="examenes/desinscribir/:examenId" element={con('habilitaciones.editar', <InscribirEstudiantes key="desinscribir" modo="desinscribir" />)} />
-        <Route path="examenes/habilitar" element={con('habilitaciones.ver', <HabilitarEstudiantes />)} />
-        <Route path="examenes/habilitar/:examenId" element={con('habilitaciones.ver', <HabilitarEstudiantes />)} />
+        <Route path="examenes/habilitar" element={con('habilitaciones.ver', <HabilitarEstudiantes key="habilitar" modo="habilitar" />)} />
+        <Route path="examenes/habilitar/:examenId" element={con('habilitaciones.ver', <HabilitarEstudiantes key="habilitar" modo="habilitar" />)} />
+        <Route path="examenes/deshabilitar" element={con('habilitaciones.ver', <HabilitarEstudiantes key="deshabilitar" modo="deshabilitar" />)} />
+        <Route path="examenes/deshabilitar/:examenId" element={con('habilitaciones.ver', <HabilitarEstudiantes key="deshabilitar" modo="deshabilitar" />)} />
 
         {/* Control de ingreso: Registrar ingreso, Editar ingreso y Eliminar ingreso */}
         <Route path="control-ingreso" element={<EntrarModulo base="/control-ingreso" />} />

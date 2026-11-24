@@ -61,10 +61,14 @@ export const MODULOS = [
       { to: '/examenes/editar', label: 'Editar examen', permiso: 'examenes.editar', hu: 'HU-08' },
       { to: '/examenes/eliminar', label: 'Eliminar examen', permiso: 'examenes.eliminar', hu: 'HU-09' },
       // Inscribir (o quitar la inscripcion) y habilitar son pantallas independientes.
+      // HU-41: invitacion por correo para inscribirse (solo Administrador y Docente).
+      { to: '/examenes/invitar', label: 'Enviar invitaciones', roles: ['administrador', 'docente'], hu: 'HU-41' },
       { to: '/examenes/inscribir', label: 'Inscribir estudiantes', permiso: 'habilitaciones.registrar', hu: 'HU-04' },
       // Sprint 4 (observacion 3): quitar inscripciones es una pantalla aparte.
       { to: '/examenes/desinscribir', label: 'Desinscribir estudiantes', permiso: 'habilitaciones.editar', hu: 'HU-04' },
-      { to: '/examenes/habilitar', label: 'Habilitar/Deshabilitar estudiantes', permiso: 'habilitaciones.ver', hu: 'HU-04' },
+      // Sprint 4 (observacion de la licenciada): habilitar y deshabilitar son pantallas separadas.
+      { to: '/examenes/habilitar', label: 'Habilitar estudiantes', permiso: 'habilitaciones.ver', hu: 'HU-04' },
+      { to: '/examenes/deshabilitar', label: 'Deshabilitar estudiantes', permiso: 'habilitaciones.ver', hu: 'HU-04' },
     ],
   },
   {
