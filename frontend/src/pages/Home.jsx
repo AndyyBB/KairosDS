@@ -4,6 +4,7 @@ import api from '../api/client';
 import { useAuth } from '../api/AuthContext';
 import { HomeIcon } from '../components/Iconos';
 import Encabezado from '../components/Encabezado';
+import CalendarioExamenes from '../components/CalendarioExamenes';
 import { modulosPermitidos } from '../components/navegacion';
 
 function Flecha() {
@@ -64,7 +65,8 @@ function Resumen({ base }) {
   );
 }
 
-// Pantalla principal: un acceso por modulo permitido, con su dato principal.
+// Pantalla principal: calendario interactivo de examenes (HU-40, para los roles que pueden
+// ver los examenes) y un acceso por modulo permitido, con su dato principal.
 export default function Home() {
   const { usuario, tiene, esAdministrador, rol } = useAuth();
   const modulos = modulosPermitidos(tiene, esAdministrador, rol).filter((m) => m.to !== '/');
@@ -76,6 +78,8 @@ export default function Home() {
         titulo={`Hola, ${usuario?.nombre_completo?.split(' ')[0] ?? ''}`}
         descripcion="Sistema de Control de Ingreso a Exámenes Masivos · Kairos Digital Systems"
       />
+
+      {tiene('examenes.ver') && <CalendarioExamenes />}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {modulos.map((m) => {
