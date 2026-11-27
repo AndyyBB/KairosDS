@@ -885,14 +885,15 @@ function VentanaRiesgo({ riesgo, contexto, tipos, puedeRegistrar, onRegistrada, 
     e.preventDefault();
     const nuevos = {};
     if (!tipoId) nuevos.tipo = 'El campo Tipo de incidencia es obligatorio.';
-    if (!descripcion.trim()) nuevos.descripcion = 'El campo Descripción es obligatorio.';
+    // Con una situacion excepcional, la descripcion es la de esa situacion (no se escribe otra).
+    if (!tipoFijo && !descripcion.trim()) nuevos.descripcion = 'El campo Descripción es obligatorio.';
     setErrores(nuevos);
     if (Object.keys(nuevos).length) return;
     setGuardando(true);
     try {
       const res = await api.post(`/control-ingreso/riesgos/${riesgo.id}/incidencia`, {
         tipo_incidencia_id: Number(tipoId),
-        descripcion: descripcion.trim(),
+        ...(tipoFijo ? {} : { descripcion: descripcion.trim() }),
       });
       onRegistrada(res.data.riesgo, res.data.message);
     } catch (err) {
@@ -997,6 +998,12 @@ function VentanaRiesgo({ riesgo, contexto, tipos, puedeRegistrar, onRegistrada, 
                   )}
                   {errores.tipo && <p className="text-xs text-red-600 mt-1">{errores.tipo}</p>}
                 </div>
+                {tipoFijo ? (
+                  <p className="text-xs text-gray-600">
+                    Se registra con la descripción de la situación excepcional:{' '}
+                    <span className="font-medium text-gray-800">{c.situacion?.descripcion ?? 'la registrada para el estudiante'}</span>
+                  </p>
+                ) : (
                 <div>
                   <label htmlFor="descripcion-riesgo" className="block text-xs font-medium text-gray-700 mb-1">Descripción</label>
                   <textarea
@@ -1011,6 +1018,7 @@ function VentanaRiesgo({ riesgo, contexto, tipos, puedeRegistrar, onRegistrada, 
                   <p className="text-xs text-gray-400 mt-0.5">{descripcion.length}/500</p>
                   {errores.descripcion && <p className="text-xs text-red-600 mt-1">{errores.descripcion}</p>}
                 </div>
+                )}
               </div>
               {errores.general && <p className="text-sm text-red-600 mt-2">{errores.general}</p>}
               <div className="flex flex-wrap justify-end gap-2 mt-3">

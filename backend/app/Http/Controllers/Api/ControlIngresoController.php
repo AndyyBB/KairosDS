@@ -408,8 +408,12 @@ class ControlIngresoController extends Controller
         $situacion = $intento->motivo_rechazo === Riesgo::SITUACION_EXCEPCIONAL && $intento->estudiante_id
             ? $this->situacionDe($intento->examen_id, $intento->estudiante_id, $intento->fecha_hora)
             : null;
+        // Tampoco se escribe otra descripcion: se usa la de la situacion excepcional registrada.
         if ($situacion) {
-            $request->merge(['tipo_incidencia_id' => $situacion->tipo_incidencia_id]);
+            $request->merge([
+                'tipo_incidencia_id' => $situacion->tipo_incidencia_id,
+                'descripcion' => Riesgo::limpiarDescripcion($situacion->descripcion) ?: 'Situación excepcional registrada.',
+            ]);
         }
 
         $tiposValidos = collect($this->tiposRiesgo())->pluck('id')->push($situacion?->tipo_incidencia_id)->filter()->all();
