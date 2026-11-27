@@ -145,14 +145,7 @@ class ControlIngresoController extends Controller
                 // Presentacion final: si no fue expulsado pero tiene una situacion excepcional
                 // registrada en este examen (HU-25, por ejemplo un malestar), se muestra esa
                 // situacion y el intento queda con ese motivo.
-                $sit = $exp ? null : Incidencia::with(['tipoIncidencia', 'usuario', 'ambienteDestino'])
-                    ->where('examen_id', $examen->id)
-                    ->where('estudiante_id', $estudiante->id)
-                    ->whereNull('intento_id')
-                    ->whereHas('tipoIncidencia', fn ($q) => $q->whereIn('codigo', array_keys(IncidenciaController::TIPOS_SITUACION)))
-                    ->latest('fecha_hora')
-                    ->latest('id')
-                    ->first();
+                $sit = $exp ? null : $this->situacionDe($examen->id, $estudiante->id);
                 if ($sit) {
                     $fechaSit = Carbon::parse($sit->fecha_hora)->setTimezone(self::TZ);
                     $tipoSit = IncidenciaController::TIPOS_SITUACION[$sit->tipoIncidencia->codigo] ?? $sit->tipoIncidencia->descripcion;
@@ -201,10 +194,7 @@ class ControlIngresoController extends Controller
             'otro_examen' => $otroExamen,
             'intento_registrado' => $intentoRegistrado,
             'mensaje_intento' => $intentoRegistrado ? 'Intento de ingreso no correspondiente registrado en la central de riesgos.' : null,
-            // Con una situacion excepcional, el tipo sugerido es el de esa situacion.
-            'riesgo' => $intento
-                ? array_merge($this->datosRiesgo($intento), $situacion ? ['tipo_sugerido' => $situacion['codigo']] : [])
-                : null,
+            'riesgo' => $intento ? $this->datosRiesgo($intento) : null,
         ]);
     }
 
@@ -406,7 +396,16 @@ class ControlIngresoController extends Controller
     // Registra, en ese mismo momento, la incidencia de un intento de la central de riesgos.
     public function registrarIncidenciaRiesgo(Request $request, IntentoIngreso $intento)
     {
-        $tiposValidos = collect($this->tiposRiesgo())->pluck('id')->all();
+        // Presentacion final: si el intento es de un estudiante con una situacion excepcional
+        // registrada, el tipo de la incidencia es el de esa situacion y no se puede cambiar.
+        $situacion = $intento->motivo_rechazo === Riesgo::SITUACION_EXCEPCIONAL && $intento->estudiante_id
+            ? $this->situacionDe($intento->examen_id, $intento->estudiante_id, $intento->fecha_hora)
+            : null;
+        if ($situacion) {
+            $request->merge(['tipo_incidencia_id' => $situacion->tipo_incidencia_id]);
+        }
+
+        $tiposValidos = collect($this->tiposRiesgo())->pluck('id')->push($situacion?->tipo_incidencia_id)->filter()->all();
         $data = $request->validate([
             'tipo_incidencia_id' => ['required', 'integer', \Illuminate\Validation\Rule::in($tiposValidos)],
             'descripcion' => ['bail', 'required', 'string', 'max:500'],
@@ -425,7 +424,8 @@ class ControlIngresoController extends Controller
             'examen_id' => $intento->examen_id,
             'estudiante_id' => $intento->estudiante_id,
             'tipo_incidencia_id' => $data['tipo_incidencia_id'],
-            'descripcion' => trim($data['descripcion']).' (Intento: '.$intento->codigo_ingresado.' — '.$intento->motivo_rechazo.')',
+            // Presentacion final: se guarda solo la descripcion escrita (sin "(Intento: ...)").
+            'descripcion' => trim($data['descripcion']),
             'fecha_hora' => Carbon::now(),
             'usuario_id' => $request->user()->id,
             'intento_id' => $intento->id,
@@ -441,6 +441,15 @@ class ControlIngresoController extends Controller
 
     private function datosRiesgo(IntentoIngreso $i, ?int $antecedentes = null): array
     {
+        $sit = $i->motivo_rechazo === Riesgo::SITUACION_EXCEPCIONAL && $i->estudiante_id
+            ? $this->situacionDe($i->examen_id, $i->estudiante_id, $i->fecha_hora)
+            : null;
+        $tipoFijo = $sit ? [
+            'id' => $sit->tipo_incidencia_id,
+            'codigo' => $sit->tipoIncidencia?->codigo,
+            'nombre' => IncidenciaController::TIPOS_SITUACION[$sit->tipoIncidencia?->codigo] ?? $sit->tipoIncidencia?->descripcion,
+        ] : null;
+
         $i->loadMissing(['estudiante', 'usuario', 'incidencia.tipoIncidencia']);
         $fecha = Carbon::parse($i->fecha_hora)->setTimezone(self::TZ);
         $antecedentes ??= IntentoIngreso::where('codigo_ingresado', $i->codigo_ingresado)->count();
@@ -455,16 +464,38 @@ class ControlIngresoController extends Controller
             'motivo' => $i->motivo_rechazo,
             // Presentacion final: nivel y tipo de incidencia sugerido segun el motivo (App\Support\Riesgo).
             'nivel' => Riesgo::nivel($i->motivo_rechazo),
-            'tipo_sugerido' => Riesgo::tipoSugerido($i->motivo_rechazo, (bool) $i->estudiante_id),
+            'tipo_sugerido' => $tipoFijo['codigo'] ?? Riesgo::tipoSugerido($i->motivo_rechazo, (bool) $i->estudiante_id),
+            // Con una situacion excepcional registrada, el tipo de la incidencia no se cambia.
+            'tipo_fijo' => $tipoFijo,
             'antecedentes' => $antecedentes,
             'registrado_por' => $i->usuario?->nombre_completo,
             'incidencia' => $i->incidencia ? [
                 'id' => $i->incidencia->id,
                 'tipo' => self::TIPOS_RIESGO[$i->incidencia->tipoIncidencia?->codigo] ?? $i->incidencia->tipoIncidencia?->descripcion,
                 'hora' => $this->hora($i->incidencia->fecha_hora),
-                'descripcion' => $i->incidencia->descripcion,
+                'descripcion' => Riesgo::limpiarDescripcion($i->incidencia->descripcion),
             ] : null,
         ];
+    }
+
+    // Presentacion final: ultima situacion excepcional (HU-25) registrada para el estudiante en
+    // el examen (hasta una fecha, si se indica). Son las incidencias de los tipos de situacion
+    // registradas en "Registrar situación excepcional": sin intento o con el intento automatico
+    // "Situación excepcional" de la central de riesgos.
+    private function situacionDe(int $examenId, int $estudianteId, $hasta = null): ?Incidencia
+    {
+        return Incidencia::with(['tipoIncidencia', 'usuario', 'ambienteDestino'])
+            ->where('examen_id', $examenId)
+            ->where('estudiante_id', $estudianteId)
+            ->whereHas('tipoIncidencia', fn ($q) => $q->whereIn('codigo', array_keys(IncidenciaController::TIPOS_SITUACION)))
+            ->where(fn ($q) => $q->whereNull('intento_id')->orWhereIn(
+                'intento_id',
+                IntentoIngreso::query()->select('id')->where('motivo_rechazo', Riesgo::SITUACION_REGISTRADA)
+            ))
+            ->when($hasta, fn ($q) => $q->where('fecha_hora', '<=', $hasta))
+            ->latest('fecha_hora')
+            ->latest('id')
+            ->first();
     }
 
     // HU-26 (9): los intentos registrados no se pueden modificar ni eliminar.

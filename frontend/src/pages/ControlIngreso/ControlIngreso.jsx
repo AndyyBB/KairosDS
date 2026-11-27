@@ -689,9 +689,10 @@ export default function ControlIngreso() {
             <span className="text-sm text-gray-500">{intentos.length} registrados</span>
           </div>
           <p className="text-xs text-gray-500 mb-3">
-            Intentos de ingreso que no corresponden: personas no registradas, QR no válidos, estudiantes no inscritos, no
-            habilitados, que ya registraron su ingreso, que fueron expulsados o que ya están rindiendo otro examen. Los
-            registros no se pueden modificar ni eliminar.
+            Intentos de ingreso que no corresponden (personas no registradas, QR no válidos, estudiantes no inscritos, no
+            habilitados, que ya registraron su ingreso, que fueron expulsados o que ya están rindiendo otro examen), además de
+            las expulsiones y situaciones excepcionales registradas en el examen. Los registros no se pueden modificar ni
+            eliminar.
           </p>
 
           {/* Presentacion final: resumen y filtros de la central de riesgos */}
@@ -830,6 +831,8 @@ const TITULOS_RIESGO = {
   'Ya está rindiendo otro examen': 'El estudiante ya está rindiendo otro examen',
   'Registro duplicado en la importación': 'Estudiante duplicado en la importación',
   'Situación excepcional registrada': 'El estudiante tiene una situación excepcional registrada',
+  'Situación excepcional': 'Situación excepcional registrada en el examen',
+  'Expulsión del examen': 'Estudiante expulsado del examen',
 };
 
 // Datos de la situacion excepcional (HU-25) registrada para el estudiante en el examen.
@@ -857,7 +860,9 @@ function FilaVentana({ etiqueta, children }) {
 
 function VentanaRiesgo({ riesgo, contexto, tipos, puedeRegistrar, onRegistrada, onCerrar }) {
   const sugerido = tipos.find((t) => t.codigo === riesgo.tipo_sugerido) ?? tipos[0];
-  const [tipoId, setTipoId] = useState(sugerido ? String(sugerido.id) : '');
+  // Con una situacion excepcional registrada, el tipo es el de esa situacion y no se cambia.
+  const tipoFijo = riesgo.tipo_fijo ?? null;
+  const [tipoId, setTipoId] = useState(tipoFijo ? String(tipoFijo.id) : sugerido ? String(sugerido.id) : '');
   const [descripcion, setDescripcion] = useState('');
   const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
@@ -972,12 +977,19 @@ function VentanaRiesgo({ riesgo, contexto, tipos, puedeRegistrar, onRegistrada, 
               <div className="grid gap-3">
                 <div>
                   <label htmlFor="tipo-riesgo" className="block text-xs font-medium text-gray-700 mb-1">Tipo de incidencia</label>
-                  <select id="tipo-riesgo" className="input bg-white" value={tipoId} onChange={(e) => setTipoId(e.target.value)}>
-                    <option value="">Seleccione un tipo</option>
-                    {tipos.map((t) => (
-                      <option key={t.id} value={t.id}>{t.nombre}</option>
-                    ))}
-                  </select>
+                  {tipoFijo ? (
+                    <>
+                      <input id="tipo-riesgo" className="input bg-gray-100 text-gray-700 cursor-not-allowed" value={tipoFijo.nombre} readOnly disabled />
+                      <p className="text-xs text-gray-500 mt-1">Es el tipo de la situación excepcional registrada para el estudiante; no se puede cambiar.</p>
+                    </>
+                  ) : (
+                    <select id="tipo-riesgo" className="input bg-white" value={tipoId} onChange={(e) => setTipoId(e.target.value)}>
+                      <option value="">Seleccione un tipo</option>
+                      {tipos.map((t) => (
+                        <option key={t.id} value={t.id}>{t.nombre}</option>
+                      ))}
+                    </select>
+                  )}
                   {errores.tipo && <p className="text-xs text-red-600 mt-1">{errores.tipo}</p>}
                 </div>
                 <div>

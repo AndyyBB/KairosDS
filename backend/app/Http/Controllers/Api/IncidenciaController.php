@@ -9,10 +9,12 @@ use App\Models\Expulsion;
 use App\Models\Habilitacion;
 use App\Models\Incidencia;
 use App\Models\Ingreso;
+use App\Models\IntentoIngreso;
 use App\Models\TipoIncidencia;
 use App\Support\BuscarEstudiante;
 use App\Support\Formato;
 use App\Support\Historial;
+use App\Support\Riesgo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -100,16 +102,57 @@ class IncidenciaController extends Controller
             ], 409);
         }
 
-        $expulsion = Expulsion::create([
-            'ingreso_id' => $ingreso->id,
-            'motivo' => trim($data['motivo']),
-            'fecha_hora' => now(),
-            'usuario_id' => $request->user()->id,
-        ]);
+        $expulsion = DB::transaction(function () use ($ingreso, $data, $request) {
+            $expulsion = Expulsion::create([
+                'ingreso_id' => $ingreso->id,
+                'motivo' => trim($data['motivo']),
+                'fecha_hora' => now(),
+                'usuario_id' => $request->user()->id,
+            ]);
+
+            // Presentacion final: la expulsion queda automaticamente en la central de riesgos
+            // del examen, con su incidencia.
+            $estudiante = $ingreso->habilitacion?->estudiante;
+            $tipo = TipoIncidencia::firstOrCreate(['codigo' => 'EXPULSION'], ['descripcion' => 'Expulsión del examen']);
+            $this->registrarEnCentral(
+                (int) $data['examen_id'],
+                $estudiante?->id,
+                (string) $estudiante?->codigo_universitario,
+                Riesgo::EXPULSION_REGISTRADA,
+                $tipo->id,
+                trim($data['motivo']),
+                $request->user()->id
+            );
+
+            return $expulsion;
+        });
 
         return response()->json([
             'message' => 'Expulsión registrada con éxito a las '.Formato::hora($expulsion->fecha_hora).'.',
         ], 201);
+    }
+
+    // Registra en la central de riesgos del examen un intento con su incidencia.
+    private function registrarEnCentral(int $examenId, ?int $estudianteId, string $codigo, string $motivo, int $tipoId, string $descripcion, int $usuarioId): void
+    {
+        $ahora = now();
+        $intento = IntentoIngreso::create([
+            'examen_id' => $examenId,
+            'estudiante_id' => $estudianteId,
+            'codigo_ingresado' => mb_substr($codigo, 0, 30),
+            'motivo_rechazo' => $motivo,
+            'fecha_hora' => $ahora,
+            'usuario_id' => $usuarioId,
+        ]);
+        Incidencia::create([
+            'examen_id' => $examenId,
+            'estudiante_id' => $estudianteId,
+            'tipo_incidencia_id' => $tipoId,
+            'descripcion' => $descripcion,
+            'fecha_hora' => $ahora,
+            'usuario_id' => $usuarioId,
+            'intento_id' => $intento->id,
+        ]);
     }
 
     // ---------------- HU-25 ----------------
@@ -194,6 +237,21 @@ class IncidenciaController extends Controller
                 'fecha_hora' => now(),
                 'usuario_id' => $request->user()->id,
             ]);
+
+            // Presentacion final: la situacion excepcional de un estudiante queda automaticamente
+            // en la central de riesgos del examen (vinculada a esta misma incidencia).
+            if (! empty($data['estudiante_id'])) {
+                $codigo = (string) \App\Models\Estudiante::whereKey($data['estudiante_id'])->value('codigo_universitario');
+                $intento = IntentoIngreso::create([
+                    'examen_id' => $data['examen_id'],
+                    'estudiante_id' => $data['estudiante_id'],
+                    'codigo_ingresado' => mb_substr($codigo, 0, 30),
+                    'motivo_rechazo' => Riesgo::SITUACION_REGISTRADA,
+                    'fecha_hora' => $incidencia->fecha_hora,
+                    'usuario_id' => $request->user()->id,
+                ]);
+                $incidencia->update(['intento_id' => $intento->id]);
+            }
 
             // HU-25 (13): en un cambio de ambiente se actualiza el ambiente del ingreso.
             if ($cambioAmbiente && $ingreso) {

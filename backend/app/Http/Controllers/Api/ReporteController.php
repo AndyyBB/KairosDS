@@ -184,7 +184,7 @@ class ReporteController extends Controller
                 'antecedentes' => $veces > 1 ? "{$veces} intentos (reincidente)" : 'Primer intento',
                 'verificado_por' => $i->usuario?->nombre_completo,
                 'incidencia' => $inc
-                    ? ($inc->tipoIncidencia?->descripcion ?? 'Incidencia').' — '.$inc->descripcion
+                    ? ($inc->tipoIncidencia?->descripcion ?? 'Incidencia').' — '.Riesgo::limpiarDescripcion($inc->descripcion)
                         .($inc->usuario ? ' (registrada por '.$inc->usuario->nombre_completo.')' : '')
                     : 'Sin incidencia',
                 'con_incidencia' => (bool) $inc,
