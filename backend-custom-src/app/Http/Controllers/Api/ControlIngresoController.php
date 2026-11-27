@@ -8,6 +8,7 @@ use App\Http\Requests\VerificarIdentidadRequest;
 use App\Models\Ambiente;
 use App\Models\Estudiante;
 use App\Models\Examen;
+use App\Models\Expulsion;
 use App\Models\Habilitacion;
 use App\Models\Incidencia;
 use App\Models\TipoIncidencia;
@@ -16,6 +17,7 @@ use App\Models\InscripcionExamen;
 use App\Models\IntentoIngreso;
 use App\Models\MetodoVerificacion;
 use App\Support\Historial;
+use App\Support\Riesgo;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -119,10 +121,57 @@ class ControlIngresoController extends Controller
 
         // HU-13: ingreso previo del estudiante en este examen.
         $ingresoPrevio = null;
+        $expulsion = null;
+        $situacion = null;
         if ($estado === 'habilitado' && $habilitacion) {
-            $existente = Ingreso::with('usuario')->where('habilitacion_id', $habilitacion->id)->first();
+            $existente = Ingreso::with(['usuario', 'ambiente'])->where('habilitacion_id', $habilitacion->id)->first();
             if ($existente) {
                 $ingresoPrevio = $this->datosIngresoPrevio($existente);
+
+                // Presentacion final (observacion de la licenciada): volver a verificar a un
+                // estudiante que ya ingreso (o que fue expulsado del examen) es un intento que
+                // queda en la central de riesgos, y se puede registrar su incidencia ahora.
+                $exp = Expulsion::with('usuario')->where('ingreso_id', $existente->id)->latest('fecha_hora')->first();
+                if ($exp) {
+                    $fechaExp = Carbon::parse($exp->fecha_hora)->setTimezone(self::TZ);
+                    $expulsion = [
+                        'fecha' => $fechaExp->format('d/m/Y'),
+                        'hora' => $fechaExp->format('H:i:s'),
+                        'motivo' => $exp->motivo,
+                        'registrado_por' => $exp->usuario?->nombre_completo,
+                        'mensaje' => 'El estudiante fue expulsado de este examen a las '.$fechaExp->format('H:i:s').'. No puede volver a ingresar.',
+                    ];
+                }
+                // Presentacion final: si no fue expulsado pero tiene una situacion excepcional
+                // registrada en este examen (HU-25, por ejemplo un malestar), se muestra esa
+                // situacion y el intento queda con ese motivo.
+                $sit = $exp ? null : Incidencia::with(['tipoIncidencia', 'usuario', 'ambienteDestino'])
+                    ->where('examen_id', $examen->id)
+                    ->where('estudiante_id', $estudiante->id)
+                    ->whereNull('intento_id')
+                    ->whereHas('tipoIncidencia', fn ($q) => $q->whereIn('codigo', array_keys(IncidenciaController::TIPOS_SITUACION)))
+                    ->latest('fecha_hora')
+                    ->latest('id')
+                    ->first();
+                if ($sit) {
+                    $fechaSit = Carbon::parse($sit->fecha_hora)->setTimezone(self::TZ);
+                    $tipoSit = IncidenciaController::TIPOS_SITUACION[$sit->tipoIncidencia->codigo] ?? $sit->tipoIncidencia->descripcion;
+                    $situacion = [
+                        'tipo' => $tipoSit,
+                        'tipo_id' => $sit->tipo_incidencia_id,
+                        'codigo' => $sit->tipoIncidencia->codigo,
+                        'descripcion' => $sit->descripcion,
+                        'fecha' => $fechaSit->format('d/m/Y'),
+                        'hora' => $fechaSit->format('H:i:s'),
+                        'registrado_por' => $sit->usuario?->nombre_completo,
+                        'ambiente_destino' => $sit->ambienteDestino?->nombre,
+                        'mensaje' => "El estudiante tiene una situación excepcional registrada en este examen: {$tipoSit} (".$fechaSit->format('H:i:s').').',
+                    ];
+                }
+
+                $motivoIntento = $exp ? Riesgo::EXPULSADO : ($sit ? Riesgo::SITUACION_EXCEPCIONAL : Riesgo::INGRESO_REPETIDO);
+                $intento = $this->registrarIntento($request, $examen, $estudiante, $motivoIntento);
+                $intentoRegistrado = true;
             }
         }
 
@@ -147,10 +196,15 @@ class ControlIngresoController extends Controller
             'mensaje_estado' => $mensajeEstado,
             'examen' => $this->resumenExamen($examen),
             'ingreso_previo' => $ingresoPrevio,
+            'expulsion' => $expulsion,
+            'situacion' => $situacion,
             'otro_examen' => $otroExamen,
             'intento_registrado' => $intentoRegistrado,
             'mensaje_intento' => $intentoRegistrado ? 'Intento de ingreso no correspondiente registrado en la central de riesgos.' : null,
-            'riesgo' => $intento ? $this->datosRiesgo($intento) : null,
+            // Con una situacion excepcional, el tipo sugerido es el de esa situacion.
+            'riesgo' => $intento
+                ? array_merge($this->datosRiesgo($intento), $situacion ? ['tipo_sugerido' => $situacion['codigo']] : [])
+                : null,
         ]);
     }
 
@@ -308,6 +362,11 @@ class ControlIngresoController extends Controller
         'SUPLANTACION' => 'Sospecha de suplantación de identidad',
         'IDENTIFICACION' => 'Problema de identificación',
         'NO_HABILITADO' => 'Estudiante no habilitado',
+        'INGRESO_REPETIDO' => 'Intento de ingreso repetido',
+        // Presentacion final: tipos de situacion excepcional (HU-25) tambien disponibles aqui.
+        'PROBLEMA_SALUD' => 'Malestar o emergencia de salud',
+        'CAMBIO_AMBIENTE' => 'Cambio de ambiente',
+        'EXPULSADO' => 'Intento de ingreso de un estudiante expulsado',
         'OTRA' => 'Otra situación',
     ];
 
@@ -384,8 +443,6 @@ class ControlIngresoController extends Controller
     {
         $i->loadMissing(['estudiante', 'usuario', 'incidencia.tipoIncidencia']);
         $fecha = Carbon::parse($i->fecha_hora)->setTimezone(self::TZ);
-        // Los duplicados de la importacion desde Excel tambien son de riesgo alto (identidad repetida).
-        $alto = in_array($i->motivo_rechazo, ['No registrado en el sistema', 'Código QR no válido', 'no encontrado', ImportacionController::MOTIVO_DUPLICADO], true);
         $antecedentes ??= IntentoIngreso::where('codigo_ingresado', $i->codigo_ingresado)->count();
 
         return [
@@ -396,7 +453,9 @@ class ControlIngresoController extends Controller
             'nombre' => $i->estudiante?->nombre_completo,
             'registrado' => (bool) $i->estudiante_id,
             'motivo' => $i->motivo_rechazo,
-            'nivel' => $alto ? 'Alto' : 'Medio',
+            // Presentacion final: nivel y tipo de incidencia sugerido segun el motivo (App\Support\Riesgo).
+            'nivel' => Riesgo::nivel($i->motivo_rechazo),
+            'tipo_sugerido' => Riesgo::tipoSugerido($i->motivo_rechazo, (bool) $i->estudiante_id),
             'antecedentes' => $antecedentes,
             'registrado_por' => $i->usuario?->nombre_completo,
             'incidencia' => $i->incidencia ? [
@@ -510,6 +569,8 @@ class ControlIngresoController extends Controller
 
         return [
             'hora' => $hora,
+            'fecha' => Carbon::parse($ingreso->fecha_hora_ingreso)->setTimezone(self::TZ)->format('d/m/Y'),
+            'ambiente' => $ingreso->ambiente?->nombre,
             'registrado_por' => $ingreso->usuario?->nombre_completo,
             'mensaje' => "El estudiante ya registró su ingreso a este examen a las {$hora}.",
         ];

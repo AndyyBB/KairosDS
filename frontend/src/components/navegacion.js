@@ -128,7 +128,8 @@ export const MODULOS = [
     items: [
       { to: '/reportes/asistencia', label: 'Reporte de asistencia', roles: ['administrador', 'docente'], hu: 'HU-19' },
       { to: '/reportes/ausentismo', label: 'Reporte de ausentismo', roles: ['administrador', 'docente'], hu: 'HU-20' },
-      { to: '/reportes/intentos', label: 'Intentos de ingreso indebido', roles: ['administrador', 'docente'], hu: 'HU-21' },
+      // Presentacion final: el reporte de intentos de ingreso indebido pasa a llamarse "Central de riesgos".
+      { to: '/reportes/intentos', label: 'Central de riesgos', roles: ['administrador', 'docente'], hu: 'HU-21' },
       { to: '/reportes/registrados', label: 'Estudiantes registrados', roles: ['administrador', 'docente'], hu: 'HU-22' },
     ],
   },

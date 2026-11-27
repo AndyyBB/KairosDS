@@ -72,8 +72,10 @@ export default function ControlIngreso() {
   const [intentos, setIntentos] = useState([]);
   const [tiposRiesgo, setTiposRiesgo] = useState([]);
   const [paginaIntentos, setPaginaIntentos] = useState(1);
-  const [riesgoActual, setRiesgoActual] = useState(null); // intento para registrar su incidencia
-  const formIncidencia = useRef(null);
+  // Presentacion final: ventana de la central de riesgos ({ riesgo, contexto }): muestra la
+  // incidencia detectada y permite registrarla en ese momento.
+  const [ventana, setVentana] = useState(null);
+  const [filtroRiesgo, setFiltroRiesgo] = useState({ buscar: '', motivo: '', nivel: '', incidencia: '' });
   // Sprint 4 (observacion 8): salida del otro examen que el estudiante esta rindiendo.
   const [conSalida, setConSalida] = useState(false);
   const [observacion, setObservacion] = useState('');
@@ -137,7 +139,7 @@ export default function ControlIngreso() {
   }, [examenId, cargarListas]);
 
   function limpiarResultados() {
-    setRiesgoActual(null);
+    setVentana(null);
     setConSalida(false);
     setObservacion('');
     setErrorObservacion('');
@@ -195,8 +197,12 @@ export default function ControlIngreso() {
       if (metodoUsado === 'qr') setValor(d.estudiante.codigo_universitario);
 
       const lista = [{ tipo: 'exito', texto: d.message }];
+      // Presentacion final: el estudiante fue expulsado de este examen.
+      if (d.expulsion) lista.push({ tipo: 'error', texto: d.expulsion.mensaje });
+      // Presentacion final: tiene una situacion excepcional registrada en este examen.
+      else if (d.situacion) lista.push({ tipo: 'aviso', texto: d.situacion.mensaje });
       // HU-13 (2): el estudiante ya registro su ingreso a este examen.
-      if (d.ingreso_previo) lista.push({ tipo: 'aviso', texto: d.ingreso_previo.mensaje });
+      else if (d.ingreso_previo) lista.push({ tipo: 'aviso', texto: d.ingreso_previo.mensaje });
       // HU-26 (7): intento de ingreso no correspondiente registrado.
       if (d.mensaje_intento) lista.push({ tipo: 'aviso', texto: d.mensaje_intento });
       // Sprint 4 (observacion 8): ya esta rindiendo otro examen.
@@ -205,13 +211,15 @@ export default function ControlIngreso() {
       setObservacion('');
       setErrorObservacion('');
       setBanners(lista);
-      setRiesgoActual(d.riesgo ?? null);
+      // Presentacion final: todo intento que queda en la central de riesgos (ingreso repetido,
+      // expulsado, no inscrito, no habilitado, en otro examen) abre la ventana de la incidencia.
+      setVentana(d.riesgo ? { riesgo: d.riesgo, contexto: d } : null);
 
       if (d.intento_registrado) cargarListas(examenId);
     } catch (err) {
       setResultado(null);
       setBanners([]);
-      setRiesgoActual(null);
+      setVentana(null);
       // Sprint 4 (observacion 9): estudiante no encontrado o QR no valido: el intento queda en la
       // central de riesgos y se puede registrar la incidencia en ese momento.
       const riesgo = err?.response?.data?.riesgo;
@@ -220,7 +228,7 @@ export default function ControlIngreso() {
           { tipo: 'error', texto: err.response.data.message },
           { tipo: 'aviso', texto: err.response.data.mensaje_riesgo },
         ]);
-        setRiesgoActual(riesgo);
+        setVentana({ riesgo, contexto: { noEncontrado: err.response.data.message } });
         if (metodoUsado === 'qr') setEscaneando(false);
         setErrores({});
         cargarListas(examenId);
@@ -317,12 +325,31 @@ export default function ControlIngreso() {
   }
 
   const etiquetaCampo = METODOS.find((m) => m.id === metodo).etiqueta;
-  const ultimaIntentos = Math.max(1, Math.ceil(intentos.length / POR_PAGINA));
-  const intentosVisibles = intentos.slice((paginaIntentos - 1) * POR_PAGINA, paginaIntentos * POR_PAGINA);
+  // Presentacion final: filtros de la central de riesgos del examen.
+  const textoRiesgo = filtroRiesgo.buscar.trim().toLowerCase();
+  const intentosFiltrados = intentos.filter(
+    (i) =>
+      (!filtroRiesgo.motivo || i.motivo === filtroRiesgo.motivo) &&
+      (!filtroRiesgo.nivel || i.nivel === filtroRiesgo.nivel) &&
+      (!filtroRiesgo.incidencia || (filtroRiesgo.incidencia === 'con') === Boolean(i.incidencia)) &&
+      (!textoRiesgo || [i.codigo, i.nombre].some((v) => String(v ?? '').toLowerCase().includes(textoRiesgo)))
+  );
+  const motivosRiesgo = [...new Set(intentos.map((i) => i.motivo))].sort();
+  const totalAlto = intentos.filter((i) => i.nivel === 'Alto').length;
+  const sinIncidencia = intentos.filter((i) => !i.incidencia).length;
+  const reincidentes = new Set(intentos.filter((i) => i.antecedentes > 1).map((i) => i.codigo)).size;
+  const ultimaIntentos = Math.max(1, Math.ceil(intentosFiltrados.length / POR_PAGINA));
+  const intentosVisibles = intentosFiltrados.slice((paginaIntentos - 1) * POR_PAGINA, paginaIntentos * POR_PAGINA);
+  const filtrar = (campo, v) => {
+    setFiltroRiesgo((f) => ({ ...f, [campo]: v }));
+    setPaginaIntentos(1);
+  };
 
   const habilitado = resultado?.estado === 'habilitado';
   const noInscrito = resultado?.estado === 'no_inscrito';
   const yaIngreso = !!resultado?.ingreso_previo;
+  const expulsado = Boolean(resultado?.expulsion);
+  const conSituacion = Boolean(resultado?.situacion) && !expulsado;
   const enOtroExamen = Boolean(resultado?.otro_examen) && !resultado?.registrado;
   const botonActivo = habilitado && !yaIngreso && !registrando && (!enOtroExamen || conSalida);
 
@@ -424,21 +451,21 @@ export default function ControlIngreso() {
         <Banner key={i} tipo={b.tipo} texto={b.texto} />
       ))}
 
-      {/* Sprint 4 (observacion 9): incidencia del intento, registrada en ese mismo momento. */}
-      {riesgoActual && (
-        <div ref={formIncidencia}>
-          <IncidenciaDeRiesgo
-            key={riesgoActual.id}
-            riesgo={riesgoActual}
-            tipos={tiposRiesgo}
-            onRegistrada={(r, texto) => {
-              setRiesgoActual(r);
-              setBanners((b) => [...b, { tipo: 'exito', texto }]);
-              cargarListas(examenId);
-            }}
-            onCerrar={() => setRiesgoActual(null)}
-          />
-        </div>
+      {/* Presentacion final: ventana de la central de riesgos con la incidencia detectada. */}
+      {ventana && (
+        <VentanaRiesgo
+          key={ventana.riesgo.id}
+          riesgo={ventana.riesgo}
+          contexto={ventana.contexto}
+          tipos={tiposRiesgo}
+          puedeRegistrar={puedeRegistrar}
+          onRegistrada={(r, texto) => {
+            setVentana((v) => ({ ...v, riesgo: r }));
+            setBanners((b) => [...b, { tipo: 'exito', texto }]);
+            cargarListas(examenId);
+          }}
+          onCerrar={() => setVentana(null)}
+        />
       )}
 
       {/* HU-11: resultado de la validacion */}
@@ -453,6 +480,18 @@ export default function ControlIngreso() {
             {noInscrito ? (
               <span className="rounded-full border border-red-300 bg-red-600 text-white font-bold text-sm tracking-wide px-4 py-1">
                 NO INSCRITO EN EL EXAMEN
+              </span>
+            ) : expulsado ? (
+              <span className="rounded-full border border-red-300 bg-red-600 text-white font-bold text-sm tracking-wide px-4 py-1">
+                EXPULSADO DEL EXAMEN
+              </span>
+            ) : conSituacion ? (
+              <span className="rounded-full border border-amber-300 bg-amber-100 text-amber-900 font-bold text-sm tracking-wide px-4 py-1">
+                SITUACIÓN EXCEPCIONAL
+              </span>
+            ) : habilitado && yaIngreso && !resultado.registrado ? (
+              <span className="rounded-full border border-amber-300 bg-amber-50 text-amber-800 font-bold text-sm tracking-wide px-4 py-1">
+                INGRESO YA REGISTRADO
               </span>
             ) : habilitado && enOtroExamen ? (
               <span className="rounded-full border border-amber-300 bg-amber-50 text-amber-800 font-bold text-sm tracking-wide px-4 py-1">
@@ -550,10 +589,31 @@ export default function ControlIngreso() {
             </div>
           )}
 
+          {/* Presentacion final: expulsion del estudiante en este examen */}
+          {expulsado && (
+            <div role="alert" className="mt-4 flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-800">
+              <span className="shrink-0 text-red-600 mt-0.5"><AlertaIcon size={22} /></span>
+              <div className="text-sm">
+                <p className="font-bold">El estudiante fue expulsado de este examen</p>
+                <p className="mt-0.5">
+                  Expulsado a las {resultado.expulsion.hora}
+                  {resultado.expulsion.registrado_por ? ` por ${resultado.expulsion.registrado_por}` : ''}. Motivo:{' '}
+                  {resultado.expulsion.motivo}
+                </p>
+                <p className="mt-0.5">No puede volver a ingresar a este examen.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Presentacion final: situacion excepcional registrada (HU-25) */}
+          {conSituacion && <CajaSituacion situacion={resultado.situacion} />}
+
           {/* HU-13 (4): usuario que registro el primer ingreso */}
           {resultado.ingreso_previo && (
             <p className="mt-1 text-sm text-gray-500">
-              Primer ingreso registrado por: {resultado.ingreso_previo.registrado_por}
+              Primer ingreso registrado {resultado.ingreso_previo.hora ? `a las ${resultado.ingreso_previo.hora} ` : ''}por:{' '}
+              {resultado.ingreso_previo.registrado_por}
+              {resultado.ingreso_previo.ambiente ? ` · ${resultado.ingreso_previo.ambiente}` : ''}
             </p>
           )}
 
@@ -630,8 +690,44 @@ export default function ControlIngreso() {
           </div>
           <p className="text-xs text-gray-500 mb-3">
             Intentos de ingreso que no corresponden: personas no registradas, QR no válidos, estudiantes no inscritos, no
-            habilitados o que ya están rindiendo otro examen. Los registros no se pueden modificar ni eliminar.
+            habilitados, que ya registraron su ingreso, que fueron expulsados o que ya están rindiendo otro examen. Los
+            registros no se pueden modificar ni eliminar.
           </p>
+
+          {/* Presentacion final: resumen y filtros de la central de riesgos */}
+          <div className="flex flex-wrap gap-2 mb-3 text-xs">
+            <span className="rounded-full bg-gray-100 px-3 py-1 font-medium text-gray-700">{intentos.length} intentos</span>
+            <span className="rounded-full bg-red-600 px-3 py-1 font-semibold text-white">{totalAlto} riesgo alto</span>
+            <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-800">{sinIncidencia} sin incidencia</span>
+            <span className="rounded-full bg-red-50 border border-red-200 px-3 py-1 font-medium text-red-700">
+              {reincidentes} {reincidentes === 1 ? 'reincidente' : 'reincidentes'}
+            </span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 mb-3">
+            <input
+              className="input"
+              placeholder="Buscar por código o nombre"
+              value={filtroRiesgo.buscar}
+              onChange={(e) => filtrar('buscar', e.target.value)}
+              aria-label="Buscar en la central de riesgos"
+            />
+            <select className="input" aria-label="Motivo" value={filtroRiesgo.motivo} onChange={(e) => filtrar('motivo', e.target.value)}>
+              <option value="">Todos los motivos</option>
+              {motivosRiesgo.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+            <select className="input" aria-label="Nivel de riesgo" value={filtroRiesgo.nivel} onChange={(e) => filtrar('nivel', e.target.value)}>
+              <option value="">Todos los niveles</option>
+              <option value="Alto">Riesgo alto</option>
+              <option value="Medio">Riesgo medio</option>
+            </select>
+            <select className="input" aria-label="Incidencia" value={filtroRiesgo.incidencia} onChange={(e) => filtrar('incidencia', e.target.value)}>
+              <option value="">Con y sin incidencia</option>
+              <option value="sin">Sin incidencia registrada</option>
+              <option value="con">Con incidencia registrada</option>
+            </select>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-sm">
               <thead className="bg-kairos-50/80 text-kairos-800 text-left">
@@ -648,7 +744,7 @@ export default function ControlIngreso() {
               </thead>
               <tbody>
                 {intentosVisibles.map((i) => (
-                  <tr key={i.id} className={`border-t border-gray-100 ${riesgoActual?.id === i.id ? 'bg-amber-50/70' : ''}`}>
+                  <tr key={i.id} className={`border-t border-gray-100 ${ventana?.riesgo.id === i.id ? 'bg-amber-50/70' : ''}`}>
                     <td className="px-3 py-2 whitespace-nowrap">{i.hora}</td>
                     <td className="px-3 py-2">{i.codigo}</td>
                     <td className="px-3 py-2">{i.nombre ?? <span className="text-red-700 font-medium">Persona no registrada</span>}</td>
@@ -676,35 +772,32 @@ export default function ControlIngreso() {
                     <td className="px-3 py-2">{i.registrado_por}</td>
                     <td className="px-3 py-2">
                       {i.incidencia ? (
-                        <div className="text-xs text-green-700 w-60">
-                          <p className="font-semibold">Registrada: {i.incidencia.tipo} ({i.incidencia.hora})</p>
-                          {i.incidencia.descripcion && (
-                            <p className="mt-0.5 text-gray-600 whitespace-normal break-words">
-                              Descripción: {i.incidencia.descripcion}
-                            </p>
-                          )}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setVentana({ riesgo: i, contexto: null })}
+                          className="text-left text-xs text-green-700 w-56 whitespace-normal hover:underline"
+                        >
+                          <span className="font-semibold">Registrada: {i.incidencia.tipo} ({i.incidencia.hora})</span>
+                          <span className="block text-kairos-700">Ver detalle</span>
+                        </button>
                       ) : puedeRegistrar ? (
                         <button
                           type="button"
-                          onClick={() => {
-                            setRiesgoActual(i);
-                            setTimeout(() => formIncidencia.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
-                          }}
+                          onClick={() => setVentana({ riesgo: i, contexto: null })}
                           className="rounded-lg border border-amber-500 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-50 whitespace-nowrap"
                         >
                           Registrar incidencia
                         </button>
                       ) : (
-                        <span className="text-xs text-gray-400">—</span>
+                        <span className="text-xs text-gray-400">Sin incidencia</span>
                       )}
                     </td>
                   </tr>
                 ))}
-                {intentos.length === 0 && (
+                {intentosFiltrados.length === 0 && (
                   <tr>
                     <td colSpan={8} className="px-3 py-4 text-center text-gray-400">
-                      No hay intentos registrados en este examen.
+                      {intentos.length ? 'No hay intentos que coincidan con los filtros.' : 'No hay intentos registrados en este examen.'}
                     </td>
                   </tr>
                 )}
@@ -714,7 +807,7 @@ export default function ControlIngreso() {
           <Paginacion
             pagina={paginaIntentos}
             ultima={ultimaIntentos}
-            total={intentos.length}
+            total={intentosFiltrados.length}
             onCambiar={setPaginaIntentos}
           />
         </div>
@@ -723,28 +816,60 @@ export default function ControlIngreso() {
   );
 }
 
-// Sprint 4 (observacion 9): formulario para registrar la incidencia de un intento de la
-// central de riesgos en el mismo momento en que ocurre.
-function IncidenciaDeRiesgo({ riesgo, tipos, onRegistrada, onCerrar }) {
-  const sugerido =
-    tipos.find((t) => t.codigo === (riesgo.registrado ? 'INTENTO_INDEBIDO' : 'SUPLANTACION')) ?? tipos[0];
+// Presentacion final (observacion de la licenciada): VENTANA de la central de riesgos. Se abre
+// sola cuando un intento queda registrado (ingreso repetido, estudiante expulsado, no inscrito,
+// no habilitado, en otro examen, persona no registrada o QR no valido) y tambien desde la tabla.
+// Muestra la incidencia detectada con sus datos y permite registrarla en ese mismo momento.
+const TITULOS_RIESGO = {
+  'Ingreso ya registrado': 'El estudiante ya registró su ingreso',
+  'Estudiante expulsado': 'Estudiante expulsado de este examen',
+  'No inscrito en el examen': 'Estudiante no inscrito en el examen',
+  'No habilitado': 'Estudiante no habilitado',
+  'No registrado en el sistema': 'Persona no registrada en el sistema',
+  'Código QR no válido': 'Código QR no válido',
+  'Ya está rindiendo otro examen': 'El estudiante ya está rindiendo otro examen',
+  'Registro duplicado en la importación': 'Estudiante duplicado en la importación',
+  'Situación excepcional registrada': 'El estudiante tiene una situación excepcional registrada',
+};
+
+// Datos de la situacion excepcional (HU-25) registrada para el estudiante en el examen.
+function CajaSituacion({ situacion }) {
+  return (
+    <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      <p className="font-semibold">
+        Situación excepcional: {situacion.tipo} — registrada a las {situacion.hora}
+        {situacion.registrado_por ? ` por ${situacion.registrado_por}` : ''}.
+      </p>
+      {situacion.descripcion && <p className="mt-0.5">Descripción: {situacion.descripcion}</p>}
+      {situacion.ambiente_destino && <p className="mt-0.5">Ambiente de destino: {situacion.ambiente_destino}</p>}
+    </div>
+  );
+}
+
+function FilaVentana({ etiqueta, children }) {
+  return (
+    <div className="flex flex-col sm:flex-row sm:gap-4 py-1 text-sm">
+      <dt className="sm:w-40 sm:shrink-0 text-gray-500">{etiqueta}</dt>
+      <dd className="text-gray-800 break-words min-w-0">{children}</dd>
+    </div>
+  );
+}
+
+function VentanaRiesgo({ riesgo, contexto, tipos, puedeRegistrar, onRegistrada, onCerrar }) {
+  const sugerido = tipos.find((t) => t.codigo === riesgo.tipo_sugerido) ?? tipos[0];
   const [tipoId, setTipoId] = useState(sugerido ? String(sugerido.id) : '');
   const [descripcion, setDescripcion] = useState('');
   const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
+  const alto = riesgo.nivel === 'Alto';
+  const c = contexto ?? {};
 
-  if (riesgo.incidencia) {
-    return (
-      <div className="mb-4 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800">
-        <p>Incidencia registrada para este intento: {riesgo.incidencia.tipo} ({riesgo.incidencia.hora}).</p>
-        {riesgo.incidencia.descripcion && (
-          <p className="mt-1 text-green-900">
-            <span className="font-semibold">Descripción:</span> {riesgo.incidencia.descripcion}
-          </p>
-        )}
-      </div>
-    );
-  }
+  // Se cierra con la tecla Escape.
+  useEffect(() => {
+    const tecla = (e) => e.key === 'Escape' && onCerrar();
+    window.addEventListener('keydown', tecla);
+    return () => window.removeEventListener('keydown', tecla);
+  }, [onCerrar]);
 
   async function registrar(e) {
     e.preventDefault();
@@ -768,54 +893,133 @@ function IncidenciaDeRiesgo({ riesgo, tipos, onRegistrada, onCerrar }) {
   }
 
   return (
-    <form onSubmit={registrar} noValidate className="mb-5 rounded-xl border border-amber-300 bg-amber-50/70 p-5 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h2 className="text-base font-semibold text-amber-900">Registrar incidencia ahora</h2>
-          <p className="text-xs text-amber-800">
-            Intento {riesgo.hora} · {riesgo.codigo} · {riesgo.nombre ?? 'Persona no registrada'} · {riesgo.motivo} · Riesgo{' '}
-            {riesgo.nivel}
-          </p>
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/40 p-3 overflow-y-auto" onMouseDown={(e) => e.target === e.currentTarget && onCerrar()}>
+      <div role="dialog" aria-modal="true" aria-labelledby="titulo-riesgo" className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl my-6">
+        <div className={`flex items-start justify-between gap-3 rounded-t-2xl px-5 py-4 ${alto ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-900'}`}>
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 shrink-0"><AlertaIcon size={24} /></span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide opacity-90">Central de riesgos · Riesgo {riesgo.nivel}</p>
+              <h2 id="titulo-riesgo" className="text-lg font-bold">{TITULOS_RIESGO[riesgo.motivo] ?? riesgo.motivo}</h2>
+            </div>
+          </div>
+          <button type="button" onClick={onCerrar} aria-label="Cerrar" className="text-xl leading-none opacity-80 hover:opacity-100">✕</button>
         </div>
-        <button type="button" onClick={onCerrar} className="text-sm text-amber-900 hover:underline">
-          Ahora no
-        </button>
-      </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-3">
-        <div>
-          <label htmlFor="tipo-riesgo" className="block text-xs font-medium text-amber-900 mb-1">Tipo de incidencia</label>
-          <select id="tipo-riesgo" className="input bg-white" value={tipoId} onChange={(e) => setTipoId(e.target.value)}>
-            <option value="">Seleccione un tipo</option>
-            {tipos.map((t) => (
-              <option key={t.id} value={t.id}>{t.nombre}</option>
-            ))}
-          </select>
-          {errores.tipo && <p className="text-xs text-red-600 mt-1">{errores.tipo}</p>}
+
+        <div className="px-5 py-4">
+          <h3 className="text-sm font-semibold text-gray-800 mb-1">Incidencia detectada</h3>
+          <dl className="mb-3">
+            <FilaVentana etiqueta="Estudiante">{riesgo.nombre ?? <span className="font-medium text-red-700">Persona no registrada</span>}</FilaVentana>
+            <FilaVentana etiqueta="Código / documento">{riesgo.codigo}</FilaVentana>
+            <FilaVentana etiqueta="Motivo">{riesgo.motivo}</FilaVentana>
+            <FilaVentana etiqueta="Fecha y hora">{riesgo.fecha} · {riesgo.hora}</FilaVentana>
+            <FilaVentana etiqueta="Antecedentes">
+              {riesgo.antecedentes > 1 ? (
+                <span className="font-semibold text-red-700">{riesgo.antecedentes} intentos (reincidente)</span>
+              ) : (
+                'Primer intento'
+              )}
+            </FilaVentana>
+            <FilaVentana etiqueta="Verificado por">{riesgo.registrado_por}</FilaVentana>
+          </dl>
+
+          {/* Detalle segun el caso */}
+          {c.expulsion && (
+            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              <p className="font-semibold">Fue expulsado a las {c.expulsion.hora}{c.expulsion.registrado_por ? ` por ${c.expulsion.registrado_por}` : ''}.</p>
+              <p className="mt-0.5">Motivo de la expulsión: {c.expulsion.motivo}</p>
+            </div>
+          )}
+          {!c.expulsion && c.situacion && (
+            <div className="mb-3">
+              <CajaSituacion situacion={c.situacion} />
+            </div>
+          )}
+          {!c.expulsion && c.ingreso_previo && (
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="font-semibold">Ya registró su ingreso a este examen a las {c.ingreso_previo.hora}.</p>
+              <p className="mt-0.5">
+                Registrado por {c.ingreso_previo.registrado_por}
+                {c.ingreso_previo.ambiente ? ` · Ambiente: ${c.ingreso_previo.ambiente}` : ''}. No se puede registrar un segundo ingreso.
+              </p>
+            </div>
+          )}
+          {c.otro_examen && (
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{c.otro_examen.mensaje}</div>
+          )}
+          {c.estado === 'no_habilitado' && c.motivo && (
+            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              <span className="font-semibold">Motivo de inhabilitación:</span> {c.motivo}
+            </div>
+          )}
+          {c.mensaje_estado && (
+            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{c.mensaje_estado}</div>
+          )}
+          {c.noEncontrado && (
+            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {c.noEncontrado} El código o documento ingresado no pertenece a ningún estudiante registrado.
+            </div>
+          )}
+
+          {riesgo.incidencia ? (
+            <div className="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800">
+              <p className="font-semibold">Incidencia registrada: {riesgo.incidencia.tipo} ({riesgo.incidencia.hora})</p>
+              {riesgo.incidencia.descripcion && <p className="mt-1 text-green-900">{riesgo.incidencia.descripcion}</p>}
+            </div>
+          ) : puedeRegistrar ? (
+            <form onSubmit={registrar} noValidate className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <h3 className="text-sm font-semibold text-gray-800 mb-2">Registrar incidencia</h3>
+              <div className="grid gap-3">
+                <div>
+                  <label htmlFor="tipo-riesgo" className="block text-xs font-medium text-gray-700 mb-1">Tipo de incidencia</label>
+                  <select id="tipo-riesgo" className="input bg-white" value={tipoId} onChange={(e) => setTipoId(e.target.value)}>
+                    <option value="">Seleccione un tipo</option>
+                    {tipos.map((t) => (
+                      <option key={t.id} value={t.id}>{t.nombre}</option>
+                    ))}
+                  </select>
+                  {errores.tipo && <p className="text-xs text-red-600 mt-1">{errores.tipo}</p>}
+                </div>
+                <div>
+                  <label htmlFor="descripcion-riesgo" className="block text-xs font-medium text-gray-700 mb-1">Descripción</label>
+                  <textarea
+                    id="descripcion-riesgo"
+                    className="input bg-white"
+                    rows={3}
+                    maxLength={500}
+                    placeholder="Describe lo que ocurrió y qué se hizo (ej.: volvió a presentarse en la puerta; se le negó o permitió el ingreso)."
+                    value={descripcion}
+                    onChange={(e) => setDescripcion(e.target.value)}
+                  />
+                  <p className="text-xs text-gray-400 mt-0.5">{descripcion.length}/500</p>
+                  {errores.descripcion && <p className="text-xs text-red-600 mt-1">{errores.descripcion}</p>}
+                </div>
+              </div>
+              {errores.general && <p className="text-sm text-red-600 mt-2">{errores.general}</p>}
+              <div className="flex flex-wrap justify-end gap-2 mt-3">
+                <button type="button" onClick={onCerrar} className="border border-gray-300 rounded-lg px-4 py-2 text-sm text-gray-700 hover:bg-white">
+                  Ahora no
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardando}
+                  className={`text-white text-sm font-medium rounded-lg px-5 py-2 disabled:opacity-60 ${alto ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'}`}
+                >
+                  {guardando ? 'Registrando...' : 'Registrar incidencia'}
+                </button>
+              </div>
+            </form>
+          ) : null}
+
+          {(riesgo.incidencia || !puedeRegistrar) && (
+            <div className="flex justify-end mt-3">
+              <button type="button" onClick={onCerrar} className="bg-kairos-gradient text-white text-sm font-medium rounded-lg px-5 py-2 shadow-glow">
+                Cerrar
+              </button>
+            </div>
+          )}
         </div>
-        <div className="sm:col-span-2">
-          <label htmlFor="descripcion-riesgo" className="block text-xs font-medium text-amber-900 mb-1">Descripción</label>
-          <textarea
-            id="descripcion-riesgo"
-            className="input bg-white"
-            rows={2}
-            maxLength={500}
-            placeholder="Describe lo que ocurrió y qué se hizo (ej.: presentó un carnet que no corresponde)."
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-          />
-          {errores.descripcion && <p className="text-xs text-red-600 mt-1">{errores.descripcion}</p>}
-        </div>
       </div>
-      {errores.general && <p className="text-sm text-red-600 mt-2">{errores.general}</p>}
-      <div className="flex justify-end mt-3">
-        <button
-          type="submit"
-          disabled={guardando}
-          className="bg-amber-600 text-white text-sm font-medium rounded-lg px-5 py-2 hover:bg-amber-700 disabled:opacity-60"
-        >
-          {guardando ? 'Registrando...' : 'Registrar incidencia'}
-        </button>
-      </div>
-    </form>
+    </div>
   );
 }

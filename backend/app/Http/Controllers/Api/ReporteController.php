@@ -11,6 +11,7 @@ use App\Models\IntentoIngreso;
 use App\Support\BuscarEstudiante;
 use App\Support\Formato;
 use App\Support\Historial;
+use App\Support\Riesgo;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -139,40 +140,70 @@ class ReporteController extends Controller
         ]);
     }
 
-    // HU-21
+    // HU-21 (presentacion final: reporte "Central de riesgos"). Todos los intentos de ingreso
+    // que no corresponden, con su nivel de riesgo, antecedentes (reincidencia) y la incidencia
+    // registrada. Filtros: examen, fechas, nivel (Alto / Medio) e incidencia (con / sin).
     public function intentos(Request $request)
     {
         [$desde, $hasta] = $this->validarRango($request);
         $examenId = $request->query('examen_id');
+        $nivel = in_array($request->query('nivel'), ['Alto', 'Medio'], true) ? $request->query('nivel') : null;
+        $conIncidencia = in_array($request->query('incidencia'), ['con', 'sin'], true) ? $request->query('incidencia') : null;
         [$ini, $fin] = Formato::rangoDias($desde, $hasta);
 
-        $intentos = IntentoIngreso::with(['estudiante', 'usuario', 'examen.materia'])
+        $intentos = IntentoIngreso::with(['estudiante', 'usuario', 'examen.materia', 'incidencia.tipoIncidencia', 'incidencia.usuario'])
             ->when($examenId, fn ($q) => $q->where('examen_id', $examenId))
             ->when($ini, fn ($q) => $q->where('fecha_hora', '>=', $ini))
             ->when($fin, fn ($q) => $q->where('fecha_hora', '<=', $fin))
+            ->when($conIncidencia === 'con', fn ($q) => $q->has('incidencia'))
+            ->when($conIncidencia === 'sin', fn ($q) => $q->doesntHave('incidencia'))
             ->orderByDesc('fecha_hora')
             ->orderByDesc('id')
             ->limit(2000)
-            ->get();
+            ->get()
+            ->when($nivel, fn ($c) => $c->filter(fn (IntentoIngreso $i) => Riesgo::nivel($i->motivo_rechazo) === $nivel));
 
-        $filas = $intentos->map(fn (IntentoIngreso $i) => [
-            'fecha' => Formato::fecha($i->fecha_hora),
-            'hora' => Formato::hora($i->fecha_hora),
-            'codigo' => $i->codigo_ingresado ?: $i->estudiante?->codigo_universitario,
-            'nombre' => $i->estudiante?->nombre_completo ?? 'Estudiante no registrado',
-            'examen' => $i->examen ? Historial::examen($i->examen) : '',
-            'motivo' => $this->motivoIntento($i->motivo_rechazo),
-            'verificado_por' => $i->usuario?->nombre_completo,
-        ])->values();
+        // Antecedentes: cuantas veces aparece el mismo codigo o documento (en cualquier examen).
+        $antecedentes = IntentoIngreso::whereIn('codigo_ingresado', $intentos->pluck('codigo_ingresado')->unique())
+            ->selectRaw('codigo_ingresado, count(*) AS total')
+            ->groupBy('codigo_ingresado')
+            ->pluck('total', 'codigo_ingresado');
+
+        $filas = $intentos->map(function (IntentoIngreso $i) use ($antecedentes) {
+            $veces = (int) ($antecedentes[$i->codigo_ingresado] ?? 1);
+            $inc = $i->incidencia;
+
+            return [
+                'fecha' => Formato::fecha($i->fecha_hora),
+                'hora' => Formato::hora($i->fecha_hora),
+                'codigo' => $i->codigo_ingresado ?: $i->estudiante?->codigo_universitario,
+                'nombre' => $i->estudiante?->nombre_completo ?? 'Persona no registrada',
+                'examen' => $i->examen ? Historial::examen($i->examen) : '',
+                'motivo' => $this->motivoIntento($i->motivo_rechazo),
+                'nivel' => Riesgo::nivel($i->motivo_rechazo),
+                'antecedentes' => $veces > 1 ? "{$veces} intentos (reincidente)" : 'Primer intento',
+                'verificado_por' => $i->usuario?->nombre_completo,
+                'incidencia' => $inc
+                    ? ($inc->tipoIncidencia?->descripcion ?? 'Incidencia').' — '.$inc->descripcion
+                        .($inc->usuario ? ' (registrada por '.$inc->usuario->nombre_completo.')' : '')
+                    : 'Sin incidencia',
+                'con_incidencia' => (bool) $inc,
+            ];
+        })->values();
 
         $examen = $examenId ? Examen::find($examenId) : null;
-        Historial::registrar('Generar reporte', 'Reportes', 'Reporte de intentos de ingreso indebido ('
+        Historial::registrar('Generar reporte', 'Reportes', 'Reporte de la central de riesgos ('
             .($examen ? Historial::examen($examen) : 'todos los exámenes').')');
 
         return response()->json([
             'filas' => $filas,
             'resumen' => [
                 'total' => $filas->count(),
+                'alto' => $filas->where('nivel', 'Alto')->count(),
+                'medio' => $filas->where('nivel', 'Medio')->count(),
+                'con_incidencia' => $filas->where('con_incidencia', true)->count(),
+                'sin_incidencia' => $filas->where('con_incidencia', false)->count(),
+                'reincidentes' => $filas->filter(fn ($f) => str_contains($f['antecedentes'], 'reincidente'))->pluck('codigo')->unique()->count(),
                 'por_motivo' => $filas->countBy('motivo')->map(fn ($c, $m) => ['motivo' => $m, 'cantidad' => $c])->values(),
             ],
             'examen' => $examen ? Formato::examen($examen) : null,
@@ -187,6 +218,8 @@ class ReporteController extends Controller
         return match (true) {
             str_contains($m, 'no inscrito') => 'No inscrito en el examen',
             str_contains($m, 'no habilitado') => 'No habilitado',
+            $m === 'ingreso duplicado' => Riesgo::INGRESO_REPETIDO,
+            $m === 'no encontrado' => 'No registrado en el sistema',
             default => $motivo ? mb_strtoupper(mb_substr($motivo, 0, 1)).mb_substr($motivo, 1) : 'Sin motivo',
         };
     }

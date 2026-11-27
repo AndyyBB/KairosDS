@@ -33,7 +33,7 @@ class ImportacionController extends Controller
     public const MAX_FILAS = 3000;
 
     // Motivo con el que el duplicado aparece en la central de riesgos (intentos_ingreso).
-    public const MOTIVO_DUPLICADO = 'Registro duplicado en la importación';
+    public const MOTIVO_DUPLICADO = \App\Support\Riesgo::DUPLICADO_IMPORTACION;
 
     // Tipo de incidencia de los duplicados de la importacion.
     public const TIPO_DUPLICADO = 'DUPLICADO';

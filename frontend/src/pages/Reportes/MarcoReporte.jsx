@@ -99,7 +99,7 @@ export default function MarcoReporte({ titulo, descripcion, filtros, onGenerar, 
           ))}
           {reporte.chips && <div className="flex flex-wrap gap-2 mb-4">{reporte.chips}</div>}
 
-          <TablaDatos columnas={reporte.columnas} filas={reporte.filas} totales={reporte.totales} vacio={reporte.vacio} minimo="min-w-[820px]" />
+          <TablaDatos columnas={reporte.columnas} filas={reporte.filas} totales={reporte.totales} vacio={reporte.vacio} minimo={reporte.minimo ?? 'min-w-[820px]'} />
         </section>
       )}
     </div>
