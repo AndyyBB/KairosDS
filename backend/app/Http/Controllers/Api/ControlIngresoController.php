@@ -384,7 +384,8 @@ class ControlIngresoController extends Controller
     {
         $i->loadMissing(['estudiante', 'usuario', 'incidencia.tipoIncidencia']);
         $fecha = Carbon::parse($i->fecha_hora)->setTimezone(self::TZ);
-        $alto = in_array($i->motivo_rechazo, ['No registrado en el sistema', 'Código QR no válido', 'no encontrado'], true);
+        // Los duplicados de la importacion desde Excel tambien son de riesgo alto (identidad repetida).
+        $alto = in_array($i->motivo_rechazo, ['No registrado en el sistema', 'Código QR no válido', 'no encontrado', ImportacionController::MOTIVO_DUPLICADO], true);
         $antecedentes ??= IntentoIngreso::where('codigo_ingresado', $i->codigo_ingresado)->count();
 
         return [

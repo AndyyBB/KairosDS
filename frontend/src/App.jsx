@@ -14,8 +14,7 @@ import ProgramarExamen from './pages/Examenes/ProgramarExamen';
 import ExamenesList from './pages/Examenes/ExamenesList';
 import HabilitarEstudiantes from './pages/Habilitaciones/HabilitarEstudiantes';
 import InscribirEstudiantes from './pages/Habilitaciones/InscribirEstudiantes';
-import EnviarInvitaciones from './pages/Habilitaciones/EnviarInvitaciones';
-import AceptarInvitacion from './pages/Auth/AceptarInvitacion';
+import ImportarEstudiantes from './pages/Habilitaciones/ImportarEstudiantes';
 import ControlIngreso from './pages/ControlIngreso/ControlIngreso';
 import UsuarioForm from './pages/Usuarios/UsuarioForm';
 import UsuariosList from './pages/Usuarios/UsuariosList';
@@ -44,8 +43,6 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       {/* HU-39: recuperacion de contraseña por correo (sin iniciar sesion) */}
       <Route path="/recuperar-contrasena" element={<RecuperarContrasena />} />
-      {/* HU-41: el estudiante acepta la invitacion al examen desde el correo (sin iniciar sesion) */}
-      <Route path="/invitacion/:token" element={<AceptarInvitacion />} />
 
       <Route
         path="/"
@@ -88,8 +85,9 @@ export default function App() {
         <Route path="examenes/eliminar/:id" element={con('examenes.eliminar', <ProgramarExamen key="eliminar" modo="eliminar" />)} />
         <Route path="examenes/inscribir" element={con('habilitaciones.registrar', <InscribirEstudiantes key="inscribir" modo="inscribir" />)} />
         <Route path="examenes/inscribir/:examenId" element={con('habilitaciones.registrar', <InscribirEstudiantes key="inscribir" modo="inscribir" />)} />
-        <Route path="examenes/invitar" element={<RutaPermiso roles={['administrador', 'docente']}><EnviarInvitaciones /></RutaPermiso>} />
-        <Route path="examenes/invitar/:examenId" element={<RutaPermiso roles={['administrador', 'docente']}><EnviarInvitaciones /></RutaPermiso>} />
+        {/* Presentacion final: importar la lista de estudiantes desde Excel (reemplaza a "Enviar invitaciones") */}
+        <Route path="examenes/importar" element={<RutaPermiso roles={['administrador', 'docente']}><ImportarEstudiantes /></RutaPermiso>} />
+        <Route path="examenes/importar/:examenId" element={<RutaPermiso roles={['administrador', 'docente']}><ImportarEstudiantes /></RutaPermiso>} />
         <Route path="examenes/desinscribir" element={con('habilitaciones.editar', <InscribirEstudiantes key="desinscribir" modo="desinscribir" />)} />
         <Route path="examenes/desinscribir/:examenId" element={con('habilitaciones.editar', <InscribirEstudiantes key="desinscribir" modo="desinscribir" />)} />
         <Route path="examenes/habilitar" element={con('habilitaciones.ver', <HabilitarEstudiantes key="habilitar" modo="habilitar" />)} />

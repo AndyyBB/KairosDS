@@ -61,8 +61,9 @@ export const MODULOS = [
       { to: '/examenes/editar', label: 'Editar examen', permiso: 'examenes.editar', hu: 'HU-08' },
       { to: '/examenes/eliminar', label: 'Eliminar examen', permiso: 'examenes.eliminar', hu: 'HU-09' },
       // Inscribir (o quitar la inscripcion) y habilitar son pantallas independientes.
-      // HU-41: invitacion por correo para inscribirse (solo Administrador y Docente).
-      { to: '/examenes/invitar', label: 'Enviar invitaciones', roles: ['administrador', 'docente'], hu: 'HU-41' },
+      // Presentacion final: importar la lista de estudiantes desde Excel; quedan registrados,
+      // inscritos y habilitados en el examen (reemplaza a "Enviar invitaciones"). Solo Administrador y Docente.
+      { to: '/examenes/importar', label: 'Importar lista de estudiantes', roles: ['administrador', 'docente'], hu: 'HU-41' },
       { to: '/examenes/inscribir', label: 'Inscribir estudiantes', permiso: 'habilitaciones.registrar', hu: 'HU-04' },
       // Sprint 4 (observacion 3): quitar inscripciones es una pantalla aparte.
       { to: '/examenes/desinscribir', label: 'Desinscribir estudiantes', permiso: 'habilitaciones.editar', hu: 'HU-04' },

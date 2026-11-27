@@ -14,7 +14,7 @@ use App\Http\Controllers\Api\EstudianteController;
 use App\Http\Controllers\Api\ExamenController;
 use App\Http\Controllers\Api\HabilitacionController;
 use App\Http\Controllers\Api\InscripcionController;
-use App\Http\Controllers\Api\InvitacionController;
+use App\Http\Controllers\Api\ImportacionController;
 use App\Http\Controllers\Api\MateriaController;
 use App\Http\Controllers\Api\MotivoInhabilitacionController;
 use App\Http\Controllers\Api\PermisoController;
@@ -27,9 +27,6 @@ Route::post('/login', [AuthController::class, 'login']);
 
 // HU-39: recuperacion de contraseña por correo (sin iniciar sesion).
 Route::post('/recuperar-contrasena', [RecuperacionController::class, 'solicitar']);
-
-// HU-41: el estudiante acepta la invitacion al examen desde el enlace del correo (sin iniciar sesion).
-Route::post('/invitaciones/{token}/aceptar', [InvitacionController::class, 'aceptar'])->middleware('throttle:20,1');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -78,10 +75,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Sprint 4: pantalla "Desinscribir estudiantes" (varios estudiantes a la vez).
     Route::post('/examenes/{examen}/inscripciones/quitar', [InscripcionController::class, 'quitar'])->middleware('permiso:habilitaciones.editar');
 
-    // HU-41: invitacion por correo para inscribirse en un examen (solo Administrador y Docente).
+    // Presentacion final: importar la lista de estudiantes de un examen desde Excel (reemplaza a
+    // la invitacion por correo de HU-41). Solo Administrador y Docente.
     Route::middleware('rol:administrador,docente')->group(function () {
-        Route::get('/examenes/{examen}/invitaciones', [InvitacionController::class, 'index']);
-        Route::post('/examenes/{examen}/invitaciones', [InvitacionController::class, 'enviar']);
+        Route::get('/importacion/plantilla', [ImportacionController::class, 'plantilla']);
+        Route::post('/examenes/{examen}/importar-estudiantes', [ImportacionController::class, 'importar']);
     });
 
     Route::get('/motivos-inhabilitacion', [MotivoInhabilitacionController::class, 'index'])->middleware('permiso:habilitaciones.ver');
