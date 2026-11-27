@@ -123,6 +123,7 @@ class ControlIngresoController extends Controller
         $ingresoPrevio = null;
         $expulsion = null;
         $situacion = null;
+        $duplicado = null;
         if ($estado === 'habilitado' && $habilitacion) {
             $existente = Ingreso::with(['usuario', 'ambiente'])->where('habilitacion_id', $habilitacion->id)->first();
             if ($existente) {
@@ -167,10 +168,21 @@ class ControlIngresoController extends Controller
             }
         }
 
+        // Presentacion final: un estudiante marcado como DUPLICADO al importar la lista de este
+        // examen desde Excel no puede registrar su ingreso; el intento queda en la central de riesgos.
+        if ($estado === 'habilitado' && ! $ingresoPrevio && ! $situacion) {
+            $dup = $this->duplicadoDe($examen->id, $estudiante->id);
+            if ($dup) {
+                $duplicado = $this->datosDuplicado($dup);
+                $intento = $this->registrarIntento($request, $examen, $estudiante, Riesgo::DUPLICADO_IMPORTACION);
+                $intentoRegistrado = true;
+            }
+        }
+
         // Sprint 4 (observacion 8): el estudiante ya esta rindiendo otro examen en un horario
         // que se cruza con este (y no registro su salida).
         $otroExamen = null;
-        if ($estado === 'habilitado' && ! $ingresoPrevio && ! $situacion) {
+        if ($estado === 'habilitado' && ! $ingresoPrevio && ! $situacion && ! $duplicado) {
             $otro = $this->ingresoEnOtroExamen($examen, $estudiante);
             $otroExamen = $otro ? $this->datosOtroExamen($otro) : null;
             // Sprint 4 (observacion 9): tambien queda en la central de riesgos.
@@ -190,6 +202,7 @@ class ControlIngresoController extends Controller
             'ingreso_previo' => $ingresoPrevio,
             'expulsion' => $expulsion,
             'situacion' => $situacion,
+            'duplicado' => $duplicado,
             'otro_examen' => $otroExamen,
             'intento_registrado' => $intentoRegistrado,
             'mensaje_intento' => $intentoRegistrado ? 'Intento de ingreso no correspondiente registrado en la central de riesgos.' : null,
@@ -231,6 +244,14 @@ class ControlIngresoController extends Controller
             $d = $this->datosSituacion($sit, false);
 
             return response()->json(['message' => $d['mensaje'], 'situacion' => $d], 422);
+        }
+
+        // Presentacion final: un duplicado de la importacion de este examen no registra su ingreso.
+        $dup = $this->duplicadoDe($examen->id, $estudiante->id);
+        if ($dup) {
+            $d = $this->datosDuplicado($dup);
+
+            return response()->json(['message' => $d['mensaje'], 'duplicado' => $d], 422);
         }
 
         // Sprint 4 (observacion 8): no puede ingresar si ya esta rindiendo otro examen, salvo
@@ -360,6 +381,7 @@ class ControlIngresoController extends Controller
         'IDENTIFICACION' => 'Problema de identificación',
         'NO_HABILITADO' => 'Estudiante no habilitado',
         'INGRESO_REPETIDO' => 'Intento de ingreso repetido',
+        'DUPLICADO' => 'Estudiante duplicado en la importación',
         // Presentacion final: tipos de situacion excepcional (HU-25) tambien disponibles aqui.
         'PROBLEMA_SALUD' => 'Malestar o emergencia de salud',
         'CAMBIO_AMBIENTE' => 'Cambio de ambiente',
@@ -486,6 +508,33 @@ class ControlIngresoController extends Controller
                 'hora' => $this->hora($i->incidencia->fecha_hora),
                 'descripcion' => Riesgo::limpiarDescripcion($i->incidencia->descripcion),
             ] : null,
+        ];
+    }
+
+    // Presentacion final: registro de la importacion desde Excel en el que el estudiante quedo
+    // como DUPLICADO para este examen (el primero, que tiene la incidencia de la importacion).
+    private function duplicadoDe(int $examenId, int $estudianteId): ?IntentoIngreso
+    {
+        return IntentoIngreso::with(['usuario', 'incidencia'])
+            ->where('examen_id', $examenId)
+            ->where('estudiante_id', $estudianteId)
+            ->where('motivo_rechazo', Riesgo::DUPLICADO_IMPORTACION)
+            ->whereHas('incidencia')
+            ->orderBy('fecha_hora')
+            ->first();
+    }
+
+    private function datosDuplicado(IntentoIngreso $dup): array
+    {
+        $fecha = Carbon::parse($dup->fecha_hora)->setTimezone(self::TZ);
+
+        return [
+            'fecha' => $fecha->format('d/m/Y'),
+            'hora' => $fecha->format('H:i:s'),
+            'registrado_por' => $dup->usuario?->nombre_completo,
+            'detalle' => Riesgo::limpiarDescripcion($dup->incidencia?->descripcion),
+            'mensaje' => 'No se puede registrar el ingreso: el estudiante quedó como DUPLICADO al importar la lista de este examen ('
+                .$fecha->format('d/m/Y H:i:s').').',
         ];
     }
 

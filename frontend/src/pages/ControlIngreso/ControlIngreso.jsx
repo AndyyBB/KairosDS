@@ -199,6 +199,8 @@ export default function ControlIngreso() {
       const lista = [{ tipo: 'exito', texto: d.message }];
       // Presentacion final: el estudiante fue expulsado de este examen.
       if (d.expulsion) lista.push({ tipo: 'error', texto: d.expulsion.mensaje });
+      // Presentacion final: quedo como duplicado al importar la lista de este examen.
+      else if (d.duplicado) lista.push({ tipo: 'error', texto: d.duplicado.mensaje });
       // Presentacion final: tiene una situacion excepcional registrada en este examen.
       else if (d.situacion) lista.push({ tipo: 'aviso', texto: d.situacion.mensaje });
       // HU-13 (2): el estudiante ya registro su ingreso a este examen.
@@ -352,7 +354,8 @@ export default function ControlIngreso() {
   const conSituacion = Boolean(resultado?.situacion) && !expulsado;
   const enOtroExamen = Boolean(resultado?.otro_examen) && !resultado?.registrado;
   // Presentacion final: con una situacion excepcional registrada no se puede registrar el ingreso.
-  const bloqueadoPorSituacion = Boolean(resultado?.situacion?.bloquea_ingreso);
+  const bloqueadoPorSituacion = Boolean(resultado?.situacion?.bloquea_ingreso) || Boolean(resultado?.duplicado);
+  const duplicado = Boolean(resultado?.duplicado);
   const botonActivo = habilitado && !yaIngreso && !bloqueadoPorSituacion && !registrando && (!enOtroExamen || conSalida);
 
   return (
@@ -487,6 +490,10 @@ export default function ControlIngreso() {
               <span className="rounded-full border border-red-300 bg-red-600 text-white font-bold text-sm tracking-wide px-4 py-1">
                 EXPULSADO DEL EXAMEN
               </span>
+            ) : duplicado ? (
+              <span className="rounded-full border border-red-300 bg-red-600 text-white font-bold text-sm tracking-wide px-4 py-1">
+                DUPLICADO EN LA IMPORTACIÓN
+              </span>
             ) : conSituacion ? (
               <span className="rounded-full border border-amber-300 bg-amber-100 text-amber-900 font-bold text-sm tracking-wide px-4 py-1">
                 SITUACIÓN EXCEPCIONAL
@@ -606,6 +613,9 @@ export default function ControlIngreso() {
               </div>
             </div>
           )}
+
+          {/* Presentacion final: duplicado en la importacion desde Excel */}
+          {duplicado && <CajaDuplicado duplicado={resultado.duplicado} />}
 
           {/* Presentacion final: situacion excepcional registrada (HU-25) */}
           {conSituacion && <CajaSituacion situacion={resultado.situacion} />}
@@ -837,6 +847,20 @@ const TITULOS_RIESGO = {
   'Expulsión del examen': 'Estudiante expulsado del examen',
 };
 
+// Datos del registro de la importacion desde Excel en el que el estudiante quedo como duplicado.
+function CajaDuplicado({ duplicado }) {
+  return (
+    <div className="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+      <p className="font-semibold">
+        Quedó como DUPLICADO al importar la lista de este examen ({duplicado.fecha} {duplicado.hora}
+        {duplicado.registrado_por ? `, por ${duplicado.registrado_por}` : ''}).
+      </p>
+      {duplicado.detalle && <p className="mt-0.5">{duplicado.detalle}</p>}
+      <p className="mt-1 font-semibold">No se puede registrar su ingreso a este examen.</p>
+    </div>
+  );
+}
+
 // Datos de la situacion excepcional (HU-25) registrada para el estudiante en el examen.
 function CajaSituacion({ situacion }) {
   return (
@@ -939,6 +963,11 @@ function VentanaRiesgo({ riesgo, contexto, tipos, puedeRegistrar, onRegistrada, 
             <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
               <p className="font-semibold">Fue expulsado a las {c.expulsion.hora}{c.expulsion.registrado_por ? ` por ${c.expulsion.registrado_por}` : ''}.</p>
               <p className="mt-0.5">Motivo de la expulsión: {c.expulsion.motivo}</p>
+            </div>
+          )}
+          {c.duplicado && (
+            <div className="mb-3">
+              <CajaDuplicado duplicado={c.duplicado} />
             </div>
           )}
           {!c.expulsion && c.situacion && (

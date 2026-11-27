@@ -145,7 +145,7 @@ class ImportacionController extends Controller
                     'tipo_incidencia_id' => $tipoDuplicado,
                     'descripcion' => mb_substr('Importación desde Excel, fila '.$f['fila'].': '
                         .$f['codigo_universitario'].' — '.$f['nombres'].' '.$f['apellidos'].'. '
-                        .implode(' ', $f['duplicado']).' No se registró, no se inscribió ni se habilitó en el examen.', 0, 1000),
+                        .implode(' ', $f['duplicado']).' No se volvió a registrar, no se inscribió ni se habilitó en el examen, y no puede registrar su ingreso.', 0, 1000),
                     'fecha_hora' => $ahora,
                     'usuario_id' => $usuarioId,
                     'intento_id' => $intento->id,
