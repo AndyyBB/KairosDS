@@ -351,7 +351,9 @@ export default function ControlIngreso() {
   const expulsado = Boolean(resultado?.expulsion);
   const conSituacion = Boolean(resultado?.situacion) && !expulsado;
   const enOtroExamen = Boolean(resultado?.otro_examen) && !resultado?.registrado;
-  const botonActivo = habilitado && !yaIngreso && !registrando && (!enOtroExamen || conSalida);
+  // Presentacion final: con una situacion excepcional registrada no se puede registrar el ingreso.
+  const bloqueadoPorSituacion = Boolean(resultado?.situacion?.bloquea_ingreso);
+  const botonActivo = habilitado && !yaIngreso && !bloqueadoPorSituacion && !registrando && (!enOtroExamen || conSalida);
 
   return (
     <div>
@@ -845,6 +847,9 @@ function CajaSituacion({ situacion }) {
       </p>
       {situacion.descripcion && <p className="mt-0.5">Descripción: {situacion.descripcion}</p>}
       {situacion.ambiente_destino && <p className="mt-0.5">Ambiente de destino: {situacion.ambiente_destino}</p>}
+      {situacion.bloquea_ingreso && (
+        <p className="mt-1 font-semibold text-red-700">No se puede registrar su ingreso mientras tenga esta situación excepcional.</p>
+      )}
     </div>
   );
 }

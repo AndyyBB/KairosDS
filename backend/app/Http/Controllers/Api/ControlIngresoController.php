@@ -147,19 +147,7 @@ class ControlIngresoController extends Controller
                 // situacion y el intento queda con ese motivo.
                 $sit = $exp ? null : $this->situacionDe($examen->id, $estudiante->id);
                 if ($sit) {
-                    $fechaSit = Carbon::parse($sit->fecha_hora)->setTimezone(self::TZ);
-                    $tipoSit = IncidenciaController::TIPOS_SITUACION[$sit->tipoIncidencia->codigo] ?? $sit->tipoIncidencia->descripcion;
-                    $situacion = [
-                        'tipo' => $tipoSit,
-                        'tipo_id' => $sit->tipo_incidencia_id,
-                        'codigo' => $sit->tipoIncidencia->codigo,
-                        'descripcion' => $sit->descripcion,
-                        'fecha' => $fechaSit->format('d/m/Y'),
-                        'hora' => $fechaSit->format('H:i:s'),
-                        'registrado_por' => $sit->usuario?->nombre_completo,
-                        'ambiente_destino' => $sit->ambienteDestino?->nombre,
-                        'mensaje' => "El estudiante tiene una situación excepcional registrada en este examen: {$tipoSit} (".$fechaSit->format('H:i:s').').',
-                    ];
+                    $situacion = $this->datosSituacion($sit);
                 }
 
                 $motivoIntento = $exp ? Riesgo::EXPULSADO : ($sit ? Riesgo::SITUACION_EXCEPCIONAL : Riesgo::INGRESO_REPETIDO);
@@ -168,10 +156,21 @@ class ControlIngresoController extends Controller
             }
         }
 
+        // Presentacion final: un estudiante con una situacion excepcional registrada en este
+        // examen (HU-25) no puede registrar su ingreso; el intento queda en la central de riesgos.
+        if ($estado === 'habilitado' && ! $ingresoPrevio) {
+            $sit = $this->situacionDe($examen->id, $estudiante->id);
+            if ($sit) {
+                $situacion = $this->datosSituacion($sit, false);
+                $intento = $this->registrarIntento($request, $examen, $estudiante, Riesgo::SITUACION_EXCEPCIONAL);
+                $intentoRegistrado = true;
+            }
+        }
+
         // Sprint 4 (observacion 8): el estudiante ya esta rindiendo otro examen en un horario
         // que se cruza con este (y no registro su salida).
         $otroExamen = null;
-        if ($estado === 'habilitado' && ! $ingresoPrevio) {
+        if ($estado === 'habilitado' && ! $ingresoPrevio && ! $situacion) {
             $otro = $this->ingresoEnOtroExamen($examen, $estudiante);
             $otroExamen = $otro ? $this->datosOtroExamen($otro) : null;
             // Sprint 4 (observacion 9): tambien queda en la central de riesgos.
@@ -224,6 +223,14 @@ class ControlIngresoController extends Controller
         $existente = Ingreso::with('usuario')->where('habilitacion_id', $habilitacion->id)->first();
         if ($existente) {
             return $this->respuestaDuplicado($existente);
+        }
+
+        // Presentacion final: con una situacion excepcional registrada no se registra el ingreso.
+        $sit = $this->situacionDe($examen->id, $estudiante->id);
+        if ($sit) {
+            $d = $this->datosSituacion($sit, false);
+
+            return response()->json(['message' => $d['mensaje'], 'situacion' => $d], 422);
         }
 
         // Sprint 4 (observacion 8): no puede ingresar si ya esta rindiendo otro examen, salvo
@@ -475,6 +482,29 @@ class ControlIngresoController extends Controller
                 'hora' => $this->hora($i->incidencia->fecha_hora),
                 'descripcion' => Riesgo::limpiarDescripcion($i->incidencia->descripcion),
             ] : null,
+        ];
+    }
+
+    // Datos de una situacion excepcional para la pantalla. Sin ingreso previo, el mensaje
+    // indica que no se puede registrar el ingreso.
+    private function datosSituacion(Incidencia $sit, bool $yaIngreso = true): array
+    {
+        $fecha = Carbon::parse($sit->fecha_hora)->setTimezone(self::TZ);
+        $tipo = IncidenciaController::TIPOS_SITUACION[$sit->tipoIncidencia?->codigo] ?? $sit->tipoIncidencia?->descripcion;
+
+        return [
+            'tipo' => $tipo,
+            'tipo_id' => $sit->tipo_incidencia_id,
+            'codigo' => $sit->tipoIncidencia?->codigo,
+            'descripcion' => Riesgo::limpiarDescripcion($sit->descripcion),
+            'fecha' => $fecha->format('d/m/Y'),
+            'hora' => $fecha->format('H:i:s'),
+            'registrado_por' => $sit->usuario?->nombre_completo,
+            'ambiente_destino' => $sit->ambienteDestino?->nombre,
+            'bloquea_ingreso' => ! $yaIngreso,
+            'mensaje' => $yaIngreso
+                ? "El estudiante tiene una situación excepcional registrada en este examen: {$tipo} (".$fecha->format('H:i:s').').'
+                : "No se puede registrar el ingreso: el estudiante tiene una situación excepcional registrada en este examen ({$tipo}, ".$fecha->format('H:i:s').').',
         ];
     }
 
